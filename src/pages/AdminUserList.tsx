@@ -6,7 +6,7 @@ import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { canManageMembers } from '../utils/permissions';
+import { canManagePlatform } from '../utils/permissions';
 import type { PageResponse, PlatformAdminUserSummary, UserStatus } from '../types';
 
 const PAGE_SIZE = 20;
@@ -55,7 +55,7 @@ export const AdminUserList: FC = () => {
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canManageMembers(currentPlatformRole);
+  const canManage = canManagePlatform(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   // setState를 직접 호출하지 않는 순수 조회 함수로 분리한다. 이펙트 본문에서

@@ -5,7 +5,7 @@ import { ArrowLeft, KeyRound, Loader2, Lock, LockOpen, Mail, Phone, ShieldCheck,
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { canManageMembers } from '../utils/permissions';
+import { canManagePlatform } from '../utils/permissions';
 import type { PlatformAdminUserSummary, UserStatus } from '../types';
 
 const STATUS_BADGE_CLASS: Record<UserStatus, string> = {
@@ -116,7 +116,7 @@ export const AdminUserDetail: FC = () => {
   }
 
   const isSelf = user.id === currentAdminId;
-  const canManage = canManageMembers(currentPlatformRole);
+  const canManage = canManagePlatform(currentPlatformRole);
 
   return (
     <div className="max-w-2xl">

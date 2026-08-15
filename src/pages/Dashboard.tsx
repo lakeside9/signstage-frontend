@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Building2, Loader2, RotateCcw, Search } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
@@ -195,11 +196,14 @@ export const Dashboard: FC = () => {
             <tbody className="divide-y divide-gray-100">
               {organizations.map((organization) => (
                 <tr key={organization.id}>
-                  <td className="px-4 py-3 text-gray-950 font-medium">
-                    <span className="inline-flex items-center gap-1.5">
+                  <td className="px-4 py-3 font-medium">
+                    <Link
+                      to={`/organizations/${organization.id}`}
+                      className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
+                    >
                       <Building2 size={14} className="text-gray-400" />
                       {organization.name}
-                    </span>
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{organization.code}</td>
                   <td className="px-4 py-3">

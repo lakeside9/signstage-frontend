@@ -74,6 +74,34 @@ export interface PlatformAdminCreatedUser {
   temporaryPassword: string;
 }
 
+/** feature.platformadmin.repository.entity.PlatformAdminAction 값과 맞춘다. */
+export type PlatformAdminAction =
+  | 'UPDATE_USER_STATUS'
+  | 'UNLOCK_USER'
+  | 'FORCE_PASSWORD_RESET'
+  | 'CREATE_USER'
+  | 'CREATE_ACCOUNT'
+  | 'REVOKE_ACCOUNT'
+  | 'UPDATE_ORGANIZATION_STATUS';
+
+/**
+ * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.
+ * adminLoginId/targetLoginId/organizationName은 조회 시점에 조인해 채운 표시용 값이다.
+ */
+export interface PlatformAdminAuditLogEntry {
+  id: number;
+  adminUserId: number;
+  adminLoginId: string | null;
+  action: PlatformAdminAction;
+  targetUserId: number | null;
+  targetLoginId: string | null;
+  organizationId: number | null;
+  organizationName: string | null;
+  detail: string | null;
+  requestPath: string | null;
+  createdAt: string;
+}
+
 /** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL';
 
