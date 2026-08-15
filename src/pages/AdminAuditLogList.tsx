@@ -17,6 +17,7 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   CREATE_ACCOUNT: '관리자 계정 생성',
   REVOKE_ACCOUNT: '관리자 권한 해제',
   UPDATE_ORGANIZATION_STATUS: '조직 상태 변경',
+  CREATE_ORGANIZATION: '조직 등록',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
+import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { canManagePlatform } from '../utils/permissions';
 import type { OrganizationStatus, PageResponse, PlatformAdminOrganizationSummary } from '../types';
 
 const PAGE_SIZE = 20;
@@ -32,8 +34,9 @@ interface SearchParams {
 const EMPTY_SEARCH: SearchParams = { name: '', code: '', status: 'ALL' };
 
 /**
- * 조직 관리 = 전체 조직 목록/검색 화면. `GET /api/platform-admin/organizations`
- * (조회 전용 — 조직 상태 변경/멤버 강제 조정은 이번 범위 밖).
+ * 조직 관리 = 전체 조직 목록/검색 + 등록 화면. `GET /api/platform-admin/organizations`로
+ * 목록을 조회하고, `POST /api/platform-admin/organizations`(PLATFORM_OPS 이상)로 등록한다.
+ * 조직 상태 변경/멤버 강제 조정은 이번 범위 밖.
  *
  * 화면 구성은 signstage-docs frontend/list-screen-convention.md의 "검색 영역 → 목록 →
  * 페이지네비게이션" 3단 구조를 따른다(SearchBar/ListContainer 공통 컴포넌트 사용).
@@ -46,6 +49,8 @@ export const AdminOrganizationList: FC = () => {
   const [pageData, setPageData] = useState<PageResponse<PlatformAdminOrganizationSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
+  const canManage = canManagePlatform(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   useEffect(() => {
@@ -105,9 +110,20 @@ export const AdminOrganizationList: FC = () => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">조직 관리</h1>
-        <p className="mt-1 text-sm text-gray-500">전체 조직 목록입니다. 조직 이름을 누르면 상세로 이동합니다.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-950">조직 관리</h1>
+          <p className="mt-1 text-sm text-gray-500">전체 조직 목록입니다. 조직 이름을 누르면 상세로 이동합니다.</p>
+        </div>
+        {canManage && (
+          <Link
+            to="/organizations/new"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            <Plus size={16} />
+            조직 등록
+          </Link>
+        )}
       </div>
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>

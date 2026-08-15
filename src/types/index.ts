@@ -74,7 +74,7 @@ export interface PlatformAdminCreatedUser {
   temporaryPassword: string;
 }
 
-/** feature.platformadmin.repository.entity.PlatformAdminAction 값과 맞춘다. */
+/** feature.platformadmin.entity.PlatformAdminAction 값과 맞춘다. */
 export type PlatformAdminAction =
   | 'UPDATE_USER_STATUS'
   | 'UNLOCK_USER'
@@ -82,7 +82,8 @@ export type PlatformAdminAction =
   | 'CREATE_USER'
   | 'CREATE_ACCOUNT'
   | 'REVOKE_ACCOUNT'
-  | 'UPDATE_ORGANIZATION_STATUS';
+  | 'UPDATE_ORGANIZATION_STATUS'
+  | 'CREATE_ORGANIZATION';
 
 /**
  * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.

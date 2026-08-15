@@ -3,6 +3,7 @@ import { LoginView } from './pages/LoginView';
 import { SignupView } from './pages/SignupView';
 import { Dashboard } from './pages/Dashboard';
 import { AdminOrganizationList } from './pages/AdminOrganizationList';
+import { AdminOrganizationCreate } from './pages/AdminOrganizationCreate';
 import { AdminOrganizationDetail } from './pages/AdminOrganizationDetail';
 import { ProfileView } from './pages/ProfileView';
 import { AdminUserList } from './pages/AdminUserList';
@@ -42,6 +43,7 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="organizations" element={<AdminOrganizationList />} />
+          <Route path="organizations/new" element={<AdminOrganizationCreate />} />
           <Route path="organizations/:organizationId" element={<AdminOrganizationDetail />} />
           <Route path="users" element={<AdminUserList />} />
           <Route path="users/new" element={<AdminUserCreate />} />
