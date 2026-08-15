@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, RotateCcw, Search } from 'lucide-react';
+import { Loader2, Lock, RotateCcw, Search } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { canChangeMemberStatus } from '../utils/permissions';
+import { canManageMembers } from '../utils/permissions';
 import type { PageResponse, PlatformAdminUserSummary, UserStatus } from '../types';
 
 const PAGE_SIZE = 20;
@@ -39,7 +39,7 @@ const EMPTY_SEARCH: SearchParams = { loginId: '', name: '', email: '', status: '
 /**
  * 플랫폼 관리자의 회원 목록/승인 화면. PLATFORM_OPS 이상만 상태 변경(승인/거절)이 실제로 성공한다
  * (PLATFORM_SUPPORT는 조회만 가능 — 백엔드가 403으로 막는다). 본인 계정은 상태를 바꿀 수 없다
- * (백엔드가 PLATFORM_ADMIN_CANNOT_CHANGE_OWN_STATUS로 막고, 이 화면은 그 전에 버튼 자체를 숨긴다).
+ * (백엔드가 PLATFORM_ADMIN_CANNOT_TARGET_SELF로 막고, 이 화면은 그 전에 버튼 자체를 숨긴다).
  * signstage-docs backend/signup-approval-implementation-plan.md 4장,
  * business/platform-admin-member-management.md 참고.
  */
@@ -55,7 +55,7 @@ export const AdminUserList: FC = () => {
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canChangeMemberStatus(currentPlatformRole);
+  const canManage = canManageMembers(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   // setState를 직접 호출하지 않는 순수 조회 함수로 분리한다. 이펙트 본문에서
@@ -255,6 +255,11 @@ export const AdminUserList: FC = () => {
                       >
                         {user.status}
                       </span>
+                      {user.locked && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-xs text-red-600" title="로그인 잠김">
+                          <Lock size={12} />
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {isSelf ? (

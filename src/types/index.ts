@@ -59,6 +59,24 @@ export interface PlatformAdminUserSummary {
   locale: string;
   status: UserStatus;
   platformRole: PlatformRole | null;
+  locked: boolean;
+  passwordResetRequired: boolean;
+  createdAt: string;
+}
+
+/** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
+export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL';
+
+/**
+ * GET /api/platform-admin/organizations 응답(PlatformAdminOrganizationDto.Response.OrganizationSummary)과 맞춘다.
+ */
+export interface PlatformAdminOrganizationSummary {
+  id: number;
+  name: string;
+  code: string;
+  status: OrganizationStatus;
+  defaultLocale: string;
+  activeMemberCount: number;
   createdAt: string;
 }
 

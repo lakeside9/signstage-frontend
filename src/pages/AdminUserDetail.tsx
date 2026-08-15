@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Mail, Phone, ShieldCheck, User } from 'lucide-react';
+import { ArrowLeft, KeyRound, Loader2, Lock, LockOpen, Mail, Phone, ShieldCheck, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { canChangeMemberStatus } from '../utils/permissions';
+import { canManageMembers } from '../utils/permissions';
 import type { PlatformAdminUserSummary, UserStatus } from '../types';
 
 const STATUS_BADGE_CLASS: Record<UserStatus, string> = {
@@ -75,6 +75,34 @@ export const AdminUserDetail: FC = () => {
     }
   };
 
+  const handleUnlock = async () => {
+    setIsProcessing(true);
+    try {
+      const response = await api.post(`/platform-admin/users/${userId}/unlock`);
+      setUser(response.data as PlatformAdminUserSummary);
+      showSnackbar('계정 잠금을 해제했습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '잠금 해제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleForcePasswordReset = async () => {
+    setIsProcessing(true);
+    try {
+      const response = await api.post(`/platform-admin/users/${userId}/force-password-reset`);
+      setUser(response.data as PlatformAdminUserSummary);
+      showSnackbar('다음 로그인 시 비밀번호 변경이 강제됩니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '강제 비밀번호 재설정 요청에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-400">
@@ -88,7 +116,7 @@ export const AdminUserDetail: FC = () => {
   }
 
   const isSelf = user.id === currentAdminId;
-  const canManage = canChangeMemberStatus(currentPlatformRole);
+  const canManage = canManageMembers(currentPlatformRole);
 
   return (
     <div className="max-w-2xl">
@@ -123,10 +151,17 @@ export const AdminUserDetail: FC = () => {
           label="플랫폼 권한"
           value={user.platformRole ?? '(일반 사용자)'}
         />
+        <DetailRow
+          icon={user.locked ? <Lock size={16} /> : <LockOpen size={16} />}
+          label="로그인 잠금"
+          value={user.locked ? '잠김' : '정상'}
+        />
+        <DetailRow label="비밀번호 재설정" value={user.passwordResetRequired ? '다음 로그인 시 강제' : '없음'} />
         <DetailRow label="가입일" value={new Date(user.createdAt).toLocaleString('ko-KR')} />
       </div>
 
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 mb-3">가입 승인</h2>
         {isSelf ? (
           <p className="text-sm text-gray-500">본인 계정은 상태를 변경할 수 없습니다.</p>
         ) : !canManage ? (
@@ -151,6 +186,36 @@ export const AdminUserDetail: FC = () => {
                 거절/비활성화
               </button>
             )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 mb-3">계정 제어</h2>
+        {isSelf ? (
+          <p className="text-sm text-gray-500">본인 계정은 대상으로 지정할 수 없습니다.</p>
+        ) : !canManage ? (
+          <p className="text-sm text-gray-500">잠금 해제/비밀번호 재설정은 PLATFORM_OPS 이상만 가능합니다.</p>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleUnlock}
+              disabled={isProcessing || !user.locked}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-40"
+              title={user.locked ? undefined : '현재 잠긴 계정이 아닙니다.'}
+            >
+              <LockOpen size={14} />
+              잠금 즉시 해제
+            </button>
+            <button
+              onClick={handleForcePasswordReset}
+              disabled={isProcessing || user.passwordResetRequired}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-40"
+              title={user.passwordResetRequired ? '이미 강제 재설정이 대기 중입니다.' : undefined}
+            >
+              <KeyRound size={14} />
+              강제 비밀번호 재설정
+            </button>
           </div>
         )}
       </div>
