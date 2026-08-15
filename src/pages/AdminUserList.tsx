@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Pagination } from '../components/Pagination';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PageResponse, PlatformAdminUserSummary, UserStatus } from '../types';
+
+const PAGE_SIZE = 20;
 
 const STATUS_FILTERS: Array<{ value: UserStatus | 'ALL'; label: string }> = [
   { value: 'ALL', label: '전체' },
@@ -28,7 +31,8 @@ const STATUS_BADGE_CLASS: Record<UserStatus, string> = {
  */
 export const AdminUserList: FC = () => {
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'ALL'>('PENDING');
-  const [users, setUsers] = useState<PlatformAdminUserSummary[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageData, setPageData] = useState<PageResponse<PlatformAdminUserSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
 
@@ -37,10 +41,10 @@ export const AdminUserList: FC = () => {
   // setState를 직접 호출하지 않는 순수 조회 함수로 분리한다. 이펙트 본문에서
   // 이름 있는 함수를 호출하는 대신 아래처럼 인라인 IIFE로 setState를 호출해야
   // "이펙트 안에서 곧바로 setState 호출"로 감지되지 않는다(react-hooks/set-state-in-effect).
-  const fetchUsers = async (status: UserStatus | 'ALL') => {
-    const query = status === 'ALL' ? 'size=50' : `status=${status}&size=50`;
-    const response = await api.get(`/platform-admin/users?${query}`);
-    return (response.data as PageResponse<PlatformAdminUserSummary>).content;
+  const fetchUsers = async (status: UserStatus | 'ALL', pageNumber: number) => {
+    const query = status === 'ALL' ? '' : `status=${status}&`;
+    const response = await api.get(`/platform-admin/users?${query}page=${pageNumber}&size=${PAGE_SIZE}`);
+    return response.data as PageResponse<PlatformAdminUserSummary>;
   };
 
   useEffect(() => {
@@ -48,9 +52,9 @@ export const AdminUserList: FC = () => {
 
     (async () => {
       try {
-        const content = await fetchUsers(statusFilter);
+        const data = await fetchUsers(statusFilter, page);
         if (!cancelled) {
-          setUsers(content);
+          setPageData(data);
         }
       } catch (err) {
         if (!cancelled) {
@@ -68,11 +72,17 @@ export const AdminUserList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const handleSelectFilter = (value: UserStatus | 'ALL') => {
     setIsLoading(true);
     setStatusFilter(value);
+    setPage(0);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setIsLoading(true);
+    setPage(nextPage);
   };
 
   const handleChangeStatus = async (userId: number, status: 'ACTIVE' | 'DISABLED') => {
@@ -80,7 +90,7 @@ export const AdminUserList: FC = () => {
     try {
       await api.put(`/platform-admin/users/${userId}/status`, { status });
       showSnackbar(status === 'ACTIVE' ? '승인 처리되었습니다.' : '거절/비활성화 처리되었습니다.', 'success');
-      setUsers(await fetchUsers(statusFilter));
+      setPageData(await fetchUsers(statusFilter, page));
     } catch (err) {
       const message = err instanceof Error ? err.message : '상태 변경에 실패했습니다.';
       showSnackbar(message, 'error');
@@ -88,6 +98,8 @@ export const AdminUserList: FC = () => {
       setProcessingId(null);
     }
   };
+
+  const users = pageData?.content ?? [];
 
   return (
     <div>
@@ -173,6 +185,16 @@ export const AdminUserList: FC = () => {
               ))}
             </tbody>
           </table>
+        )}
+
+        {pageData && (
+          <Pagination
+            page={pageData.page}
+            totalPages={pageData.totalPages}
+            hasNext={pageData.hasNext}
+            totalElements={pageData.totalElements}
+            onPageChange={handlePageChange}
+          />
         )}
       </div>
     </div>
