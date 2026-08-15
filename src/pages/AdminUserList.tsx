@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, RotateCcw, Search } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { canChangeMemberStatus } from '../utils/permissions';
 import type { PageResponse, PlatformAdminUserSummary, UserStatus } from '../types';
 
 const PAGE_SIZE = 20;
@@ -52,6 +54,8 @@ export const AdminUserList: FC = () => {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
+  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
+  const canManage = canChangeMemberStatus(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   // setState를 직접 호출하지 않는 순수 조회 함수로 분리한다. 이펙트 본문에서
@@ -237,8 +241,10 @@ export const AdminUserList: FC = () => {
                 const isSelf = user.id === currentAdminId;
                 return (
                   <tr key={user.id}>
-                    <td className="px-4 py-3 text-gray-950 font-medium">
-                      {user.loginId}
+                    <td className="px-4 py-3 font-medium">
+                      <Link to={`/users/${user.id}`} className="text-gray-950 hover:underline">
+                        {user.loginId}
+                      </Link>
                       {isSelf && <span className="ml-1.5 text-xs text-gray-400 font-normal">(나)</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{user.name}</td>
@@ -253,6 +259,8 @@ export const AdminUserList: FC = () => {
                     <td className="px-4 py-3">
                       {isSelf ? (
                         <p className="text-right text-xs text-gray-400">본인 계정은 변경할 수 없음</p>
+                      ) : !canManage ? (
+                        <p className="text-right text-xs text-gray-400">조회 전용 계정</p>
                       ) : (
                         <div className="flex justify-end gap-2">
                           {user.status !== 'ACTIVE' && (

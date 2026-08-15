@@ -4,6 +4,7 @@ import { SignupView } from './pages/SignupView';
 import { Dashboard } from './pages/Dashboard';
 import { ProfileView } from './pages/ProfileView';
 import { AdminUserList } from './pages/AdminUserList';
+import { AdminUserDetail } from './pages/AdminUserDetail';
 import { OrgOrganizationCreate } from './pages/OrgOrganizationCreate';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -28,13 +29,14 @@ function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin>
               <AdminLayout />
             </ProtectedRoute>
           }
         >
           <Route index element={<Dashboard />} />
           <Route path="users" element={<AdminUserList />} />
+          <Route path="users/:userId" element={<AdminUserDetail />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
