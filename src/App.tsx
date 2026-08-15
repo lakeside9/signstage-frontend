@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { ProfileView } from './pages/ProfileView';
 import { AdminUserList } from './pages/AdminUserList';
 import { AdminUserDetail } from './pages/AdminUserDetail';
+import { AdminUserCreate } from './pages/AdminUserCreate';
 import { OrgOrganizationCreate } from './pages/OrgOrganizationCreate';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -36,6 +37,7 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="users" element={<AdminUserList />} />
+          <Route path="users/new" element={<AdminUserCreate />} />
           <Route path="users/:userId" element={<AdminUserDetail />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>

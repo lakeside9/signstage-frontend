@@ -64,6 +64,16 @@ export interface PlatformAdminUserSummary {
   createdAt: string;
 }
 
+/**
+ * POST /api/platform-admin/users 응답(PlatformAdminUserDto.Response.CreatedUser)과 맞춘다.
+ * temporaryPassword는 이 응답에만 담기고 서버에 저장되지 않는다 — 이 화면을 벗어나면
+ * 다시 조회할 수 없으므로 화면에서 놓치지 않게 보여줘야 한다.
+ */
+export interface PlatformAdminCreatedUser {
+  user: PlatformAdminUserSummary;
+  temporaryPassword: string;
+}
+
 /** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL';
 

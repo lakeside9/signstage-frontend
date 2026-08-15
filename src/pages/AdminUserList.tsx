@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Lock, RotateCcw, Search } from 'lucide-react';
+import { Loader2, Lock, RotateCcw, Search, UserPlus } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -145,6 +145,15 @@ export const AdminUserList: FC = () => {
             가입 승인 대기 목록을 확인하고 승인/거절할 수 있습니다. 상태 변경은 PLATFORM_OPS 이상만 가능합니다.
           </p>
         </div>
+        {canManage && (
+          <Link
+            to="/users/new"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            <UserPlus size={16} />
+            회원 추가
+          </Link>
+        )}
       </div>
 
       <form
