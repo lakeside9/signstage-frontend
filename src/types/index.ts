@@ -54,7 +54,8 @@ export interface PlatformAdminUserSummary {
   id: number;
   loginId: string;
   name: string;
-  email: string;
+  /** 탈퇴 처리된 계정은 PII 마스킹으로 null이다(user-organization-design.md 8.2절). */
+  email: string | null;
   phone: string | null;
   locale: string;
   status: UserStatus;
@@ -83,7 +84,11 @@ export type PlatformAdminAction =
   | 'CREATE_ACCOUNT'
   | 'REVOKE_ACCOUNT'
   | 'UPDATE_ORGANIZATION_STATUS'
-  | 'CREATE_ORGANIZATION';
+  | 'CREATE_ORGANIZATION'
+  | 'FORCE_UPDATE_MEMBER_ROLE'
+  | 'FORCE_REMOVE_MEMBER'
+  | 'FORCE_WITHDRAW_USER'
+  | 'UPDATE_ACCOUNT_ROLE';
 
 /**
  * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.
@@ -105,6 +110,56 @@ export interface PlatformAdminAuditLogEntry {
 
 /** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL';
+
+/** feature.organization.entity.MemberRole 값과 맞춘다. */
+export type MemberRole = 'OWNER' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
+
+/** feature.organization.entity.MemberStatus 값과 맞춘다. */
+export type MemberStatus = 'INVITED' | 'ACTIVE' | 'REMOVED';
+
+/** GET /api/platform-admin/users/{userId} 응답(PlatformAdminUserDto.Response.UserDetail)과 맞춘다. */
+export interface PlatformAdminUserDetail {
+  user: PlatformAdminUserSummary;
+  organizations: PlatformAdminOrganizationMembership[];
+}
+
+export interface PlatformAdminOrganizationMembership {
+  organizationId: number;
+  organizationName: string;
+  organizationCode: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joinedAt: string | null;
+}
+
+/**
+ * GET /api/platform-admin/users/{userId}/login-history 응답과 맞춘다.
+ * PLATFORM_OPS 이상만 조회할 수 있다(signstage-docs business/login-security.md 6장).
+ */
+export interface PlatformAdminLoginHistoryEntry {
+  id: number;
+  loginIdInput: string;
+  status: string;
+  ipAddress: string;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+/**
+ * GET/PUT/DELETE /api/platform-admin/organizations/{organizationId}/members 응답과 맞춘다
+ * (PlatformAdminMemberDto.Response.MemberSummary).
+ */
+export interface PlatformAdminMemberSummary {
+  id: number;
+  organizationId: number;
+  userId: number;
+  loginId: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joinedAt: string | null;
+}
 
 /**
  * GET /api/platform-admin/organizations 응답(PlatformAdminOrganizationDto.Response.OrganizationSummary)과 맞춘다.

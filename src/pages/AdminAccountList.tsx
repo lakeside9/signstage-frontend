@@ -48,6 +48,7 @@ export const AdminAccountList: FC = () => {
   const [pageData, setPageData] = useState<PageResponse<PlatformAdminUserSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [roleDrafts, setRoleDrafts] = useState<Record<number, PlatformRole>>({});
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
@@ -75,6 +76,14 @@ export const AdminAccountList: FC = () => {
         const data = await fetchAccounts(searchParams, page);
         if (!cancelled) {
           setPageData(data);
+          setRoleDrafts((prev) => ({
+            ...prev,
+            ...Object.fromEntries(
+              data.content
+                .filter((account) => account.platformRole)
+                .map((account) => [account.id, account.platformRole as PlatformRole])
+            ),
+          }));
         }
       } catch (err) {
         if (!cancelled) {
@@ -111,6 +120,21 @@ export const AdminAccountList: FC = () => {
   const handlePageChange = (nextPage: number) => {
     setIsLoading(true);
     setPage(nextPage);
+  };
+
+  const handleUpdateRole = async (userId: number) => {
+    const nextRole = roleDrafts[userId];
+    setProcessingId(userId);
+    try {
+      await api.put(`/platform-admin/accounts/${userId}/role`, { platformRole: nextRole });
+      showSnackbar('등급을 변경했습니다.', 'success');
+      setPageData(await fetchAccounts(searchParams, page));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '등급 변경에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleRevoke = async (userId: number) => {
@@ -235,22 +259,48 @@ export const AdminAccountList: FC = () => {
                   <td className="px-4 py-3 text-gray-700">{account.name}</td>
                   <td className="px-4 py-3 text-gray-500">{account.email}</td>
                   <td className="px-4 py-3">
-                    {account.platformRole && (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${ROLE_BADGE_CLASS[account.platformRole]}`}
+                    {canManageAccounts && !isSelf && account.platformRole ? (
+                      <select
+                        value={roleDrafts[account.id] ?? account.platformRole}
+                        onChange={(e) =>
+                          setRoleDrafts((prev) => ({ ...prev, [account.id]: e.target.value as PlatformRole }))
+                        }
+                        disabled={processingId === account.id}
+                        className="px-2 py-1 border border-gray-200 rounded-md text-xs focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
                       >
-                        <ShieldCheck size={12} />
-                        {account.platformRole}
-                      </span>
+                        {ROLE_OPTIONS.filter((option) => option.value !== 'ALL').map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      account.platformRole && (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${ROLE_BADGE_CLASS[account.platformRole]}`}
+                        >
+                          <ShieldCheck size={12} />
+                          {account.platformRole}
+                        </span>
+                      )
                     )}
                   </td>
                   <td className="px-4 py-3">
                     {!canManageAccounts ? (
                       <p className="text-right text-xs text-gray-400">조회 전용 계정</p>
                     ) : isSelf ? (
-                      <p className="text-right text-xs text-gray-400">본인 계정은 해제할 수 없음</p>
+                      <p className="text-right text-xs text-gray-400">본인 계정은 변경할 수 없음</p>
                     ) : (
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {roleDrafts[account.id] && roleDrafts[account.id] !== account.platformRole && (
+                          <button
+                            onClick={() => handleUpdateRole(account.id)}
+                            disabled={processingId === account.id}
+                            className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            등급 저장
+                          </button>
+                        )}
                         <button
                           onClick={() => handleRevoke(account.id)}
                           disabled={processingId === account.id}

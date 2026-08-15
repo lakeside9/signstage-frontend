@@ -244,7 +244,7 @@ export const AdminUserList: FC = () => {
                     {isSelf && <span className="ml-1.5 text-xs text-gray-400 font-normal">(나)</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-700">{user.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                  <td className="px-4 py-3 text-gray-500">{user.email ?? '-'}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[user.status]}`}

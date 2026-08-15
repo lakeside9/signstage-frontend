@@ -18,6 +18,10 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   REVOKE_ACCOUNT: '관리자 권한 해제',
   UPDATE_ORGANIZATION_STATUS: '조직 상태 변경',
   CREATE_ORGANIZATION: '조직 등록',
+  FORCE_UPDATE_MEMBER_ROLE: '멤버 역할 강제 변경',
+  FORCE_REMOVE_MEMBER: '멤버 강제 제거',
+  FORCE_WITHDRAW_USER: '회원 강제 탈퇴',
+  UPDATE_ACCOUNT_ROLE: '관리자 등급 변경',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [
