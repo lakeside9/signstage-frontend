@@ -13,8 +13,10 @@ import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { OrgDashboard } from './pages/OrgDashboard';
+import { OrgOrganizationList } from './pages/OrgOrganizationList';
 import { OrgOrganizationCreate } from './pages/OrgOrganizationCreate';
 import { AdminLayout } from './layouts/AdminLayout';
+import { OrgLayout } from './layouts/OrgLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SnackbarHost } from './components/SnackbarHost';
 
@@ -29,19 +31,15 @@ function App() {
           path="/org"
           element={
             <ProtectedRoute>
-              <OrgDashboard />
+              <OrgLayout />
             </ProtectedRoute>
           }
-        />
-
-        <Route
-          path="/org/new"
-          element={
-            <ProtectedRoute>
-              <OrgOrganizationCreate />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route index element={<OrgDashboard />} />
+          <Route path="organizations" element={<OrgOrganizationList />} />
+          <Route path="new" element={<OrgOrganizationCreate />} />
+          <Route path="profile" element={<ProfileView />} />
+        </Route>
 
         <Route
           path="/"
