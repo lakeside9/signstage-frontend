@@ -44,7 +44,7 @@ export const AdminOrganizationDetail: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '조직 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate('/', { replace: true });
+          navigate('/organizations', { replace: true });
         }
       } finally {
         if (!cancelled) {
@@ -87,7 +87,10 @@ export const AdminOrganizationDetail: FC = () => {
 
   return (
     <div className="max-w-2xl">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link
+        to="/organizations"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
+      >
         <ArrowLeft size={16} />
         조직 목록으로
       </Link>
