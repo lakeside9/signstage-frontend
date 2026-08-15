@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginView } from './pages/LoginView';
 import { Dashboard } from './pages/Dashboard';
+import { ProfileView } from './pages/ProfileView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SnackbarHost } from './components/SnackbarHost';
@@ -20,6 +21,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="profile" element={<ProfileView />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

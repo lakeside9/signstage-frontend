@@ -9,6 +9,8 @@ interface AuthState {
 
   login: (token: string, platformAdmin: PlatformAdminInfo) => void;
   logout: () => void;
+  /** 내 정보 수정 화면에서 이름을 바꾸면 헤더 표시도 같이 갱신한다. */
+  updatePlatformAdminName: (name: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -24,6 +26,10 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         set({ token: null, platformAdmin: null, isLoggedIn: false });
+      },
+
+      updatePlatformAdminName: (name) => {
+        set((state) => (state.platformAdmin ? { platformAdmin: { ...state.platformAdmin, name } } : state));
       },
     }),
     {
