@@ -7,7 +7,11 @@ interface AuthState {
   platformAdmin: PlatformAdminInfo | null;
   isLoggedIn: boolean;
 
-  login: (token: string, platformAdmin: PlatformAdminInfo) => void;
+  /**
+   * platformAdmin이 null이면 일반 사용자(조직 소속 여부와 무관) 로그인이다 —
+   * signstage-docs business/user-organization-design.md 5.1절 (a) 3단계 흐름 참고.
+   */
+  login: (token: string, platformAdmin: PlatformAdminInfo | null) => void;
   logout: () => void;
   /** 내 정보 수정 화면에서 이름을 바꾸면 헤더 표시도 같이 갱신한다. */
   updatePlatformAdminName: (name: string) => void;

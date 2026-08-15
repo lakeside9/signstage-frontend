@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Key, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
+import { ChevronLeft, Key, LayoutDashboard, LogOut, Menu, User, Users } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 const NAV_ITEMS = [
   { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
+  { to: '/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 

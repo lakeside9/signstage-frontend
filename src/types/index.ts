@@ -23,3 +23,51 @@ export interface UserProfile {
   locale: string;
   platformRole: PlatformRole | null;
 }
+
+/**
+ * signstage-docs business/user-organization-design.md 5.1절 (a) 3단계 가입 흐름의 계정 상태.
+ * PENDING(승인 대기)인 계정은 로그인할 수 없다.
+ */
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'DISABLED' | 'WITHDRAWN';
+
+/** POST /api/identity/signup 응답(IdentityDto.Response.Signup)과 맞춘다. */
+export interface SignupResult {
+  id: number;
+  loginId: string;
+  status: UserStatus;
+}
+
+/** POST/GET /api/organizations 응답(OrganizationDto.Response.Organization)과 맞춘다. */
+export interface OrganizationSummary {
+  id: number;
+  name: string;
+  code: string;
+  status: string;
+  defaultLocale: string;
+  createdAt: string;
+}
+
+/**
+ * GET/PUT /api/platform-admin/users 응답(PlatformAdminUserDto.Response.UserSummary)과 맞춘다.
+ */
+export interface PlatformAdminUserSummary {
+  id: number;
+  loginId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  locale: string;
+  status: UserStatus;
+  platformRole: PlatformRole | null;
+  createdAt: string;
+}
+
+/** core.web.PageResponse<T> 응답 규약과 맞춘다(backend-coding-convention.md 10장). */
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Key, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -14,9 +14,11 @@ import type { PlatformAdminInfo } from '../types';
  * - passwordChangeRequired=true: 최초 로그인이라 비밀번호 변경이 강제된다(5.3절).
  *   이 화면에서 바로 2단계(비밀번호 변경) 폼으로 전환한다.
  * - passwordChangeRequired=false: accessToken이 발급된다. 로그인 완료.
+ *   platformAdmin이 있으면 플랫폼 관리자 콘솔(/)로, 없으면 일반 사용자다.
  *
- * 현재는 platformRole 보유 계정(플랫폼 관리자) 로그인만 백엔드가 지원한다
- * (organization_members가 아직 없어 조직 선택 흐름은 구현되어 있지 않다).
+ * 일반 사용자는 아직 organizationId를 담은 조직 선택 흐름(5.2절)이 없어, 조직이 있든 없든
+ * 항상 조직 생성 화면(/org/new)으로 보낸다. 승인 대기(PENDING) 계정으로 로그인을 시도하면
+ * IDENTITY_ACCOUNT_PENDING_APPROVAL 오류가 오는데, 백엔드 메시지를 그대로 스낵바에 띄운다.
  */
 
 interface LoginResponseData {
@@ -69,10 +71,10 @@ export const LoginView: FC = () => {
         return;
       }
 
-      if (data.accessToken && data.platformAdmin) {
+      if (data.accessToken) {
         login(data.accessToken, data.platformAdmin);
         showSnackbar('로그인되었습니다.', 'success');
-        navigate(from, { replace: true });
+        navigate(data.platformAdmin ? from : '/org/new', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '서버와의 통신 중 오류가 발생했습니다.';
@@ -184,6 +186,13 @@ export const LoginView: FC = () => {
             >
               {isLoading ? '로그인 중...' : '로그인'}
             </button>
+
+            <p className="text-center text-sm text-gray-500">
+              계정이 없으신가요?{' '}
+              <Link to="/signup" className="text-gray-950 font-medium hover:underline">
+                회원가입
+              </Link>
+            </p>
           </form>
         ) : (
           <form onSubmit={handleChangePassword} className="space-y-6">
