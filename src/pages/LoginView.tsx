@@ -17,8 +17,10 @@ import type { PlatformAdminInfo } from '../types';
  *   platformAdmin이 있으면 플랫폼 관리자 콘솔(/)로, 없으면 일반 사용자다.
  *
  * 일반 사용자는 아직 organizationId를 담은 조직 선택 흐름(5.2절)이 없어, 조직이 있든 없든
- * 항상 조직 생성 화면(/org/new)으로 보낸다. 승인 대기(PENDING) 계정으로 로그인을 시도하면
- * IDENTITY_ACCOUNT_PENDING_APPROVAL 오류가 오는데, 백엔드 메시지를 그대로 스낵바에 띄운다.
+ * 항상 대시보드(/org)로 보낸다 — 조직 생성 화면(/org/new)으로 곧장 보내던 것을 분리했다
+ * (조직이 이미 있는 사용자도 매번 생성 화면부터 거쳐야 하는 문제가 있었다). 승인 대기(PENDING)
+ * 계정으로 로그인을 시도하면 IDENTITY_ACCOUNT_PENDING_APPROVAL 오류가 오는데, 백엔드 메시지를
+ * 그대로 스낵바에 띄운다.
  */
 
 interface LoginResponseData {
@@ -74,7 +76,7 @@ export const LoginView: FC = () => {
       if (data.accessToken) {
         login(data.accessToken, data.platformAdmin);
         showSnackbar('로그인되었습니다.', 'success');
-        navigate(data.platformAdmin ? from : '/org/new', { replace: true });
+        navigate(data.platformAdmin ? from : '/org', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '서버와의 통신 중 오류가 발생했습니다.';

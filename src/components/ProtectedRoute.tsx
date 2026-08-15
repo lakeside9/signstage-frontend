@@ -20,7 +20,7 @@ interface ProtectedRouteProps {
   children: ReactNode;
   /**
    * true면 platformAdmin 토큰(플랫폼 관리자 로그인)만 통과시킨다. 일반 사용자 토큰으로
-   * 로그인한 채 관리자 화면 경로에 직접 접근하면 /org/new로 돌려보낸다.
+   * 로그인한 채 관리자 화면 경로에 직접 접근하면 /org(일반 사용자 대시보드)로 돌려보낸다.
    * 화면군 A(관리자 콘솔)와 화면군 B(조직 사용자)가 같은 로그인 상태를 공유하는 구조라
    * (signstage-docs frontend/screen-composition-plan.md 2장), API는 이미 403으로 막지만
    * 관리자 화면 셸 자체가 일반 사용자에게 노출되지 않도록 여기서도 막는다.
@@ -50,7 +50,7 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin
   }
 
   if (requireAdmin && !platformAdmin) {
-    return <Navigate to="/org/new" replace />;
+    return <Navigate to="/org" replace />;
   }
 
   return <>{children}</>;

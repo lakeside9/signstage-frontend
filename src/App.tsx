@@ -12,6 +12,7 @@ import { AdminUserCreate } from './pages/AdminUserCreate';
 import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
+import { OrgDashboard } from './pages/OrgDashboard';
 import { OrgOrganizationCreate } from './pages/OrgOrganizationCreate';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -23,6 +24,15 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginView />} />
         <Route path="/signup" element={<SignupView />} />
+
+        <Route
+          path="/org"
+          element={
+            <ProtectedRoute>
+              <OrgDashboard />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/org/new"
