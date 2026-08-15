@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Lock, RotateCcw, Search, UserPlus } from 'lucide-react';
-import { Pagination } from '../components/Pagination';
+import { Lock, UserPlus } from 'lucide-react';
+import { ListContainer } from '../components/ListContainer';
+import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -40,6 +41,9 @@ const EMPTY_SEARCH: SearchParams = { loginId: '', name: '', email: '', status: '
  * 플랫폼 관리자의 회원 목록/승인 화면. PLATFORM_OPS 이상만 상태 변경(승인/거절)이 실제로 성공한다
  * (PLATFORM_SUPPORT는 조회만 가능 — 백엔드가 403으로 막는다). 본인 계정은 상태를 바꿀 수 없다
  * (백엔드가 PLATFORM_ADMIN_CANNOT_TARGET_SELF로 막고, 이 화면은 그 전에 버튼 자체를 숨긴다).
+ *
+ * 화면 구성은 signstage-docs frontend/list-screen-convention.md의 "검색 영역 → 목록 →
+ * 페이지네비게이션" 3단 구조를 따른다(SearchBar/ListContainer 공통 컴포넌트 사용).
  * signstage-docs backend/signup-approval-implementation-plan.md 4장,
  * business/platform-admin-member-management.md 참고.
  */
@@ -156,45 +160,38 @@ export const AdminUserList: FC = () => {
         )}
       </div>
 
-      <form
-        onSubmit={handleSearch}
-        className="bg-white border border-gray-200 rounded-lg p-4 mb-4 flex flex-wrap items-end gap-3"
-      >
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">아이디</label>
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="아이디" className="w-40">
           <input
             type="text"
             value={formValues.loginId}
             onChange={(e) => setFormValues((prev) => ({ ...prev, loginId: e.target.value }))}
             placeholder="아이디"
-            className="w-40 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
-        </div>
+        </SearchField>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+        <SearchField label="이름" className="w-32">
           <input
             type="text"
             value={formValues.name}
             onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="이름"
-            className="w-32 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
-        </div>
+        </SearchField>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">이메일</label>
+        <SearchField label="이메일" className="w-48">
           <input
             type="text"
             value={formValues.email}
             onChange={(e) => setFormValues((prev) => ({ ...prev, email: e.target.value }))}
             placeholder="이메일"
-            className="w-48 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
-        </div>
+        </SearchField>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">상태</label>
+        <SearchField label="상태">
           <select
             value={formValues.status}
             onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value as UserStatus | 'ALL' }))}
@@ -206,115 +203,94 @@ export const AdminUserList: FC = () => {
               </option>
             ))}
           </select>
-        </div>
+        </SearchField>
+      </SearchBar>
 
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
-            <Search size={14} />
-            검색
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-          >
-            <RotateCcw size={14} />
-            초기화
-          </button>
-        </div>
-      </form>
-
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <Loader2 size={24} className="animate-spin" />
-          </div>
-        ) : users.length === 0 ? (
-          <p className="py-16 text-center text-sm text-gray-500">해당 조건의 회원이 없습니다.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">아이디</th>
-                <th className="text-left px-4 py-3 font-medium">이름</th>
-                <th className="text-left px-4 py-3 font-medium">이메일</th>
-                <th className="text-left px-4 py-3 font-medium">상태</th>
-                <th className="text-right px-4 py-3 font-medium">처리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map((user) => {
-                const isSelf = user.id === currentAdminId;
-                return (
-                  <tr key={user.id}>
-                    <td className="px-4 py-3 font-medium">
-                      <Link to={`/users/${user.id}`} className="text-gray-950 hover:underline">
-                        {user.loginId}
-                      </Link>
-                      {isSelf && <span className="ml-1.5 text-xs text-gray-400 font-normal">(나)</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{user.name}</td>
-                    <td className="px-4 py-3 text-gray-500">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[user.status]}`}
-                      >
-                        {user.status}
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={users.length === 0}
+        emptyMessage="해당 조건의 회원이 없습니다."
+        pagination={
+          pageData
+            ? {
+                page: pageData.page,
+                totalPages: pageData.totalPages,
+                hasNext: pageData.hasNext,
+                totalElements: pageData.totalElements,
+                onPageChange: handlePageChange,
+              }
+            : undefined
+        }
+      >
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium">아이디</th>
+              <th className="text-left px-4 py-3 font-medium">이름</th>
+              <th className="text-left px-4 py-3 font-medium">이메일</th>
+              <th className="text-left px-4 py-3 font-medium">상태</th>
+              <th className="text-right px-4 py-3 font-medium">처리</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {users.map((user) => {
+              const isSelf = user.id === currentAdminId;
+              return (
+                <tr key={user.id}>
+                  <td className="px-4 py-3 font-medium">
+                    <Link to={`/users/${user.id}`} className="text-gray-950 hover:underline">
+                      {user.loginId}
+                    </Link>
+                    {isSelf && <span className="ml-1.5 text-xs text-gray-400 font-normal">(나)</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{user.name}</td>
+                  <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[user.status]}`}
+                    >
+                      {user.status}
+                    </span>
+                    {user.locked && (
+                      <span className="ml-1.5 inline-flex items-center gap-1 text-xs text-red-600" title="로그인 잠김">
+                        <Lock size={12} />
                       </span>
-                      {user.locked && (
-                        <span className="ml-1.5 inline-flex items-center gap-1 text-xs text-red-600" title="로그인 잠김">
-                          <Lock size={12} />
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isSelf ? (
-                        <p className="text-right text-xs text-gray-400">본인 계정은 변경할 수 없음</p>
-                      ) : !canManage ? (
-                        <p className="text-right text-xs text-gray-400">조회 전용 계정</p>
-                      ) : (
-                        <div className="flex justify-end gap-2">
-                          {user.status !== 'ACTIVE' && (
-                            <button
-                              onClick={() => handleChangeStatus(user.id, 'ACTIVE')}
-                              disabled={processingId === user.id}
-                              className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                            >
-                              승인/활성화
-                            </button>
-                          )}
-                          {user.status !== 'DISABLED' && (
-                            <button
-                              onClick={() => handleChangeStatus(user.id, 'DISABLED')}
-                              disabled={processingId === user.id}
-                              className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
-                              거절/비활성화
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {pageData && (
-          <Pagination
-            page={pageData.page}
-            totalPages={pageData.totalPages}
-            hasNext={pageData.hasNext}
-            totalElements={pageData.totalElements}
-            onPageChange={handlePageChange}
-          />
-        )}
-      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isSelf ? (
+                      <p className="text-right text-xs text-gray-400">본인 계정은 변경할 수 없음</p>
+                    ) : !canManage ? (
+                      <p className="text-right text-xs text-gray-400">조회 전용 계정</p>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        {user.status !== 'ACTIVE' && (
+                          <button
+                            onClick={() => handleChangeStatus(user.id, 'ACTIVE')}
+                            disabled={processingId === user.id}
+                            className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            승인/활성화
+                          </button>
+                        )}
+                        {user.status !== 'DISABLED' && (
+                          <button
+                            onClick={() => handleChangeStatus(user.id, 'DISABLED')}
+                            disabled={processingId === user.id}
+                            className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                          >
+                            거절/비활성화
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </ListContainer>
     </div>
   );
 };

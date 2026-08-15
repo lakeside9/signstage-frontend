@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import { Pagination } from '../components/Pagination';
+import { ListContainer } from '../components/ListContainer';
+import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PageResponse, PlatformAdminAction, PlatformAdminAuditLogEntry } from '../types';
@@ -27,12 +27,23 @@ const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string 
   })),
 ];
 
+interface SearchParams {
+  action: PlatformAdminAction | 'ALL';
+}
+
+const EMPTY_SEARCH: SearchParams = { action: 'ALL' };
+
 /**
  * 플랫폼 관리자 제어 행위 감사 로그. 조회 전용이며 PLATFORM_SUPPORT 이상 전체가 볼 수 있다
  * (signstage-docs business/user-organization-design.md 7.4절).
+ *
+ * 화면 구성은 signstage-docs frontend/list-screen-convention.md의 "검색 영역 → 목록 →
+ * 페이지네비게이션" 3단 구조를 따른다(SearchBar/ListContainer 공통 컴포넌트 사용) — 검색
+ * 조건이 action 하나뿐이어도 다른 목록 화면과 같은 패턴을 유지한다.
  */
 export const AdminAuditLogList: FC = () => {
-  const [actionFilter, setActionFilter] = useState<PlatformAdminAction | 'ALL'>('ALL');
+  const [formValues, setFormValues] = useState<SearchParams>(EMPTY_SEARCH);
+  const [searchParams, setSearchParams] = useState<SearchParams>(EMPTY_SEARCH);
   const [page, setPage] = useState(0);
   const [pageData, setPageData] = useState<PageResponse<PlatformAdminAuditLogEntry> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +56,7 @@ export const AdminAuditLogList: FC = () => {
     (async () => {
       try {
         const query = new URLSearchParams();
-        if (actionFilter !== 'ALL') query.set('action', actionFilter);
+        if (searchParams.action !== 'ALL') query.set('action', searchParams.action);
         query.set('page', String(page));
         query.set('size', String(PAGE_SIZE));
 
@@ -69,12 +80,20 @@ export const AdminAuditLogList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionFilter, page]);
+  }, [searchParams, page]);
 
-  const handleSelectAction = (value: PlatformAdminAction | 'ALL') => {
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
-    setActionFilter(value);
     setPage(0);
+    setSearchParams(formValues);
+  };
+
+  const handleReset = () => {
+    setIsLoading(true);
+    setFormValues(EMPTY_SEARCH);
+    setPage(0);
+    setSearchParams(EMPTY_SEARCH);
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -93,80 +112,77 @@ export const AdminAuditLogList: FC = () => {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {ACTION_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => handleSelectAction(option.value)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-              actionFilter === option.value
-                ? 'bg-gray-950 text-white border-gray-950'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-            }`}
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="행위">
+          <select
+            value={formValues.action}
+            onChange={(e) => setFormValues({ action: e.target.value as PlatformAdminAction | 'ALL' })}
+            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
           >
-            {option.label}
-          </button>
-        ))}
-      </div>
+            {ACTION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </SearchField>
+      </SearchBar>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <Loader2 size={24} className="animate-spin" />
-          </div>
-        ) : entries.length === 0 ? (
-          <p className="py-16 text-center text-sm text-gray-500">해당 조건의 감사 로그가 없습니다.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">시각</th>
-                <th className="text-left px-4 py-3 font-medium">관리자</th>
-                <th className="text-left px-4 py-3 font-medium">행위</th>
-                <th className="text-left px-4 py-3 font-medium">대상</th>
-                <th className="text-left px-4 py-3 font-medium">상세</th>
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={entries.length === 0}
+        emptyMessage="해당 조건의 감사 로그가 없습니다."
+        pagination={
+          pageData
+            ? {
+                page: pageData.page,
+                totalPages: pageData.totalPages,
+                hasNext: pageData.hasNext,
+                totalElements: pageData.totalElements,
+                onPageChange: handlePageChange,
+              }
+            : undefined
+        }
+      >
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium">시각</th>
+              <th className="text-left px-4 py-3 font-medium">관리자</th>
+              <th className="text-left px-4 py-3 font-medium">행위</th>
+              <th className="text-left px-4 py-3 font-medium">대상</th>
+              <th className="text-left px-4 py-3 font-medium">상세</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {entries.map((entry) => (
+              <tr key={entry.id}>
+                <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                  {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                </td>
+                <td className="px-4 py-3 text-gray-950 font-medium">
+                  {entry.adminLoginId ?? `#${entry.adminUserId}`}
+                </td>
+                <td className="px-4 py-3 text-gray-700">{ACTION_LABELS[entry.action]}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {entry.targetUserId ? (
+                    <Link to={`/users/${entry.targetUserId}`} className="text-gray-950 hover:underline">
+                      회원: {entry.targetLoginId ?? `#${entry.targetUserId}`}
+                    </Link>
+                  ) : entry.organizationId ? (
+                    <Link to={`/organizations/${entry.organizationId}`} className="text-gray-950 hover:underline">
+                      조직: {entry.organizationName ?? `#${entry.organizationId}`}
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-500">{entry.detail ?? '-'}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {new Date(entry.createdAt).toLocaleString('ko-KR')}
-                  </td>
-                  <td className="px-4 py-3 text-gray-950 font-medium">
-                    {entry.adminLoginId ?? `#${entry.adminUserId}`}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{ACTION_LABELS[entry.action]}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {entry.targetUserId ? (
-                      <Link to={`/users/${entry.targetUserId}`} className="text-gray-950 hover:underline">
-                        회원: {entry.targetLoginId ?? `#${entry.targetUserId}`}
-                      </Link>
-                    ) : entry.organizationId ? (
-                      <Link to={`/organizations/${entry.organizationId}`} className="text-gray-950 hover:underline">
-                        조직: {entry.organizationName ?? `#${entry.organizationId}`}
-                      </Link>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{entry.detail ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {pageData && (
-          <Pagination
-            page={pageData.page}
-            totalPages={pageData.totalPages}
-            hasNext={pageData.hasNext}
-            totalElements={pageData.totalElements}
-            onPageChange={handlePageChange}
-          />
-        )}
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </ListContainer>
     </div>
   );
 };

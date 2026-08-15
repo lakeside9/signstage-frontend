@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Loader2, RotateCcw, Search } from 'lucide-react';
-import { Pagination } from '../components/Pagination';
+import { Building2 } from 'lucide-react';
+import { ListContainer } from '../components/ListContainer';
+import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -33,8 +34,10 @@ const EMPTY_SEARCH: SearchParams = { name: '', code: '', status: 'ALL' };
 
 /**
  * 관리자 대시보드 = 전체 조직 목록/검색 화면. `GET /api/platform-admin/organizations`
- * (조회 전용 — 조직 상태 변경/멤버 강제 조정은 이번 범위 밖). `AdminUserList`와 같은
- * 검색/페이지네이션 패턴을 그대로 따른다.
+ * (조회 전용 — 조직 상태 변경/멤버 강제 조정은 이번 범위 밖).
+ *
+ * 화면 구성은 signstage-docs frontend/list-screen-convention.md의 "검색 영역 → 목록 →
+ * 페이지네비게이션" 3단 구조를 따른다(SearchBar/ListContainer 공통 컴포넌트 사용).
  * signstage-docs frontend/screen-composition-plan.md 4장 참고.
  */
 export const Dashboard: FC = () => {
@@ -112,34 +115,28 @@ export const Dashboard: FC = () => {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSearch}
-        className="bg-white border border-gray-200 rounded-lg p-4 mb-4 flex flex-wrap items-end gap-3"
-      >
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">조직 이름</label>
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="조직 이름" className="w-48">
           <input
             type="text"
             value={formValues.name}
             onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="조직 이름"
-            className="w-48 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
-        </div>
+        </SearchField>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">조직 코드</label>
+        <SearchField label="조직 코드" className="w-40">
           <input
             type="text"
             value={formValues.code}
             onChange={(e) => setFormValues((prev) => ({ ...prev, code: e.target.value }))}
             placeholder="조직 코드"
-            className="w-40 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
-        </div>
+        </SearchField>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">상태</label>
+        <SearchField label="상태">
           <select
             value={formValues.status}
             onChange={(e) =>
@@ -153,87 +150,66 @@ export const Dashboard: FC = () => {
               </option>
             ))}
           </select>
-        </div>
+        </SearchField>
+      </SearchBar>
 
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
-            <Search size={14} />
-            검색
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-          >
-            <RotateCcw size={14} />
-            초기화
-          </button>
-        </div>
-      </form>
-
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <Loader2 size={24} className="animate-spin" />
-          </div>
-        ) : organizations.length === 0 ? (
-          <p className="py-16 text-center text-sm text-gray-500">해당 조건의 조직이 없습니다.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">조직 이름</th>
-                <th className="text-left px-4 py-3 font-medium">코드</th>
-                <th className="text-left px-4 py-3 font-medium">상태</th>
-                <th className="text-left px-4 py-3 font-medium">언어</th>
-                <th className="text-right px-4 py-3 font-medium">활성 멤버</th>
-                <th className="text-right px-4 py-3 font-medium">생성일</th>
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={organizations.length === 0}
+        emptyMessage="해당 조건의 조직이 없습니다."
+        pagination={
+          pageData
+            ? {
+                page: pageData.page,
+                totalPages: pageData.totalPages,
+                hasNext: pageData.hasNext,
+                totalElements: pageData.totalElements,
+                onPageChange: handlePageChange,
+              }
+            : undefined
+        }
+      >
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium">조직 이름</th>
+              <th className="text-left px-4 py-3 font-medium">코드</th>
+              <th className="text-left px-4 py-3 font-medium">상태</th>
+              <th className="text-left px-4 py-3 font-medium">언어</th>
+              <th className="text-right px-4 py-3 font-medium">활성 멤버</th>
+              <th className="text-right px-4 py-3 font-medium">생성일</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {organizations.map((organization) => (
+              <tr key={organization.id}>
+                <td className="px-4 py-3 font-medium">
+                  <Link
+                    to={`/organizations/${organization.id}`}
+                    className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
+                  >
+                    <Building2 size={14} className="text-gray-400" />
+                    {organization.name}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-gray-500">{organization.code}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[organization.status]}`}
+                  >
+                    {organization.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-500">{organization.defaultLocale}</td>
+                <td className="px-4 py-3 text-right text-gray-700">{organization.activeMemberCount}</td>
+                <td className="px-4 py-3 text-right text-gray-500">
+                  {new Date(organization.createdAt).toLocaleDateString('ko-KR')}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {organizations.map((organization) => (
-                <tr key={organization.id}>
-                  <td className="px-4 py-3 font-medium">
-                    <Link
-                      to={`/organizations/${organization.id}`}
-                      className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
-                    >
-                      <Building2 size={14} className="text-gray-400" />
-                      {organization.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{organization.code}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[organization.status]}`}
-                    >
-                      {organization.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{organization.defaultLocale}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{organization.activeMemberCount}</td>
-                  <td className="px-4 py-3 text-right text-gray-500">
-                    {new Date(organization.createdAt).toLocaleDateString('ko-KR')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {pageData && (
-          <Pagination
-            page={pageData.page}
-            totalPages={pageData.totalPages}
-            hasNext={pageData.hasNext}
-            totalElements={pageData.totalElements}
-            onPageChange={handlePageChange}
-          />
-        )}
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </ListContainer>
     </div>
   );
 };
