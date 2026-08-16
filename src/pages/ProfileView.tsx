@@ -15,6 +15,12 @@ const LOCALE_OPTIONS = [
  * 로그인 후 내 정보(이름/이메일/전화번호/언어)와 비밀번호를 수정하는 화면이다.
  * signstage-backend feature.identity의 GET/PUT /api/identity/me,
  * PUT /api/identity/me/password 를 사용한다.
+ *
+ * 로그인 아이디는 원래부터 여기서 못 바꾼다(읽기 전용 표시). 이메일은 일반 사용자만 못 바꾼다
+ * (2026-08-16 결정) — 회원가입/회원 생성 시점에 이메일을 그대로 loginId로도 저장하기 때문에,
+ * 자유롭게 바꾸게 두면 "로그인 아이디로 안내한 값"과 어긋나 보인다. 플랫폼 관리자는 loginId가
+ * 이메일과 무관하게 별도로 관리돼(관리자 계정 생성은 이 정책에 포함되지 않음) 예외로 둔다 —
+ * `useAuthStore`의 `platformAdmin` 유무로 판단한다(서버도 같은 기준으로 한 번 더 막는다).
  */
 export const ProfileView: FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -32,7 +38,9 @@ export const ProfileView: FC = () => {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const updatePlatformAdminName = useAuthStore((state) => state.updatePlatformAdminName);
+  const canEditEmail = !!platformAdmin;
 
   useEffect(() => {
     let cancelled = false;
@@ -170,10 +178,13 @@ export const ProfileView: FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isSavingProfile}
+                disabled={isSavingProfile || !canEditEmail}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
               />
             </div>
+            {!canEditEmail && (
+              <p className="mt-1.5 text-xs text-gray-500">로그인 아이디로도 사용되고 있어 변경할 수 없습니다.</p>
+            )}
           </div>
 
           <div>
