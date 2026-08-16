@@ -67,7 +67,7 @@ export const AdminUserCreate: FC = () => {
   };
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl">
       <Link to="/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         회원 목록으로
