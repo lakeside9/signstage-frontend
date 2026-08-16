@@ -37,13 +37,54 @@ export interface SignupResult {
   status: UserStatus;
 }
 
-/** POST/GET /api/organizations 응답(OrganizationDto.Response.Organization)과 맞춘다. */
+/** GET /api/organizations 응답(OrganizationDto.Response.Organization)과 맞춘다. */
 export interface OrganizationSummary {
   id: number;
   name: string;
   code: string;
   status: string;
   defaultLocale: string;
+  createdAt: string;
+}
+
+/**
+ * feature.organization.entity.OrganizationCreationRequestStatus 값과 맞춘다.
+ * signstage-docs business/organization-creation-approval-review.md 3.1절 — 조직은 더 이상
+ * 즉시 만들어지지 않고 이 요청이 승인돼야 만들어진다.
+ */
+export type OrganizationCreationRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+/**
+ * POST/GET/DELETE /api/organizations/requests 응답(OrganizationCreationRequestDto.Response.RequestSummary)과
+ * 맞춘다. 요청 자체는 코드를 담지 않는다 — 코드는 승인 시점에 관리자가 정한다(3.3절).
+ */
+export interface OrganizationCreationRequestSummary {
+  id: number;
+  organizationName: string;
+  note: string | null;
+  status: OrganizationCreationRequestStatus;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  organizationId: number | null;
+  createdAt: string;
+}
+
+/**
+ * GET/POST/PUT /api/platform-admin/organization-requests 응답
+ * (PlatformAdminOrganizationRequestDto.Response.RequestSummary)과 맞춘다.
+ */
+export interface PlatformAdminOrganizationRequestSummary {
+  id: number;
+  requesterId: number;
+  requesterLoginId: string;
+  requesterName: string;
+  organizationName: string;
+  note: string | null;
+  status: OrganizationCreationRequestStatus;
+  rejectionReason: string | null;
+  reviewerLoginId: string | null;
+  reviewedAt: string | null;
+  organizationId: number | null;
   createdAt: string;
 }
 
@@ -88,7 +129,8 @@ export type PlatformAdminAction =
   | 'FORCE_UPDATE_MEMBER_ROLE'
   | 'FORCE_REMOVE_MEMBER'
   | 'FORCE_WITHDRAW_USER'
-  | 'UPDATE_ACCOUNT_ROLE';
+  | 'UPDATE_ACCOUNT_ROLE'
+  | 'REJECT_ORGANIZATION_REQUEST';
 
 /**
  * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.

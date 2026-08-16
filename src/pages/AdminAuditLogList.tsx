@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   FORCE_REMOVE_MEMBER: '멤버 강제 제거',
   FORCE_WITHDRAW_USER: '회원 강제 탈퇴',
   UPDATE_ACCOUNT_ROLE: '관리자 등급 변경',
+  REJECT_ORGANIZATION_REQUEST: '조직 생성 요청 반려',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [

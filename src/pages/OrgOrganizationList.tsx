@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Loader2, Plus } from 'lucide-react';
+import { Building2, ClipboardList, Loader2, Plus } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { OrganizationSummary } from '../types';
@@ -18,8 +18,11 @@ const STATUS_LABEL: Record<string, string> = {
  * 적을 걸 전제로 한 설계, backend/organization-feature-implementation.md 참고). 그래서
  * frontend/list-screen-convention.md의 검색/페이지네비게이션 구조는 적용하지 않았다.
  *
- * 조직 생성 흐름(`OrgOrganizationCreate`, `/org/new`) 자체는 다시 정리할 예정이다 —
- * signstage-docs frontend/screen-composition-plan.md 11장 참고.
+ * 조직은 더 이상 여기서 즉시 만들어지지 않는다 — "조직 만들기"는 요청 제출 화면
+ * (`OrgOrganizationRequestCreate`, `/org/organizations/requests/new`)으로 이동하고, 관리자
+ * 승인을 거쳐야 이 목록에 나타난다(signstage-docs
+ * business/organization-creation-approval-review.md 3.1절). 요청 진행 상태는 "요청 내역"
+ * (`OrgOrganizationRequestList`, `/org/organizations/requests`)에서 확인한다.
  */
 export const OrgOrganizationList: FC = () => {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
@@ -61,13 +64,22 @@ export const OrgOrganizationList: FC = () => {
           <h1 className="text-xl font-bold text-gray-950">조직 관리</h1>
           <p className="mt-1 text-sm text-gray-500">내가 속한 조직 목록입니다.</p>
         </div>
-        <Link
-          to="/org/new"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-        >
-          <Plus size={16} />
-          조직 만들기
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/org/organizations/requests"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <ClipboardList size={16} />
+            요청 내역
+          </Link>
+          <Link
+            to="/org/organizations/requests/new"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            <Plus size={16} />
+            조직 만들기
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">

@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Building2,
   ChevronLeft,
+  ClipboardCheck,
   ClipboardList,
   Key,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import { useAuthStore } from '../store/useAuthStore';
 const NAV_ITEMS = [
   { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
   { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
+  { to: '/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
   { to: '/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
   { to: '/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
