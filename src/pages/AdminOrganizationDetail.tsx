@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Globe, Loader2, Plus, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Loader2, Plus, UserMinus, Users, UserPlus } from 'lucide-react';
+import { Pagination } from '../components/Pagination';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { canManagePlatform } from '../utils/permissions';
-import type { MemberRole, OrganizationStatus, PlatformAdminMemberSummary, PlatformAdminOrganizationSummary } from '../types';
+import type {
+  MemberRole,
+  OrganizationStatus,
+  PageResponse,
+  PlatformAdminMemberSummary,
+  PlatformAdminOrganizationSummary,
+  PlatformAdminUserSummary,
+} from '../types';
 
 const STATUS_BADGE_CLASS: Record<OrganizationStatus, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -15,6 +23,8 @@ const STATUS_BADGE_CLASS: Record<OrganizationStatus, string> = {
 };
 
 const MEMBER_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'];
+const CANDIDATE_PAGE_SIZE = 10;
+const EMPTY_CANDIDATE_SEARCH = { loginId: '', name: '', email: '' };
 
 /**
  * 조직 상세 화면. `GET /api/platform-admin/organizations/{organizationId}`를 그대로 보여준다.
@@ -22,7 +32,11 @@ const MEMBER_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER
  * 이 화면에서 다룬다(signstage-docs business/platform-admin-member-management.md 4.2절
  * "조직 멤버십 강제 조정") — 호출자가 그 조직의 멤버가 아니어도 된다는 점이 일반 멤버
  * 관리와 다르다. 추가 시 role=OWNER 제한도 없다(관리자는 조직 내부 위계를 우회한다). "최소 1
- * OWNER" 규칙은 강제 조정에도 예외 없이 적용된다. 1인 1조직 제한(2026-08-16 결정)도 추가에 적용된다.
+ * OWNER" 규칙은 강제 조정에도 예외 없이 적용된다.
+ *
+ * 멤버 추가는 아이디를 직접 입력받지 않는다 — 어느 조직에도 속하지 않은 사용자만 후보가 될 수
+ * 있어서(1인 1조직 제한, 2026-08-16 결정), `GET /api/platform-admin/users?withoutOrganization=true`
+ * 로 후보 목록을 조회해 검색·선택하게 한다. 잘못된 아이디를 타이핑해 실패하는 일을 애초에 막는다.
  */
 export const AdminOrganizationDetail: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -38,10 +52,15 @@ export const AdminOrganizationDetail: FC = () => {
   const [roleDrafts, setRoleDrafts] = useState<Record<number, MemberRole>>({});
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<number | null>(null);
 
-  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
-  const [addLoginId, setAddLoginId] = useState('');
+  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addRole, setAddRole] = useState<MemberRole>('VIEWER');
-  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [addingUserId, setAddingUserId] = useState<number | null>(null);
+
+  const [candidateSearchForm, setCandidateSearchForm] = useState(EMPTY_CANDIDATE_SEARCH);
+  const [candidateSearchParams, setCandidateSearchParams] = useState(EMPTY_CANDIDATE_SEARCH);
+  const [candidatePage, setCandidatePage] = useState(0);
+  const [candidatePageData, setCandidatePageData] = useState<PageResponse<PlatformAdminUserSummary> | null>(null);
+  const [isCandidatesLoading, setIsCandidatesLoading] = useState(false);
 
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
   const canManage = canManagePlatform(currentPlatformRole);
@@ -108,29 +127,80 @@ export const AdminOrganizationDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
 
-  const handleAddMember = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!addLoginId.trim()) {
-      showSnackbar('추가할 사용자의 아이디를 입력해주세요.', 'error');
+  useEffect(() => {
+    if (!isAddPanelOpen) {
       return;
     }
+    let cancelled = false;
 
-    setIsAddingMember(true);
+    (async () => {
+      setIsCandidatesLoading(true);
+      try {
+        const query = new URLSearchParams();
+        query.set('withoutOrganization', 'true');
+        if (candidateSearchParams.loginId) query.set('loginId', candidateSearchParams.loginId);
+        if (candidateSearchParams.name) query.set('name', candidateSearchParams.name);
+        if (candidateSearchParams.email) query.set('email', candidateSearchParams.email);
+        query.set('page', String(candidatePage));
+        query.set('size', String(CANDIDATE_PAGE_SIZE));
+
+        const response = await api.get(`/platform-admin/users?${query.toString()}`);
+        if (!cancelled) {
+          setCandidatePageData(response.data as PageResponse<PlatformAdminUserSummary>);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '추가할 사용자 목록을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCandidatesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAddPanelOpen, candidateSearchParams, candidatePage]);
+
+  const openAddPanel = () => {
+    setIsAddPanelOpen(true);
+    setCandidateSearchForm(EMPTY_CANDIDATE_SEARCH);
+    setCandidateSearchParams(EMPTY_CANDIDATE_SEARCH);
+    setCandidatePage(0);
+    setAddRole('VIEWER');
+  };
+
+  const handleCandidateSearch = (e: FormEvent) => {
+    e.preventDefault();
+    setCandidatePage(0);
+    setCandidateSearchParams(candidateSearchForm);
+  };
+
+  const handleCandidateSearchReset = () => {
+    setCandidateSearchForm(EMPTY_CANDIDATE_SEARCH);
+    setCandidatePage(0);
+    setCandidateSearchParams(EMPTY_CANDIDATE_SEARCH);
+  };
+
+  const handleAddCandidate = async (candidate: PlatformAdminUserSummary) => {
+    setAddingUserId(candidate.id);
     try {
       await api.post(`/platform-admin/organizations/${organizationId}/members`, {
-        loginId: addLoginId.trim(),
+        loginId: candidate.loginId,
         role: addRole,
       });
-      showSnackbar('멤버를 추가했습니다.', 'success');
-      setAddLoginId('');
-      setAddRole('VIEWER');
-      setIsAddFormOpen(false);
+      showSnackbar(`${candidate.name}님을 멤버로 추가했습니다.`, 'success');
+      setIsAddPanelOpen(false);
       setMembers(await fetchMembers());
     } catch (err) {
       const message = err instanceof Error ? err.message : '멤버 추가에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
-      setIsAddingMember(false);
+      setAddingUserId(null);
     }
   };
 
@@ -259,9 +329,9 @@ export const AdminOrganizationDetail: FC = () => {
             <Users size={14} />
             멤버
           </h2>
-          {canManage && !isAddFormOpen && (
+          {canManage && !isAddPanelOpen && (
             <button
-              onClick={() => setIsAddFormOpen(true)}
+              onClick={openAddPanel}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
             >
               <Plus size={12} />
@@ -270,58 +340,131 @@ export const AdminOrganizationDetail: FC = () => {
           )}
         </div>
 
-        {canManage && isAddFormOpen && (
-          <form
-            onSubmit={handleAddMember}
-            className="mb-4 flex flex-wrap items-end gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3"
-          >
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">아이디</label>
-              <input
-                type="text"
-                value={addLoginId}
-                onChange={(e) => setAddLoginId(e.target.value)}
-                disabled={isAddingMember}
-                placeholder="이미 가입된 사용자의 로그인 아이디"
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">역할</label>
-              <select
-                value={addRole}
-                onChange={(e) => setAddRole(e.target.value as MemberRole)}
-                disabled={isAddingMember}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+        {canManage && isAddPanelOpen && (
+          <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-gray-500">
+                어느 조직에도 속하지 않은 사용자만 후보로 나옵니다(1인 1조직 제한). 조직 내부 위계와
+                무관하게 OWNER로도 추가할 수 있습니다.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsAddPanelOpen(false)}
+                className="shrink-0 ml-2 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
               >
-                {MEMBER_ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
+                닫기
+              </button>
             </div>
-            <div className="flex gap-2">
+
+            <form onSubmit={handleCandidateSearch} className="flex flex-wrap items-end gap-2 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">아이디</label>
+                <input
+                  type="text"
+                  value={candidateSearchForm.loginId}
+                  onChange={(e) => setCandidateSearchForm((prev) => ({ ...prev, loginId: e.target.value }))}
+                  className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all w-36"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+                <input
+                  type="text"
+                  value={candidateSearchForm.name}
+                  onChange={(e) => setCandidateSearchForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all w-28"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">이메일</label>
+                <input
+                  type="text"
+                  value={candidateSearchForm.email}
+                  onChange={(e) => setCandidateSearchForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all w-40"
+                />
+              </div>
               <button
                 type="submit"
-                disabled={isAddingMember}
-                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
               >
-                {isAddingMember ? '추가 중...' : '추가'}
+                검색
               </button>
               <button
                 type="button"
-                onClick={() => setIsAddFormOpen(false)}
-                disabled={isAddingMember}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                onClick={handleCandidateSearchReset}
+                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
               >
-                취소
+                초기화
               </button>
+
+              <div className="ml-auto">
+                <label className="block text-xs font-medium text-gray-500 mb-1">추가할 역할</label>
+                <select
+                  value={addRole}
+                  onChange={(e) => setAddRole(e.target.value as MemberRole)}
+                  className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+                >
+                  {MEMBER_ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </form>
+
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {isCandidatesLoading ? (
+                <div className="flex items-center justify-center py-8 text-gray-400">
+                  <Loader2 size={20} className="animate-spin" />
+                </div>
+              ) : !candidatePageData || candidatePageData.content.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  조건에 맞는, 어느 조직에도 속하지 않은 사용자가 없습니다.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">아이디</th>
+                      <th className="text-left font-medium px-3 py-2">이름</th>
+                      <th className="text-left font-medium px-3 py-2">이메일</th>
+                      <th className="text-right font-medium px-3 py-2">처리</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {candidatePageData.content.map((candidate) => (
+                      <tr key={candidate.id}>
+                        <td className="px-3 py-2 text-gray-950">{candidate.loginId}</td>
+                        <td className="px-3 py-2 text-gray-700">{candidate.name}</td>
+                        <td className="px-3 py-2 text-gray-500">{candidate.email}</td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            onClick={() => handleAddCandidate(candidate)}
+                            disabled={addingUserId === candidate.id}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            <UserPlus size={12} />
+                            {addingUserId === candidate.id ? '추가 중...' : `${addRole}로 추가`}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {candidatePageData && (
+                <Pagination
+                  page={candidatePageData.page}
+                  totalPages={candidatePageData.totalPages}
+                  hasNext={candidatePageData.hasNext}
+                  totalElements={candidatePageData.totalElements}
+                  onPageChange={setCandidatePage}
+                />
+              )}
             </div>
-            <p className="basis-full text-xs text-gray-400">
-              이 아이디의 계정이 이미 있어야 합니다. 조직 내부 위계와 무관하게 OWNER로도 추가할 수 있습니다.
-            </p>
-          </form>
+          </div>
         )}
 
         {isMembersLoading ? (
