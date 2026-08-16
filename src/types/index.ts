@@ -37,7 +37,7 @@ export interface SignupResult {
   status: UserStatus;
 }
 
-/** GET /api/organizations 응답(OrganizationDto.Response.Organization)과 맞춘다. */
+/** GET/PUT /api/organizations(/{id}) 응답(OrganizationDto.Response.Organization)과 맞춘다. */
 export interface OrganizationSummary {
   id: number;
   name: string;
@@ -45,6 +45,8 @@ export interface OrganizationSummary {
   status: string;
   defaultLocale: string;
   createdAt: string;
+  /** 호출한 사용자가 이 조직에서 가진 역할. OWNER만 조직 정보를 수정할 수 있다. */
+  myRole: MemberRole;
 }
 
 /**

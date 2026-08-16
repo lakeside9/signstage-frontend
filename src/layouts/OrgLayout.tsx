@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, ChevronLeft, Key, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
+import { Building2, ChevronLeft, ClipboardCheck, Key, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types';
@@ -9,6 +9,7 @@ import type { UserProfile } from '../types';
 const NAV_ITEMS = [
   { to: '/org', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
   { to: '/org/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
+  { to: '/org/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
   { to: '/org/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 
@@ -18,8 +19,9 @@ const NAV_ITEMS = [
  * 로그인 상태를 공유하지만 진입 지점/메뉴가 다른 별개 셸이라는 점은 그대로다
  * (signstage-docs frontend/screen-composition-plan.md 2장).
  *
- * 사이드바는 우선 대시보드/조직 관리/내 정보 세 개만 둔다. 나머지 화면군 B(멤버 관리,
- * 조직 설정 등)는 아직 없다.
+ * "조직 관리"(내가 속한 조직 + 정보 수정)와 "조직 요청"(생성 요청 제출 + 이력)을 별개 메뉴로
+ * 분리했다 — 관심사가 다르기 때문이다(business/organization-creation-approval-review.md).
+ * 나머지 화면군 B(멤버 관리 등)는 아직 없다.
  */
 export const OrgLayout: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);

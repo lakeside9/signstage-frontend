@@ -14,8 +14,8 @@ import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { OrgDashboard } from './pages/OrgDashboard';
 import { OrgOrganizationList } from './pages/OrgOrganizationList';
-import { OrgOrganizationRequestList } from './pages/OrgOrganizationRequestList';
-import { OrgOrganizationRequestCreate } from './pages/OrgOrganizationRequestCreate';
+import { OrgOrganizationDetail } from './pages/OrgOrganizationDetail';
+import { OrgOrganizationRequests } from './pages/OrgOrganizationRequests';
 import { AdminOrganizationRequestList } from './pages/AdminOrganizationRequestList';
 import { AdminLayout } from './layouts/AdminLayout';
 import { OrgLayout } from './layouts/OrgLayout';
@@ -39,8 +39,8 @@ function App() {
         >
           <Route index element={<OrgDashboard />} />
           <Route path="organizations" element={<OrgOrganizationList />} />
-          <Route path="organizations/requests" element={<OrgOrganizationRequestList />} />
-          <Route path="organizations/requests/new" element={<OrgOrganizationRequestCreate />} />
+          <Route path="organizations/:organizationId" element={<OrgOrganizationDetail />} />
+          <Route path="organization-requests" element={<OrgOrganizationRequests />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
