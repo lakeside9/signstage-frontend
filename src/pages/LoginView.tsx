@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Key, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -47,11 +47,8 @@ export const LoginView: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const login = useAuthStore((state) => state.login);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
-
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname || '/';
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +73,7 @@ export const LoginView: FC = () => {
       if (data.accessToken) {
         login(data.accessToken, data.platformAdmin);
         showSnackbar('로그인되었습니다.', 'success');
-        navigate(data.platformAdmin ? from : '/org', { replace: true });
+        navigate(data.platformAdmin ? '/' : '/org', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '서버와의 통신 중 오류가 발생했습니다.';
