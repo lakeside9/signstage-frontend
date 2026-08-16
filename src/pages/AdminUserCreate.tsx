@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Copy, Mail, Phone, User, UserPlus } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Mail, Phone, UserPlus } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PlatformAdminCreatedUser } from '../types';
@@ -12,9 +12,11 @@ import type { PlatformAdminCreatedUser } from '../types';
  * 만든다는 행위 자체가 승인이다. 비밀번호는 서버가 임시로 생성해 응답에 한 번만
  * 담아 돌려주므로, 화면에 표시된 뒤 저장하지 않는다(다시 조회 불가).
  * signstage-docs business/platform-admin-member-management.md 참고.
+ *
+ * 아이디 입력란이 없다 — 이메일을 그대로 로그인 아이디로 쓴다(2026-08-16 결정). 서버가
+ * `email`을 `loginId`로 저장하므로 이 화면은 `loginId`를 요청에 아예 담지 않는다.
  */
 export const AdminUserCreate: FC = () => {
-  const [loginId, setLoginId] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,15 +30,14 @@ export const AdminUserCreate: FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!loginId || !name || !email) {
-      showSnackbar('아이디/이름/이메일은 필수입니다.', 'error');
+    if (!name || !email) {
+      showSnackbar('이름/이메일은 필수입니다.', 'error');
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await api.post('/platform-admin/users', {
-        loginId,
         name,
         email,
         phone: phone || null,
@@ -116,7 +117,6 @@ export const AdminUserCreate: FC = () => {
               type="button"
               onClick={() => {
                 setCreated(null);
-                setLoginId('');
                 setName('');
                 setEmail('');
                 setPhone('');
@@ -129,23 +129,6 @@ export const AdminUserCreate: FC = () => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">아이디</label>
-            <div className="relative">
-              <span className="absolute left-3 top-3 text-gray-400">
-                <User size={18} />
-              </span>
-              <input
-                type="text"
-                value={loginId}
-                onChange={(e) => setLoginId(e.target.value)}
-                disabled={isLoading}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                placeholder="로그인에 사용할 아이디"
-              />
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
             <div className="relative">
@@ -178,6 +161,7 @@ export const AdminUserCreate: FC = () => {
                 placeholder="이메일"
               />
             </div>
+            <p className="mt-1.5 text-xs text-gray-500">이 이메일이 로그인 아이디로 사용됩니다.</p>
           </div>
 
           <div>

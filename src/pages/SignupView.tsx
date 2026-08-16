@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Key, Mail, Phone, User, UserPlus } from 'lucide-react';
+import { Key, Mail, Phone, UserPlus } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { SignupResult } from '../types';
@@ -10,11 +10,13 @@ import type { SignupResult } from '../types';
  * 회원가입 화면. signstage-docs business/user-organization-design.md 5.1절 (a)
  * "회원가입 → 승인 → 조직 생성" 3단계 중 1단계다.
  *
+ * 아이디 입력란이 없다 — 이메일을 그대로 로그인 아이디로 쓴다(2026-08-16 결정). 서버가
+ * `email`을 `loginId`로 저장하므로 이 화면은 `loginId`를 요청에 아예 담지 않는다.
+ *
  * 가입 직후 계정은 PENDING(승인 대기) 상태라 로그인할 수 없다. 관리자가 승인(PENDING→ACTIVE)해야
  * 로그인 후 조직을 만들 수 있다 — 이 화면은 가입 접수만 담당하고 로그인은 시키지 않는다.
  */
 export const SignupView: FC = () => {
-  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
@@ -29,8 +31,8 @@ export const SignupView: FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!loginId || !password || !name || !email) {
-      showSnackbar('아이디/비밀번호/이름/이메일은 필수입니다.', 'error');
+    if (!password || !name || !email) {
+      showSnackbar('비밀번호/이름/이메일은 필수입니다.', 'error');
       return;
     }
     if (password !== passwordConfirm) {
@@ -41,7 +43,6 @@ export const SignupView: FC = () => {
     setIsLoading(true);
     try {
       const response = await api.post('/identity/signup', {
-        loginId,
         password,
         name,
         email,
@@ -86,24 +87,6 @@ export const SignupView: FC = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">아이디</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-400">
-                  <User size={18} />
-                </span>
-                <input
-                  type="text"
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="username"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                  placeholder="로그인에 사용할 아이디"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
               <input
@@ -164,6 +147,7 @@ export const SignupView: FC = () => {
                   placeholder="이메일"
                 />
               </div>
+              <p className="mt-1.5 text-xs text-gray-500">이 이메일이 로그인 아이디로 사용됩니다.</p>
             </div>
 
             <div>
