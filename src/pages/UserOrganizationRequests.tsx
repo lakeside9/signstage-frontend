@@ -3,7 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Building2, Clock, Loader2, NotebookPen, Plus, X } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { OrganizationCreationRequestStatus, OrganizationCreationRequestSummary } from '../types';
+import type { OrganizationCreationRequestStatus, OrganizationCreationRequestSummary, OrganizationSummary } from '../types';
 
 const STATUS_BADGE_CLASS: Record<OrganizationCreationRequestStatus, string> = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -26,14 +26,19 @@ const STATUS_LABEL: Record<OrganizationCreationRequestStatus, string> = {
  * `/organizations` 하위가 아닌 별개 경로로 둬서 사이드바 활성 표시가 서로 겹치지 않는다.
  *
  * PENDING 요청이 있으면 새로 제출할 수 없으므로(동시 PENDING 1건 제한, 3.4절) 그 동안은 제출
- * 폼 대신 안내만 보여준다. 재신청은 최초 요청을 포함해 최대 5회까지만 허용되고(승인 시 리셋,
- * 7.2절) 이 제한은 서버가 강제한다 — 이 화면은 현재까지의 시도 내역을 그대로 보여줄 뿐 별도로
- * 카운트를 계산하지 않는다(signstage-docs business/organization-creation-approval-review.md).
+ * 버튼을 비활성화한다. 이미 어느 조직에든 속해 있어도 마찬가지로 비활성화한다 — 1인 1조직
+ * 제한(2026-08-16 결정, `OrganizationCreationRequestService#submit`이 서버에서 강제)을 화면에서
+ * 미리 걸러내는 것으로, `GET /api/organizations`로 내 조직 목록이 비어있는지 확인한다.
+ * 재신청은 최초 요청을 포함해 최대 5회까지만 허용되고(승인 시 리셋, 7.2절) 이 제한은 서버가
+ * 강제한다 — 이 화면은 현재까지의 시도 내역을 그대로 보여줄 뿐 별도로 카운트를 계산하지 않는다
+ * (signstage-docs business/organization-creation-approval-review.md).
  */
 export const UserOrganizationRequests: FC = () => {
   const [requests, setRequests] = useState<OrganizationCreationRequestSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelingId, setCancelingId] = useState<number | null>(null);
+
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
@@ -74,7 +79,30 @@ export const UserOrganizationRequests: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 1인 1조직 제한(2026-08-16 결정) 때문에 이미 속한 조직이 있으면 제출 버튼을 비활성화해야 한다
+  // — 실패해도 화면을 막지 않는다(버튼이 계속 활성 상태로 남을 뿐, 어차피 제출 시점에 서버가 막는다).
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get('/organizations');
+        if (!cancelled) {
+          setOrganizations(response.data as OrganizationSummary[]);
+        }
+      } catch {
+        // 위 주석 참고 — 조용히 무시한다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const hasPending = requests.some((request) => request.status === 'PENDING');
+  const hasAnyOrganization = organizations.length > 0;
+  const canSubmitRequest = !hasPending && !hasAnyOrganization;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -129,7 +157,7 @@ export const UserOrganizationRequests: FC = () => {
             현재 승인 대기 중인 요청이 있습니다. 새 요청은 그 요청이 승인/반려되거나 취소된 뒤에 제출할 수
             있습니다.
           </div>
-        ) : isFormOpen ? (
+        ) : isFormOpen && canSubmitRequest ? (
           <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">조직 이름</label>
@@ -184,13 +212,22 @@ export const UserOrganizationRequests: FC = () => {
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
-            <Plus size={16} />
-            새 조직 생성 요청
-          </button>
+          <div>
+            <button
+              onClick={() => setIsFormOpen(true)}
+              disabled={hasAnyOrganization}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-950"
+            >
+              <Plus size={16} />
+              새 조직 생성 요청
+            </button>
+            {hasAnyOrganization && (
+              <p className="mt-2 text-xs text-gray-400">
+                이미 소속된 조직이 있어 새로 요청할 수 없습니다. 한 사용자는 하나의 조직에만 속할 수
+                있습니다.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
