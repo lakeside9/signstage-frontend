@@ -23,7 +23,7 @@ const NAV_ITEMS = [
  * 분리했다 — 관심사가 다르기 때문이다(business/organization-creation-approval-review.md).
  * 나머지 화면군 B(멤버 관리 등)는 아직 없다.
  */
-export const OrgLayout: FC = () => {
+export const UserLayout: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
 /**
- * 일반 사용자 로그인 후 진입 지점(`/org`, `OrgLayout` 하위). 관리자 콘솔의 `Dashboard.tsx`와
+ * 일반 사용자 로그인 후 진입 지점(`/org`, `UserLayout` 하위). 관리자 콘솔의 `Dashboard.tsx`와
  * 마찬가지로 아직 채워지지 않은 placeholder다 — 내 조직 목록은 "조직 관리"
  * (`OrgOrganizationList`, `/org/organizations`)로 옮겼다.
  */

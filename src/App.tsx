@@ -18,7 +18,7 @@ import { OrgOrganizationDetail } from './pages/OrgOrganizationDetail';
 import { OrgOrganizationRequests } from './pages/OrgOrganizationRequests';
 import { AdminOrganizationRequestList } from './pages/AdminOrganizationRequestList';
 import { AdminLayout } from './layouts/AdminLayout';
-import { OrgLayout } from './layouts/OrgLayout';
+import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SnackbarHost } from './components/SnackbarHost';
 
@@ -33,7 +33,7 @@ function App() {
           path="/org"
           element={
             <ProtectedRoute>
-              <OrgLayout />
+              <UserLayout />
             </ProtectedRoute>
           }
         >
