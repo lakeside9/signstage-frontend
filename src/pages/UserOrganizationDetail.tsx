@@ -14,11 +14,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 /**
  * 내가 속한 조직 하나의 상세/설정 화면(`/org/organizations/:organizationId`). "조직 관리"
- * (`OrgOrganizationList`) 목록의 조직 행에서 진입한다. OWNER만 이름/기본 언어를 수정할 수 있다
+ * (`UserOrganizationList`) 목록의 조직 행에서 진입한다. OWNER만 이름/기본 언어를 수정할 수 있다
  * (`PUT /api/organizations/{id}`) — screen-composition-plan.md "조직 설정" 항목. 코드는 조직
  * 식별자라 이 화면에서 바꿀 수 없다. 멤버 관리는 아직 화면이 없다(범위 밖).
  */
-export const OrgOrganizationDetail: FC = () => {
+export const UserOrganizationDetail: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
 

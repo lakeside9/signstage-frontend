@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<OrganizationCreationRequestStatus, string> = {
 
 /**
  * 일반 사용자의 "조직 요청" 화면(`/org/organization-requests`, 사이드바 메뉴) — 조직 생성 요청
- * 제출과 요청 이력을 한 화면에서 다룬다. "조직 관리"(`OrgOrganizationList`,
+ * 제출과 요청 이력을 한 화면에서 다룬다. "조직 관리"(`UserOrganizationList`,
  * `/org/organizations`)가 "내가 속한 조직"을 보여주는 것과 역할이 분리돼 있다 — URL도
  * `/organizations` 하위가 아닌 별개 경로로 둬서 사이드바 활성 표시가 서로 겹치지 않는다.
  *
@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<OrganizationCreationRequestStatus, string> = {
  * 7.2절) 이 제한은 서버가 강제한다 — 이 화면은 현재까지의 시도 내역을 그대로 보여줄 뿐 별도로
  * 카운트를 계산하지 않는다(signstage-docs business/organization-creation-approval-review.md).
  */
-export const OrgOrganizationRequests: FC = () => {
+export const UserOrganizationRequests: FC = () => {
   const [requests, setRequests] = useState<OrganizationCreationRequestSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelingId, setCancelingId] = useState<number | null>(null);

@@ -12,10 +12,10 @@ import { AdminUserCreate } from './pages/AdminUserCreate';
 import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
-import { OrgDashboard } from './pages/OrgDashboard';
-import { OrgOrganizationList } from './pages/OrgOrganizationList';
-import { OrgOrganizationDetail } from './pages/OrgOrganizationDetail';
-import { OrgOrganizationRequests } from './pages/OrgOrganizationRequests';
+import { UserDashboard } from './pages/UserDashboard';
+import { UserOrganizationList } from './pages/UserOrganizationList';
+import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
+import { UserOrganizationRequests } from './pages/UserOrganizationRequests';
 import { AdminOrganizationRequestList } from './pages/AdminOrganizationRequestList';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
@@ -37,10 +37,10 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<OrgDashboard />} />
-          <Route path="organizations" element={<OrgOrganizationList />} />
-          <Route path="organizations/:organizationId" element={<OrgOrganizationDetail />} />
-          <Route path="organization-requests" element={<OrgOrganizationRequests />} />
+          <Route index element={<UserDashboard />} />
+          <Route path="organizations" element={<UserOrganizationList />} />
+          <Route path="organizations/:organizationId" element={<UserOrganizationDetail />} />
+          <Route path="organization-requests" element={<UserOrganizationRequests />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
