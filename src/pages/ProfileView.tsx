@@ -133,7 +133,7 @@ export const ProfileView: FC = () => {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="space-y-8">
       <div>
         <h1 className="text-xl font-bold text-gray-950">내 정보</h1>
         <p className="mt-1 text-sm text-gray-500">프로필과 비밀번호를 수정할 수 있습니다.</p>
