@@ -161,6 +161,23 @@ export type MemberRole = 'OWNER' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
 /** feature.organization.entity.MemberStatus 값과 맞춘다. */
 export type MemberStatus = 'INVITED' | 'ACTIVE' | 'REMOVED';
 
+/**
+ * GET/POST/PUT/DELETE /api/organizations/{organizationId}/members(...) 응답과 맞춘다
+ * (MemberDto.Response.MemberSummary). 형태는 {@link PlatformAdminMemberSummary}와 같지만,
+ * 백엔드가 조직 사용자용/플랫폼 관리자용 DTO를 따로 두는 것과 같은 이유로 타입도 나눈다.
+ */
+export interface MemberSummary {
+  id: number;
+  organizationId: number;
+  userId: number;
+  loginId: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joinedAt: string | null;
+}
+
 /** GET /api/platform-admin/users/{userId} 응답(PlatformAdminUserDto.Response.UserDetail)과 맞춘다. */
 export interface PlatformAdminUserDetail {
   user: PlatformAdminUserSummary;
