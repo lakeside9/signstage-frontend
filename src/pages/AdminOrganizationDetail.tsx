@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Globe, Loader2, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Loader2, Plus, UserMinus, Users } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -18,10 +18,11 @@ const MEMBER_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER
 
 /**
  * 조직 상세 화면. `GET /api/platform-admin/organizations/{organizationId}`를 그대로 보여준다.
- * 상태 변경(정지/재개)은 PLATFORM_OPS 이상만 가능하다. 멤버 목록과 강제 역할변경/제거도
+ * 상태 변경(정지/재개)은 PLATFORM_OPS 이상만 가능하다. 멤버 목록과 강제 추가/역할변경/제거도
  * 이 화면에서 다룬다(signstage-docs business/platform-admin-member-management.md 4.2절
  * "조직 멤버십 강제 조정") — 호출자가 그 조직의 멤버가 아니어도 된다는 점이 일반 멤버
- * 관리와 다르다. "최소 1 OWNER" 규칙은 강제 조정에도 예외 없이 적용된다.
+ * 관리와 다르다. 추가 시 role=OWNER 제한도 없다(관리자는 조직 내부 위계를 우회한다). "최소 1
+ * OWNER" 규칙은 강제 조정에도 예외 없이 적용된다. 1인 1조직 제한(2026-08-16 결정)도 추가에 적용된다.
  */
 export const AdminOrganizationDetail: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -36,6 +37,11 @@ export const AdminOrganizationDetail: FC = () => {
   const [processingMemberId, setProcessingMemberId] = useState<number | null>(null);
   const [roleDrafts, setRoleDrafts] = useState<Record<number, MemberRole>>({});
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<number | null>(null);
+
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [addLoginId, setAddLoginId] = useState('');
+  const [addRole, setAddRole] = useState<MemberRole>('VIEWER');
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
   const canManage = canManagePlatform(currentPlatformRole);
@@ -101,6 +107,32 @@ export const AdminOrganizationDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
+
+  const handleAddMember = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!addLoginId.trim()) {
+      showSnackbar('추가할 사용자의 아이디를 입력해주세요.', 'error');
+      return;
+    }
+
+    setIsAddingMember(true);
+    try {
+      await api.post(`/platform-admin/organizations/${organizationId}/members`, {
+        loginId: addLoginId.trim(),
+        role: addRole,
+      });
+      showSnackbar('멤버를 추가했습니다.', 'success');
+      setAddLoginId('');
+      setAddRole('VIEWER');
+      setIsAddFormOpen(false);
+      setMembers(await fetchMembers());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '멤버 추가에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
 
   const handleChangeMemberRole = async (memberId: number) => {
     const nextRole = roleDrafts[memberId];
@@ -222,10 +254,76 @@ export const AdminOrganizationDetail: FC = () => {
       </div>
 
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 mb-3 flex items-center gap-1.5">
-          <Users size={14} />
-          멤버
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+            <Users size={14} />
+            멤버
+          </h2>
+          {canManage && !isAddFormOpen && (
+            <button
+              onClick={() => setIsAddFormOpen(true)}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+            >
+              <Plus size={12} />
+              멤버 추가
+            </button>
+          )}
+        </div>
+
+        {canManage && isAddFormOpen && (
+          <form
+            onSubmit={handleAddMember}
+            className="mb-4 flex flex-wrap items-end gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3"
+          >
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">아이디</label>
+              <input
+                type="text"
+                value={addLoginId}
+                onChange={(e) => setAddLoginId(e.target.value)}
+                disabled={isAddingMember}
+                placeholder="이미 가입된 사용자의 로그인 아이디"
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">역할</label>
+              <select
+                value={addRole}
+                onChange={(e) => setAddRole(e.target.value as MemberRole)}
+                disabled={isAddingMember}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+              >
+                {MEMBER_ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={isAddingMember}
+                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isAddingMember ? '추가 중...' : '추가'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddFormOpen(false)}
+                disabled={isAddingMember}
+                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                취소
+              </button>
+            </div>
+            <p className="basis-full text-xs text-gray-400">
+              이 아이디의 계정이 이미 있어야 합니다. 조직 내부 위계와 무관하게 OWNER로도 추가할 수 있습니다.
+            </p>
+          </form>
+        )}
+
         {isMembersLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
@@ -325,7 +423,7 @@ export const AdminOrganizationDetail: FC = () => {
           </table>
         )}
         {!canManage && (
-          <p className="mt-2 text-xs text-gray-400">역할 강제 변경/제거는 PLATFORM_OPS 이상만 가능합니다.</p>
+          <p className="mt-2 text-xs text-gray-400">멤버 추가/역할 강제 변경/제거는 PLATFORM_OPS 이상만 가능합니다.</p>
         )}
       </div>
     </div>
