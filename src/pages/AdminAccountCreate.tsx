@@ -72,7 +72,7 @@ export const AdminAccountCreate: FC = () => {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <Link to="/accounts" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         관리자 계정 목록으로
