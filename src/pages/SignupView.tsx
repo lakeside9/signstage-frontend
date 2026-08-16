@@ -17,11 +17,11 @@ import type { SignupResult } from '../types';
  * 로그인 후 조직을 만들 수 있다 — 이 화면은 가입 접수만 담당하고 로그인은 시키지 않는다.
  */
 export const SignupView: FC = () => {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -88,6 +88,61 @@ export const SignupView: FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-gray-400">
+                  <Mail size={18} />
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="email"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+                  placeholder="이메일"
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-gray-500">이 이메일이 로그인 아이디로 사용됩니다.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-gray-400">
+                  <UserPlus size={18} />
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="name"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+                  placeholder="이름"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">전화번호 (선택)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-gray-400">
+                  <Phone size={18} />
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="tel"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+                  placeholder="전화번호"
+                />
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
               <input
                 type="password"
@@ -111,61 +166,6 @@ export const SignupView: FC = () => {
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
                 placeholder="비밀번호 확인"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-400">
-                  <UserPlus size={18} />
-                </span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="name"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                  placeholder="이름"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-400">
-                  <Mail size={18} />
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="email"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                  placeholder="이메일"
-                />
-              </div>
-              <p className="mt-1.5 text-xs text-gray-500">이 이메일이 로그인 아이디로 사용됩니다.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">전화번호 (선택)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-400">
-                  <Phone size={18} />
-                </span>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="tel"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                  placeholder="전화번호"
-                />
-              </div>
             </div>
 
             <button
