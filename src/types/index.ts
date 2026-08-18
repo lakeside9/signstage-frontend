@@ -270,6 +270,39 @@ export interface BillingPlanSummary {
   createdAt: string;
 }
 
+/**
+ * POST /api/platform-admin/billing-plans 요청(BillingPlanDto.Request.CreatePlan)과 맞춘다.
+ * optionalFeatureIds는 생성 시점에만 정하고 이후 불변이다.
+ */
+export interface CreateBillingPlanRequest {
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  maxSigners: number;
+  maxTemplates: number;
+  maxTestEvents: number;
+  maxMainEvents: number;
+  optionalFeatureIds: number[];
+}
+
+/**
+ * PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다.
+ * optionalFeatureIds는 불변이라 CreateBillingPlanRequest와 달리 여기엔 없다.
+ */
+export interface UpdateBillingPlanRequest {
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  maxSigners: number;
+  maxTemplates: number;
+  maxTestEvents: number;
+  maxMainEvents: number;
+}
+
 /** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
 export type OptionalFeatureCode = 'SIGNER_FIELD_ZOOM' | 'ALL_SIGNED_FIREWORKS' | 'VIDEO_ATTENDANCE';
 
@@ -285,6 +318,28 @@ export interface OptionalFeatureSummary {
   createdAt: string;
 }
 
+/** POST /api/platform-admin/optional-features 요청(OptionalFeatureDto.Request.CreateOptionalFeature)과 맞춘다. */
+export interface CreateOptionalFeatureRequest {
+  code: OptionalFeatureCode;
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+}
+
+/**
+ * PUT /api/platform-admin/optional-features/{id} 요청(OptionalFeatureDto.Request.UpdateOptionalFeature)과
+ * 맞춘다. code는 생성 후 불변이라 CreateOptionalFeatureRequest와 달리 여기엔 없다.
+ */
+export interface UpdateOptionalFeatureRequest {
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+}
+
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
 export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'MAIN_EVENTS';
 
@@ -298,6 +353,28 @@ export interface CapacityAddOnSummary {
   discountType: DiscountType;
   discountValue: number;
   createdAt: string;
+}
+
+/** POST /api/platform-admin/capacity-addons 요청(CapacityAddOnDto.Request.CreateCapacityAddOn)과 맞춘다. */
+export interface CreateCapacityAddOnRequest {
+  capacityType: CapacityType;
+  unitAmount: number;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+}
+
+/**
+ * PUT /api/platform-admin/capacity-addons/{id} 요청(CapacityAddOnDto.Request.UpdateCapacityAddOn)과
+ * 맞춘다. capacityType은 생성 후 불변이라 CreateCapacityAddOnRequest와 달리 여기엔 없다.
+ */
+export interface UpdateCapacityAddOnRequest {
+  unitAmount: number;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
 }
 
 /** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */

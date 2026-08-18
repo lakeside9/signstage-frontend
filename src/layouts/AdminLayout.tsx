@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Package,
   ShieldCheck,
   User,
   Users,
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { to: '/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
   { to: '/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
+  { to: '/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
   { to: '/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
   { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];

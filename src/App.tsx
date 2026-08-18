@@ -12,6 +12,7 @@ import { AdminUserCreate } from './pages/AdminUserCreate';
 import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
+import { AdminBillingCatalog } from './pages/AdminBillingCatalog';
 import { UserDashboard } from './pages/UserDashboard';
 import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
@@ -91,6 +92,7 @@ function App() {
           <Route path="accounts" element={<AdminAccountList />} />
           <Route path="accounts/new" element={<AdminAccountCreate />} />
           <Route path="audit-logs" element={<AdminAuditLogList />} />
+          <Route path="billing-catalog" element={<AdminBillingCatalog />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
