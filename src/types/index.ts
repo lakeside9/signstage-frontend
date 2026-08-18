@@ -401,6 +401,12 @@ export interface CeremonySummary {
   title: string;
   description: string | null;
   status: CeremonyStatus;
+  organizingInstitution: string | null;
+  organizingDepartment: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
   createdBy: number;
   createdAt: string;
 }
@@ -412,6 +418,12 @@ export interface CeremonySummary {
 export interface UpdateCeremonyRequest {
   title: string;
   description: string | null;
+  organizingInstitution: string | null;
+  organizingDepartment: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
 }
 
 /** POST .../capacity-purchases 요청(CeremonyDto.Request.PurchaseCapacity)과 맞춘다. */

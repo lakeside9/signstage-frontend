@@ -8,6 +8,7 @@ import type {
   BillingPlanSummary,
   CapacityAddOnSummary,
   CapacityPurchaseSummary,
+  CeremonyStatus,
   CeremonySummary,
   OptionalFeaturePurchaseSummary,
   OptionalFeatureSummary,
@@ -19,6 +20,13 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   TEMPLATES: '템플릿 업로드 수',
   TEST_EVENTS: '테스트 행사 수',
   MAIN_EVENTS: '본행사 수',
+};
+
+/** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
+const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = { IN_PROGRESS: '진행중', COMPLETED: '완료' };
+const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
+  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = {
@@ -36,6 +44,9 @@ const PURCHASE_STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
 const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 const formatDiscount = (discountType: string, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
+
+const infoInputClass =
+  'w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100';
 
 const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${PURCHASE_STATUS_BADGE_CLASS[status]}`}>
@@ -67,6 +78,12 @@ export const UserCeremonyEdit: FC = () => {
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [organizingInstitutionDraft, setOrganizingInstitutionDraft] = useState('');
+  const [organizingDepartmentDraft, setOrganizingDepartmentDraft] = useState('');
+  const [contactNameDraft, setContactNameDraft] = useState('');
+  const [contactTitleDraft, setContactTitleDraft] = useState('');
+  const [contactPhoneDraft, setContactPhoneDraft] = useState('');
+  const [contactEmailDraft, setContactEmailDraft] = useState('');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   const [capacityAddOns, setCapacityAddOns] = useState<CapacityAddOnSummary[]>([]);
@@ -97,6 +114,12 @@ export const UserCeremonyEdit: FC = () => {
           setCeremony(data);
           setTitleDraft(data.title);
           setDescriptionDraft(data.description ?? '');
+          setOrganizingInstitutionDraft(data.organizingInstitution ?? '');
+          setOrganizingDepartmentDraft(data.organizingDepartment ?? '');
+          setContactNameDraft(data.contactName ?? '');
+          setContactTitleDraft(data.contactTitle ?? '');
+          setContactPhoneDraft(data.contactPhone ?? '');
+          setContactEmailDraft(data.contactEmail ?? '');
         }
       } catch (err) {
         if (!cancelled) {
@@ -276,6 +299,12 @@ export const UserCeremonyEdit: FC = () => {
       const response = await api.put(basePath, {
         title: titleDraft.trim(),
         description: descriptionDraft.trim() || null,
+        organizingInstitution: organizingInstitutionDraft.trim() || null,
+        organizingDepartment: organizingDepartmentDraft.trim() || null,
+        contactName: contactNameDraft.trim() || null,
+        contactTitle: contactTitleDraft.trim() || null,
+        contactPhone: contactPhoneDraft.trim() || null,
+        contactEmail: contactEmailDraft.trim() || null,
       });
       setCeremony(response.data as CeremonySummary);
       showSnackbar('행사 정보를 저장했습니다.', 'success');
@@ -352,7 +381,7 @@ export const UserCeremonyEdit: FC = () => {
   const isCompleted = ceremony.status === 'COMPLETED';
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <Link to={detailPath} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         행사 상세로
@@ -386,9 +415,94 @@ export const UserCeremonyEdit: FC = () => {
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
                 disabled={isSavingInfo}
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                className={infoInputClass}
               />
             </div>
+
+            <div>
+              <span className="block text-xs font-medium text-gray-500 mb-1">행사 상태</span>
+              <span
+                className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${CEREMONY_STATUS_COLOR[ceremony.status]}`}
+              >
+                {CEREMONY_STATUS_LABEL[ceremony.status]}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">행사 주관 기관</label>
+                <input
+                  type="text"
+                  value={organizingInstitutionDraft}
+                  onChange={(e) => setOrganizingInstitutionDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">행사 주관 부서</label>
+                <input
+                  type="text"
+                  value={organizingDepartmentDraft}
+                  onChange={(e) => setOrganizingDepartmentDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">담당자명</label>
+                <input
+                  type="text"
+                  value={contactNameDraft}
+                  onChange={(e) => setContactNameDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">담당자 직위</label>
+                <input
+                  type="text"
+                  value={contactTitleDraft}
+                  onChange={(e) => setContactTitleDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">담당자 전화번호</label>
+                <input
+                  type="tel"
+                  value={contactPhoneDraft}
+                  onChange={(e) => setContactPhoneDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">담당자 이메일</label>
+                <input
+                  type="email"
+                  value={contactEmailDraft}
+                  onChange={(e) => setContactEmailDraft(e.target.value)}
+                  disabled={isSavingInfo}
+                  placeholder="선택 입력"
+                  className={infoInputClass}
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">행사 설명</label>
               <textarea
@@ -397,9 +511,10 @@ export const UserCeremonyEdit: FC = () => {
                 disabled={isSavingInfo}
                 rows={3}
                 placeholder="선택 입력"
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
+                className={`${infoInputClass} resize-none`}
               />
             </div>
+
             <button
               type="submit"
               disabled={isSavingInfo}
