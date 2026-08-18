@@ -374,6 +374,25 @@ export interface UpdateOptionalFeaturesRequest {
   optionalFeatureIds: number[];
 }
 
+/** POST .../events/{eventId}/templates 요청(CeremonyEventDto.Request.MapTemplate)과 맞춘다. */
+export interface MapTemplateRequest {
+  templateId: number;
+  documentRole: TemplateDocumentRole;
+}
+
+/**
+ * GET/POST .../events/{eventId}/templates 응답(CeremonyEventDto.Response.CeremonyTemplateSummary)과
+ * 맞춘다. Template ↔ CeremonyEvent 매핑이다 — documentRole은 매핑 시점에 별도로 지정하는 값이라
+ * Template 자신의 documentRole과 다를 수 있다.
+ */
+export interface CeremonyTemplateSummary {
+  id: number;
+  ceremonyEventId: number;
+  templateId: number;
+  documentRole: TemplateDocumentRole;
+  createdAt: string;
+}
+
 /**
  * GET/POST /api/organizations/{organizationId}/ceremonies/{ceremonyId}/events(/{id}) 응답
  * (CeremonyEventDto.Response.CeremonyEventSummary)과 맞춘다. accessKey는 서명자 포털/WebSocket

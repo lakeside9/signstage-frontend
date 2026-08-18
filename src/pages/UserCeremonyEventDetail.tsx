@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, History, KeyRound, Loader2, PlayCircle, Sparkles, SquareCheckBig } from 'lucide-react';
+import {
+  ArrowLeft,
+  History,
+  KeyRound,
+  Link2,
+  Loader2,
+  Lock,
+  PlayCircle,
+  RotateCcw,
+  Sparkles,
+  SquareCheckBig,
+} from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -10,7 +21,11 @@ import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
+  CeremonyTemplateSummary,
   OptionalFeatureSummary,
+  SignerSummary,
+  TemplateDocumentRole,
+  TemplateSummary,
 } from '../types';
 
 const STATUS_LABEL: Record<CeremonyEventStatus, string> = {
@@ -38,18 +53,20 @@ const EVENT_ACTION_LABEL: Record<string, string> = {
   GENERATE_RESULTS: '결과물 생성',
 };
 
+const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+
 /**
  * 하위 행사(CeremonyEvent) 상세. 상태 배지 + 전이 버튼(DRAFT→READY→STARTED→FINISHED, 역행
- * 없음) + 적용 선택옵션 토글 + 감사 로그를 한 화면에 담는다.
+ * 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 감사 로그를 한 화면에 담는다.
  *
  * 적용 옵션 토글은 "이 행사 마스터가 구매한 옵션 중" 이라고 제한해 보여줘야 이상적이지만,
  * 백엔드에 선택옵션 구매 이력 조회 API가 아직 없어(1라운드 시점) 전체 카탈로그를 그대로
  * 보여준다 — 구매하지 않은 옵션을 켜면 백엔드가 `OPTIONAL_FEATURE_NOT_PURCHASED`로 막고 그
  * 메시지를 그대로 스낵바에 띄운다.
  *
- * 이번 라운드는 문서 매핑/서명자 배정 화면이 없어(2·3라운드) READY 전이는 항상
- * `CEREMONY_EVENT_MISSING_DOCUMENT_ROLE` 등으로 실패하는 게 정상이다 — 버튼 자체는 미리 만들어
- * 둔다.
+ * 3라운드부터 문서 매핑을 실제로 할 수 있어 READY/START 전이가 실제로 통과한다. 다만 FINISH는
+ * 서명자 포털(4라운드)이 있어야 채울 수 있는 조건(전원 서명 완료)이 있어, 지금은
+ * `CEREMONY_EVENT_FINISH_CONDITION_NOT_MET`으로 실패하는 게 정상이다.
  */
 export const UserCeremonyEventDetail: FC = () => {
   const { organizationId, ceremonyId, eventId } = useParams<{
@@ -71,6 +88,18 @@ export const UserCeremonyEventDetail: FC = () => {
 
   const [logs, setLogs] = useState<CeremonyEventLogSummary[]>([]);
   const [isLogsLoading, setIsLogsLoading] = useState(true);
+
+  const [allTemplates, setAllTemplates] = useState<TemplateSummary[]>([]);
+  const [mappedTemplates, setMappedTemplates] = useState<CeremonyTemplateSummary[]>([]);
+  const [isMappingLoading, setIsMappingLoading] = useState(true);
+  const [selectedMapTemplateId, setSelectedMapTemplateId] = useState<number | ''>('');
+  const [mapDocumentRole, setMapDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
+  const [isMapping, setIsMapping] = useState(false);
+
+  const [signers, setSigners] = useState<SignerSummary[]>([]);
+  const [isSignersLoading, setIsSignersLoading] = useState(true);
+  const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
+  const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
 
   const basePath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
 
@@ -164,6 +193,71 @@ export const UserCeremonyEventDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId, eventId]);
 
+  const fetchMappedTemplates = async () => {
+    const response = await api.get(
+      `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/templates`,
+    );
+    return response.data as CeremonyTemplateSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [templatesRes, mapped] = await Promise.all([
+          api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/templates`),
+          fetchMappedTemplates(),
+        ]);
+        if (!cancelled) {
+          setAllTemplates(templatesRes.data as TemplateSummary[]);
+          setMappedTemplates(mapped);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '문서 매핑 정보를 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsMappingLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId, eventId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/signers`);
+        if (!cancelled) {
+          setSigners(response.data as SignerSummary[]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '서명자 목록을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSignersLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const handleTransition = async (action: 'ready' | 'start' | 'finish') => {
     setIsTransitioning(true);
     try {
@@ -202,6 +296,58 @@ export const UserCeremonyEventDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setIsSavingFeatures(false);
+    }
+  };
+
+  const unmappedTemplates = allTemplates.filter(
+    (template) => !mappedTemplates.some((mapping) => mapping.templateId === template.id),
+  );
+
+  const handleSelectMapTemplate = (templateId: number | '') => {
+    setSelectedMapTemplateId(templateId);
+    const template = allTemplates.find((t) => t.id === templateId);
+    if (template) {
+      setMapDocumentRole(template.documentRole);
+    }
+  };
+
+  const handleMapTemplate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedMapTemplateId) {
+      showSnackbar('매핑할 문서를 선택해주세요.', 'error');
+      return;
+    }
+
+    setIsMapping(true);
+    try {
+      await api.post(`/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/templates`, {
+        templateId: selectedMapTemplateId,
+        documentRole: mapDocumentRole,
+      });
+      showSnackbar('문서를 매핑했습니다.', 'success');
+      setSelectedMapTemplateId('');
+      setMappedTemplates(await fetchMappedTemplates());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 매핑에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsMapping(false);
+    }
+  };
+
+  const handleReplaceSignature = async (signerId: number) => {
+    setProcessingReplaceSignerId(signerId);
+    try {
+      await api.post(
+        `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/signers/${signerId}/replace-signature`,
+      );
+      showSnackbar('재서명을 요청했습니다. 서명자가 다시 서명해야 완료 처리됩니다.', 'success');
+      setConfirmingReplaceSignerId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '재서명 요청에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingReplaceSignerId(null);
     }
   };
 
@@ -262,13 +408,96 @@ export const UserCeremonyEventDetail: FC = () => {
             <PlayCircle size={16} />
             {isTransitioning ? '처리 중...' : nextAction.label}
           </button>
-          {event.status === 'DRAFT' && (
+          {event.status === 'STARTED' && (
             <p className="mt-1.5 text-xs text-gray-400">
-              문서 매핑/서명자 배정 기능은 아직 없습니다(다음 라운드) — 지금은 시작 대기 조건 미충족 오류가 정상입니다.
+              서명자 포털 기능은 아직 없습니다(다음 라운드) — 지금은 서명 미완료 오류가 정상입니다.
             </p>
           )}
         </div>
       )}
+
+      {/* 문서 매핑 */}
+      <section className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-1">
+          <Link2 size={14} />
+          문서 매핑
+        </h2>
+        <p className="text-xs text-gray-400 mb-3">
+          시작 대기(READY) 조건 — CONTRACT/EXHIBITION 문서가 각각 1개 이상 매핑돼 있어야 합니다.
+        </p>
+        {isMappingLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : (
+          <>
+            {mappedTemplates.length === 0 ? (
+              <p className="text-sm text-gray-500 mb-3">아직 매핑된 문서가 없습니다.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 mb-3">
+                {mappedTemplates.map((mapping) => {
+                  const template = allTemplates.find((t) => t.id === mapping.templateId);
+                  return (
+                    <li key={mapping.id} className="flex items-center justify-between py-2 text-sm">
+                      <span className="text-gray-950">{template?.title ?? `#${mapping.templateId}`}</span>
+                      <span className="text-xs text-gray-500">{DOCUMENT_ROLE_LABEL[mapping.documentRole]}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {event.status === 'DRAFT' || event.status === 'READY' ? (
+              unmappedTemplates.length === 0 ? (
+                <p className="text-xs text-gray-400">매핑할 수 있는(아직 안 매핑된) 문서가 없습니다. 문서 양식 관리에서 먼저 업로드해주세요.</p>
+              ) : (
+                <form onSubmit={handleMapTemplate} className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">문서</label>
+                    <select
+                      value={selectedMapTemplateId}
+                      onChange={(e) => handleSelectMapTemplate(e.target.value ? Number(e.target.value) : '')}
+                      disabled={isMapping}
+                      className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+                    >
+                      <option value="">선택</option>
+                      {unmappedTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
+                    <select
+                      value={mapDocumentRole}
+                      onChange={(e) => setMapDocumentRole(e.target.value as TemplateDocumentRole)}
+                      disabled={isMapping}
+                      className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+                    >
+                      <option value="CONTRACT">계약서</option>
+                      <option value="EXHIBITION">전시문서</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isMapping}
+                    className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {isMapping ? '매핑 중...' : '매핑'}
+                  </button>
+                </form>
+              )
+            ) : (
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                <Lock size={12} />
+                시작 이후에는 문서 매핑을 바꿀 수 없습니다.
+              </p>
+            )}
+          </>
+        )}
+      </section>
 
       {/* 적용 선택옵션 */}
       <section className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
@@ -315,6 +544,61 @@ export const UserCeremonyEventDetail: FC = () => {
           </>
         )}
       </section>
+
+      {/* 재서명(관리자) */}
+      {event.status === 'STARTED' && (
+        <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-1">
+            <RotateCcw size={14} />
+            재서명 요청
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">
+            서명자가 이 하위 행사에서 진행한 서명을 전부 초기화하고 다시 서명하게 합니다. 완료 여부와 무관하게
+            가능하며, 되돌릴 수 없습니다.
+          </p>
+          {isSignersLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-400">
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          ) : signers.length === 0 ? (
+            <p className="text-sm text-gray-500">등록된 서명자가 없습니다.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {signers.map((signer) => (
+                <li key={signer.id} className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-950">{signer.name}</span>
+                  {confirmingReplaceSignerId === signer.id ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleReplaceSignature(signer.id)}
+                        disabled={processingReplaceSignerId === signer.id}
+                        className="px-3 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                      >
+                        확인
+                      </button>
+                      <button
+                        onClick={() => setConfirmingReplaceSignerId(null)}
+                        disabled={processingReplaceSignerId === signer.id}
+                        className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmingReplaceSignerId(signer.id)}
+                      className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+                    >
+                      <RotateCcw size={12} />
+                      재서명 요청
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* 감사 로그 */}
       <section className="mt-4">
