@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Client } from '@stomp/stompjs';
+import type { IMessage } from '@stomp/stompjs';
 import {
   ArrowLeft,
   History,
@@ -9,6 +11,7 @@ import {
   Loader2,
   Lock,
   PlayCircle,
+  Radio,
   RotateCcw,
   Sparkles,
   SquareCheckBig,
@@ -23,6 +26,7 @@ import type {
   CeremonyEventType,
   CeremonyTemplateSummary,
   OptionalFeatureSummary,
+  RealtimeEventMessage,
   SignerSummary,
   TemplateDocumentRole,
   TemplateSummary,
@@ -58,6 +62,11 @@ const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '�
 /**
  * 하위 행사(CeremonyEvent) 상세. 상태 배지 + 전이 버튼(DRAFT→READY→STARTED→FINISHED, 역행
  * 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 감사 로그를 한 화면에 담는다.
+ *
+ * 5라운드부터 WebSocket(STOMP, `/topic/events/{eventId}/state`)으로 실시간 동기화한다 —
+ * 구독 인가는 JWT가 아니라 이 이벤트의 `accessKey`로 한다(포털과 같은 원리, 4.5절 결정).
+ * 상태 전이/서명 완료/지우기/재서명을 다른 세션에서 하면 새로고침 없이 스낵바 + 감사 로그
+ * 재조회로 반영된다.
  *
  * 적용 옵션 토글은 "이 행사 마스터가 구매한 옵션 중" 이라고 제한해 보여줘야 이상적이지만,
  * 백엔드에 선택옵션 구매 이력 조회 API가 아직 없어(1라운드 시점) 전체 카탈로그를 그대로
@@ -100,6 +109,8 @@ export const UserCeremonyEventDetail: FC = () => {
   const [isSignersLoading, setIsSignersLoading] = useState(true);
   const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
   const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
+
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   const basePath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
 
@@ -164,16 +175,21 @@ export const UserCeremonyEventDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchLogs = async () => {
+    const response = await api.get(
+      `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/logs`,
+    );
+    return response.data as CeremonyEventLogSummary[];
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const response = await api.get(
-          `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/logs`,
-        );
+        const data = await fetchLogs();
         if (!cancelled) {
-          setLogs(response.data as CeremonyEventLogSummary[]);
+          setLogs(data);
         }
       } catch (err) {
         if (!cancelled) {
@@ -257,6 +273,76 @@ export const UserCeremonyEventDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
+
+  // WebSocket(STOMP) 실시간 동기화. event.accessKey가 있어야 구독 인가를 받으므로 이벤트
+  // 로드 이후에 연결한다. `event` 객체 전체가 아니라 id/accessKey 원시값에만 의존한다 —
+  // EVENT_STATUS_CHANGED 수신 시 fetchEvent()로 event를 새로 set하는데, `event` 객체 자체를
+  // 의존성으로 두면 매번 재연결되는 루프가 생긴다. Vite dev 프록시는 /api만 처리해 WS는
+  // 백엔드 오리진을 직접 가리킨다(개발 환경 한정 8080 고정 — 운영 환경 분리는 범위 밖).
+  useEffect(() => {
+    if (!event?.id || !event.accessKey) return;
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const client = new Client({
+      brokerURL: `${wsProtocol}://${window.location.hostname}:8080/ws-signstage`,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        setIsRealtimeConnected(true);
+        client.subscribe(
+          `/topic/events/${event.id}/state`,
+          (message: IMessage) => {
+            let realtimeEvent: RealtimeEventMessage;
+            try {
+              realtimeEvent = JSON.parse(message.body) as RealtimeEventMessage;
+            } catch {
+              return;
+            }
+
+            if (realtimeEvent.type === 'EVENT_STATUS_CHANGED') {
+              const previousStatus = realtimeEvent.payload.previousStatus as CeremonyEventStatus;
+              const newStatus = realtimeEvent.payload.newStatus as CeremonyEventStatus;
+              showSnackbar(
+                `상태가 ${STATUS_LABEL[previousStatus] ?? previousStatus} → ${STATUS_LABEL[newStatus] ?? newStatus}(으)로 변경되었습니다.`,
+                'info',
+              );
+              fetchEvent()
+                .then((data) => {
+                  setEvent(data);
+                  setAppliedFeatureIds(data.optionalFeatureIds);
+                })
+                .catch(() => {
+                  // 실시간 알림은 왔는데 재조회만 실패한 것 — 사용자가 새로고침하면 되므로
+                  // 별도 에러 처리는 하지 않는다.
+                });
+            } else if (realtimeEvent.type === 'SIGNATURE_COMPLETED') {
+              showSnackbar(`${realtimeEvent.payload.signerName}님이 서명을 완료했습니다.`, 'info');
+            } else if (realtimeEvent.type === 'SIGNATURE_CLEARED') {
+              showSnackbar('서명자가 서명란을 지웠습니다.', 'info');
+            } else if (realtimeEvent.type === 'SIGNATURE_REPLACED') {
+              showSnackbar(`${realtimeEvent.payload.signerName}님에게 재서명을 요청했습니다.`, 'info');
+            }
+
+            fetchLogs()
+              .then(setLogs)
+              .catch(() => {
+                // 위와 같은 이유로 무시한다.
+              });
+          },
+          { eventAccessKey: event.accessKey },
+        );
+      },
+      onWebSocketClose: () => setIsRealtimeConnected(false),
+      onStompError: () => setIsRealtimeConnected(false),
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+      setIsRealtimeConnected(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id, event?.accessKey]);
 
   const handleTransition = async (action: 'ready' | 'start' | 'finish') => {
     setIsTransitioning(true);
@@ -384,9 +470,17 @@ export const UserCeremonyEventDetail: FC = () => {
           <h1 className="text-xl font-bold text-gray-950">{event.name}</h1>
           <p className="mt-1 text-sm text-gray-500">{EVENT_TYPE_LABEL[event.eventType]}</p>
         </div>
-        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[event.status]}`}>
-          {STATUS_LABEL[event.status]}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-medium ${isRealtimeConnected ? 'text-emerald-600' : 'text-gray-400'}`}
+          >
+            <Radio size={12} />
+            {isRealtimeConnected ? '실시간 연결됨' : '연결 끊김'}
+          </span>
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[event.status]}`}>
+            {STATUS_LABEL[event.status]}
+          </span>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">

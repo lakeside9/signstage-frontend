@@ -427,6 +427,26 @@ export type CeremonyEventAction =
   | 'SIGNATURE_REPLACE'
   | 'GENERATE_RESULTS';
 
+/** feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다. */
+export type RealtimeEventType =
+  | 'EVENT_STATUS_CHANGED'
+  | 'SIGNATURE_COMPLETED'
+  | 'SIGNATURE_CLEARED'
+  | 'SIGNATURE_REPLACED';
+
+/**
+ * WebSocket(STOMP) `/topic/events/{eventId}/state` 메시지 봉투(RealtimeEventDto)와 맞춘다.
+ * `payload`는 `type`마다 모양이 달라(EVENT_STATUS_CHANGED: previousStatus/newStatus,
+ * SIGNATURE_COMPLETED/REPLACED: signerId/signerName, SIGNATURE_CLEARED: signerId/
+ * templateFieldId) 느슨하게 `Record<string, unknown>`으로 두고 처리부에서 타입 단언한다.
+ */
+export interface RealtimeEventMessage {
+  type: RealtimeEventType;
+  eventId: number;
+  occurredAt: string;
+  payload: Record<string, unknown>;
+}
+
 /**
  * GET .../events/{eventId}/logs 응답(CeremonyEventLogDto.Response.CeremonyEventLogSummary)과 맞춘다.
  * append-only 감사 로그다.
