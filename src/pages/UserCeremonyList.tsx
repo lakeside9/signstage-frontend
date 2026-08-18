@@ -173,30 +173,47 @@ export const UserCeremonyList: FC = () => {
             : undefined
         }
       >
-        <ul className="divide-y divide-gray-100">
-          {ceremonies.map((ceremony) => (
-            <li key={ceremony.id}>
-              <Link
-                to={`/org/ceremonies/${organizationId}/${ceremony.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <FileSignature size={16} className="text-gray-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-950 truncate">{ceremony.title}</p>
-                  <p className="text-xs text-gray-500">플랜: {planName(ceremony.billingPlanId)}</p>
-                </div>
-                <span
-                  className={`shrink-0 inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[ceremony.status]}`}
-                >
-                  {STATUS_LABEL[ceremony.status]}
-                </span>
-                <span className="shrink-0 text-xs text-gray-500">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium">행사명</th>
+              <th className="text-left px-4 py-3 font-medium">행사 상태</th>
+              <th className="text-left px-4 py-3 font-medium">행사 주관 기관</th>
+              <th className="text-left px-4 py-3 font-medium">행사 주관 부서</th>
+              <th className="text-left px-4 py-3 font-medium">담당자명</th>
+              <th className="text-right px-4 py-3 font-medium">생성일</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {ceremonies.map((ceremony) => (
+              <tr key={ceremony.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3 font-medium">
+                  <Link
+                    to={`/org/ceremonies/${organizationId}/${ceremony.id}`}
+                    className="flex items-center gap-1.5 text-gray-950 hover:underline"
+                  >
+                    <FileSignature size={14} className="text-gray-400 shrink-0" />
+                    {ceremony.title}
+                  </Link>
+                  <p className="mt-0.5 text-xs text-gray-400">플랜: {planName(ceremony.billingPlanId)}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[ceremony.status]}`}
+                  >
+                    {STATUS_LABEL[ceremony.status]}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-600">{ceremony.organizingInstitution || '-'}</td>
+                <td className="px-4 py-3 text-gray-600">{ceremony.organizingDepartment || '-'}</td>
+                <td className="px-4 py-3 text-gray-600">{ceremony.contactName || '-'}</td>
+                <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
                   {new Date(ceremony.createdAt).toLocaleDateString('ko-KR')}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </ListContainer>
     </div>
   );
