@@ -525,7 +525,11 @@ export type CeremonyEventType = 'TEST' | 'MAIN';
 /** feature.ceremony.entity.CeremonyEventStatus 값과 맞춘다. 전이는 앞으로만 간다(역행 없음). */
 export type CeremonyEventStatus = 'DRAFT' | 'READY' | 'STARTED' | 'FINISHED';
 
-/** POST .../events 요청(CeremonyEventDto.Request.CreateCeremonyEvent)과 맞춘다. */
+/**
+ * POST .../events 요청(CeremonyEventDto.Request.CreateCeremonyEvent)과 맞춘다.
+ * `optionalFeatureIds`를 생략하면(undefined) 백엔드가 아무 옵션도 적용하지 않는다 — 등록
+ * 화면에서 바로 적용 선택옵션을 켤 수 있게 5라운드에서 추가했다.
+ */
 export interface CreateCeremonyEventRequest {
   name: string;
   eventType: CeremonyEventType;
@@ -533,15 +537,21 @@ export interface CreateCeremonyEventRequest {
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
   description: string | null;
+  optionalFeatureIds?: number[];
 }
 
-/** PUT .../events/{eventId} 요청(CeremonyEventDto.Request.UpdateCeremonyEvent)과 맞춘다. */
+/**
+ * PUT .../events/{eventId} 요청(CeremonyEventDto.Request.UpdateCeremonyEvent)과 맞춘다.
+ * `optionalFeatureIds`를 생략하면(undefined) 기존 적용 목록을 그대로 두고, 빈 배열을
+ * 명시적으로 보내면 전부 해제한다.
+ */
 export interface UpdateCeremonyEventRequest {
   name: string;
   venue: string | null;
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
   description: string | null;
+  optionalFeatureIds?: number[];
 }
 
 /** PUT .../events/{eventId}/optional-features 요청(CeremonyEventDto.Request.UpdateOptionalFeatures)과 맞춘다. */
@@ -602,12 +612,18 @@ export type CeremonyEventAction =
   | 'SIGNATURE_REPLACE'
   | 'GENERATE_RESULTS';
 
-/** feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다. */
+/**
+ * feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다.
+ * `SIGNATURE_STROKE_SUBMITTED`는 행사제어/프로젝터 화면의 실시간 펜 궤적 렌더링 전용이다
+ * (payload: signerId/templateFieldId/strokeSeq/rawData) — legacy처럼 "확정 이벤트만
+ * 전파"하던 정책을 이번에 뒤집었다.
+ */
 export type RealtimeEventType =
   | 'EVENT_STATUS_CHANGED'
   | 'SIGNATURE_COMPLETED'
   | 'SIGNATURE_CLEARED'
-  | 'SIGNATURE_REPLACED';
+  | 'SIGNATURE_REPLACED'
+  | 'SIGNATURE_STROKE_SUBMITTED';
 
 /**
  * WebSocket(STOMP) `/topic/events/{eventId}/state` 메시지 봉투(RealtimeEventDto)와 맞춘다.
@@ -823,4 +839,45 @@ export interface TemplateFieldSummary {
   widthRatio: number;
   heightRatio: number;
   createdAt: string;
+}
+
+/**
+ * GET .../events/{eventId}/strokes, GET /api/projector/events/{eventAccessKey}/strokes
+ * 응답(StrokeDataDto.Response.StrokeSummary)과 맞춘다. `rawData`는 필드 박스 기준 0~1 좌표
+ * JSON 배열 문자열(`[[x,y],...]`) — `MappedDocumentPreview`가 파싱해서 Konva Line으로 그린다.
+ */
+export interface StrokeSummary {
+  id: number;
+  signerId: number;
+  templateFieldId: number;
+  strokeSeq: number;
+  rawData: string;
+  createdAt: string;
+}
+
+/**
+ * GET /api/projector/events/{eventAccessKey} 응답(ProjectorDto.Response.ProjectorContext)과
+ * 맞춘다. 공개 프로젝터 화면(전시용 화면) 전용 — JWT 없이 eventAccessKey 소지만으로 조회한다.
+ */
+export interface ProjectorContext {
+  eventId: number;
+  eventName: string;
+  eventStatus: CeremonyEventStatus;
+  eventAccessKey: string;
+  exhibition: ProjectorExhibitionDocument | null;
+}
+
+export interface ProjectorExhibitionDocument {
+  templateId: number;
+  title: string;
+  pageCount: number;
+  width: number | null;
+  height: number | null;
+  fields: TemplateFieldSummary[];
+  signers: ProjectorSignerInfo[];
+}
+
+export interface ProjectorSignerInfo {
+  id: number;
+  name: string;
 }

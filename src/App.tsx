@@ -26,9 +26,11 @@ import { UserCeremonyDetail } from './pages/UserCeremonyDetail';
 import { UserCeremonyEdit } from './pages/UserCeremonyEdit';
 import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
 import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
+import { UserCeremonyEventControl } from './pages/UserCeremonyEventControl';
 import { UserTemplateDetail } from './pages/UserTemplateDetail';
 import { SignerPortalView } from './pages/SignerPortalView';
 import { DocumentVerificationView } from './pages/DocumentVerificationView';
+import { ProjectorView } from './pages/ProjectorView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -42,6 +44,7 @@ function App() {
         <Route path="/signup" element={<SignupView />} />
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
         <Route path="/verify" element={<DocumentVerificationView />} />
+        <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
 
         <Route
           path="/org"
@@ -64,6 +67,10 @@ function App() {
           <Route
             path="ceremonies/:organizationId/:ceremonyId/events/:eventId"
             element={<UserCeremonyEventDetail />}
+          />
+          <Route
+            path="ceremonies/:organizationId/:ceremonyId/events/:eventId/control"
+            element={<UserCeremonyEventControl />}
           />
           <Route
             path="ceremonies/:organizationId/:ceremonyId/templates/:templateId"

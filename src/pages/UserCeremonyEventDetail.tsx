@@ -5,13 +5,12 @@ import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
 import {
   ArrowLeft,
-  Download,
   History,
   KeyRound,
   Link2,
   Loader2,
   Lock,
-  PackageCheck,
+  MonitorPlay,
   PlayCircle,
   Radio,
   RotateCcw,
@@ -19,6 +18,7 @@ import {
   SquareCheckBig,
 } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
+import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
@@ -26,13 +26,12 @@ import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
-  CeremonyResultSummary,
-  CeremonyResultType,
   CeremonyTemplateSummary,
   OptionalFeatureSummary,
   RealtimeEventMessage,
   SignerSummary,
   TemplateDocumentRole,
+  TemplateFieldSummary,
   TemplateSummary,
 } from '../types';
 
@@ -62,22 +61,28 @@ const EVENT_ACTION_LABEL: Record<string, string> = {
 };
 
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
-const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
 
 /**
- * 하위 행사(CeremonyEvent) 상세. 상태 배지 + 전이 버튼(DRAFT→READY→STARTED→FINISHED, 역행
- * 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 결과물(FINISHED 전용) + 감사
- * 로그를 한 화면에 담는다.
+ * 하위 행사(CeremonyEvent) 상세("설정" 화면). 상태 배지 + 전이 버튼(DRAFT→READY→STARTED→
+ * FINISHED, 역행 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 감사 로그를 담는다.
+ * legacy(~/Works/eform/source/signstage)가 문서매핑 전용 화면(`CeremonyEventDetail.tsx`,
+ * sub/11)과 실시간 운영 콘솔(`CeremonyControl.tsx`, sub/10/control)을 분리해 둔 것을 참고해,
+ * 결과물 생성/다운로드는 새 `UserCeremonyEventControl`(`.../events/:eventId/control`)로
+ * 옮겼다 — 이 화면은 "행사 제어" 링크로 그리로 들어간다.
  *
  * 5라운드부터 WebSocket(STOMP, `/topic/events/{eventId}/state`)으로 실시간 동기화한다 —
  * 구독 인가는 JWT가 아니라 이 이벤트의 `accessKey`로 한다(포털과 같은 원리, 4.5절 결정).
  * 상태 전이/서명 완료/지우기/재서명을 다른 세션에서 하면 새로고침 없이 스낵바 + 감사 로그
  * 재조회로 반영된다.
  *
- * 적용 옵션 토글은 "이 행사 마스터가 구매한 옵션 중" 이라고 제한해 보여줘야 이상적이지만,
- * 백엔드에 선택옵션 구매 이력 조회 API가 아직 없어(1라운드 시점) 전체 카탈로그를 그대로
- * 보여준다 — 구매하지 않은 옵션을 켜면 백엔드가 `OPTIONAL_FEATURE_NOT_PURCHASED`로 막고 그
- * 메시지를 그대로 스낵바에 띄운다.
+ * 문서 매핑 섹션은 legacy `CeremonyEventDetail.tsx`(sub/11)를 참고해 매핑된 CONTRACT/
+ * EXHIBITION 문서 각각 첫 번째를 `MappedDocumentPreview`로 페이지 이미지 위에 서명란
+ * 오버레이까지 보여준다(스트로크는 아직 서명 전이라 넘기지 않는다 — 정적 미리보기).
+ *
+ * 적용 선택옵션은 이 행사 마스터가 실제로 쓸 수 있는(플랜 포함분+승인된 추가구매) 목록만
+ * `/available-optional-features`로 걸러서 보여준다(구매 안 한 옵션을 보여줬다가 저장
+ * 시점에야 실패를 아는 예전 방식의 한계를 없앴다) — 등록/수정 화면에서도 같은 목록으로
+ * 바로 적용할 수 있다.
  *
  * 3라운드부터 문서 매핑을 실제로 할 수 있어 READY/START 전이가 실제로 통과한다. FINISH는
  * 필수 서명자 전원이 서명자 포털(`SignerPortalView`, `/portal/:eventAccessKey/:signerAccessKey`,
@@ -116,9 +121,12 @@ export const UserCeremonyEventDetail: FC = () => {
   const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
   const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
 
-  const [results, setResults] = useState<CeremonyResultSummary[]>([]);
-  const [isResultsLoading, setIsResultsLoading] = useState(true);
-  const [isGeneratingResults, setIsGeneratingResults] = useState(false);
+  // 문서 매핑 정적 미리보기(MappedDocumentPreview)용 — 매핑된 CONTRACT/EXHIBITION 각 첫
+  // 번째 템플릿의 서명란/페이지 수만 지연 로드한다.
+  const [previewFieldsByTemplateId, setPreviewFieldsByTemplateId] = useState<Map<number, TemplateFieldSummary[]>>(
+    new Map(),
+  );
+  const [previewPageCountByTemplateId, setPreviewPageCountByTemplateId] = useState<Map<number, number>>(new Map());
 
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
@@ -163,7 +171,9 @@ export const UserCeremonyEventDetail: FC = () => {
 
     (async () => {
       try {
-        const response = await api.get('/optional-features');
+        const response = await api.get(
+          `/organizations/${organizationId}/ceremonies/${ceremonyId}/available-optional-features`,
+        );
         if (!cancelled) {
           setOptionalFeatures(response.data as OptionalFeatureSummary[]);
         }
@@ -183,7 +193,7 @@ export const UserCeremonyEventDetail: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [organizationId, ceremonyId]);
 
   const fetchLogs = async () => {
     const response = await api.get(
@@ -257,6 +267,41 @@ export const UserCeremonyEventDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId, eventId]);
 
+  // 매핑된 CONTRACT/EXHIBITION 각 첫 번째 템플릿의 서명란/페이지 수를 지연 로드한다 —
+  // MappedDocumentPreview 정적 미리보기용. 이미 로드한 templateId는 다시 요청하지 않는다.
+  useEffect(() => {
+    const previewTemplateIds = (['CONTRACT', 'EXHIBITION'] as const)
+      .map((role) => mappedTemplates.find((mapping) => mapping.documentRole === role)?.templateId)
+      .filter((id): id is number => id != null && !previewFieldsByTemplateId.has(id));
+
+    if (previewTemplateIds.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      for (const templateId of previewTemplateIds) {
+        try {
+          const [fieldsRes, infoRes] = await Promise.all([
+            api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/templates/${templateId}/fields`),
+            api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/templates/${templateId}/info`),
+          ]);
+          if (cancelled) return;
+          setPreviewFieldsByTemplateId((prev) => new Map(prev).set(templateId, fieldsRes.data as TemplateFieldSummary[]));
+          setPreviewPageCountByTemplateId((prev) =>
+            new Map(prev).set(templateId, (infoRes.data as { pageCount: number }).pageCount),
+          );
+        } catch {
+          // 미리보기 하나가 실패해도 나머지 화면에 영향이 없게 조용히 넘어간다.
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mappedTemplates, organizationId, ceremonyId]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -283,79 +328,6 @@ export const UserCeremonyEventDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
-
-  const fetchResults = async () => {
-    const response = await api.get(
-      `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results`,
-    );
-    return response.data as CeremonyResultSummary[];
-  };
-
-  // FINISHED가 아니면 결과물이 있을 수 없다(백엔드도 EVENT_NOT_FINISHED로 생성을 막는다) — 그
-  // 상태일 때만 조회한다.
-  // FINISHED가 아니면 조회하지 않고 그냥 끝낸다 — 결과물 섹션 자체가 event.status ===
-  // 'FINISHED'일 때만 렌더링되므로 다른 상태에서 isResultsLoading이 기본값(true)에 머물러도
-  // 화면에 영향이 없다(다른 로딩 상태들과 같은 패턴 — 초기값 true, async 콜백의 finally에서만
-  // false로 바꾼다. 이펙트 본문에서 동기적으로 setState하면 안 된다는 린트 규칙 때문이다).
-  useEffect(() => {
-    if (event?.status !== 'FINISHED') return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const data = await fetchResults();
-        if (!cancelled) {
-          setResults(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : '결과물 목록을 불러오지 못했습니다.';
-          showSnackbar(message, 'error');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsResultsLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, ceremonyId, eventId, event?.status]);
-
-  const handleGenerateResults = async () => {
-    setIsGeneratingResults(true);
-    try {
-      await api.post(`/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results`);
-      showSnackbar('결과물을 생성했습니다.', 'success');
-      setResults(await fetchResults());
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '결과물 생성에 실패했습니다.';
-      showSnackbar(message, 'error');
-    } finally {
-      setIsGeneratingResults(false);
-    }
-  };
-
-  const handleDownloadResult = async (result: CeremonyResultSummary) => {
-    try {
-      const blob = await api.getBlob(
-        `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results/${result.id}/file`,
-      );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = result.originalFilename;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '파일 다운로드에 실패했습니다.';
-      showSnackbar(message, 'error');
-    }
-  };
 
   // WebSocket(STOMP) 실시간 동기화. event.accessKey가 있어야 구독 인가를 받으므로 이벤트
   // 로드 이후에 연결한다. `event` 객체 전체가 아니라 id/accessKey 원시값에만 의존한다 —
@@ -532,6 +504,14 @@ export const UserCeremonyEventDetail: FC = () => {
     return null;
   }
 
+  const signerNameById = new Map(signers.map((signer) => [signer.id, signer.name]));
+  const makeFetchPage = (templateId: number) => (pageIndex: number, scale: number) =>
+    api.getBlob(
+      `/organizations/${organizationId}/ceremonies/${ceremonyId}/templates/${templateId}/pages/${pageIndex}?scale=${scale}`,
+    );
+  const contractPreviewTemplateId = mappedTemplates.find((m) => m.documentRole === 'CONTRACT')?.templateId;
+  const exhibitionPreviewTemplateId = mappedTemplates.find((m) => m.documentRole === 'EXHIBITION')?.templateId;
+
   const nextAction: { action: 'ready' | 'start' | 'finish'; label: string } | null =
     event.status === 'DRAFT'
       ? { action: 'ready', label: '시작 대기(READY)로 전이' }
@@ -563,6 +543,13 @@ export const UserCeremonyEventDetail: FC = () => {
           <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[event.status]}`}>
             {STATUS_LABEL[event.status]}
           </span>
+          <Link
+            to={`${basePath}/events/${eventId}/control`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700"
+          >
+            <MonitorPlay size={14} />
+            행사 제어
+          </Link>
         </div>
       </div>
 
@@ -672,6 +659,31 @@ export const UserCeremonyEventDetail: FC = () => {
                 시작 이후에는 문서 매핑을 바꿀 수 없습니다.
               </p>
             )}
+
+            {(contractPreviewTemplateId != null || exhibitionPreviewTemplateId != null) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {exhibitionPreviewTemplateId != null && (
+                  <MappedDocumentPreview
+                    label="전시용 문서 (EXHIBITION)"
+                    fields={previewFieldsByTemplateId.get(exhibitionPreviewTemplateId) ?? []}
+                    signerNameById={signerNameById}
+                    fetchPage={makeFetchPage(exhibitionPreviewTemplateId)}
+                    pageCount={previewPageCountByTemplateId.get(exhibitionPreviewTemplateId) ?? 0}
+                    emptyMessage="전시용 문서를 불러오는 중입니다."
+                  />
+                )}
+                {contractPreviewTemplateId != null && (
+                  <MappedDocumentPreview
+                    label="서명용 문서 (CONTRACT)"
+                    fields={previewFieldsByTemplateId.get(contractPreviewTemplateId) ?? []}
+                    signerNameById={signerNameById}
+                    fetchPage={makeFetchPage(contractPreviewTemplateId)}
+                    pageCount={previewPageCountByTemplateId.get(contractPreviewTemplateId) ?? 0}
+                    emptyMessage="서명용 문서를 불러오는 중입니다."
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
       </section>
@@ -683,14 +695,14 @@ export const UserCeremonyEventDetail: FC = () => {
           적용 선택옵션
         </h2>
         <p className="text-xs text-gray-400 mb-3">
-          행사 마스터가 구매하지 않은 옵션을 켜면 저장 시 오류가 발생합니다. 구매는 행사 상세 화면에서 합니다.
+          이 행사 마스터가 실제로 쓸 수 있는(플랜 포함분 + 승인된 추가구매) 옵션만 나열합니다.
         </p>
         {isFeaturesLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : optionalFeatures.length === 0 ? (
-          <p className="text-sm text-gray-500">등록된 선택옵션이 없습니다.</p>
+          <p className="text-sm text-gray-500">적용할 수 있는 선택옵션이 없습니다. 구매는 행사 상세 화면에서 합니다.</p>
         ) : (
           <>
             <ul className="divide-y divide-gray-100">
@@ -773,59 +785,6 @@ export const UserCeremonyEventDetail: FC = () => {
                 </li>
               ))}
             </ul>
-          )}
-        </section>
-      )}
-
-      {/* 결과물 */}
-      {event.status === 'FINISHED' && (
-        <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-1">
-            <PackageCheck size={14} />
-            결과물
-          </h2>
-          <p className="text-xs text-gray-400 mb-3">서명이 그려진 최종 PDF입니다. 이벤트당 한 번만 생성할 수 있습니다.</p>
-          {isResultsLoading ? (
-            <div className="flex items-center justify-center py-8 text-gray-400">
-              <Loader2 size={20} className="animate-spin" />
-            </div>
-          ) : (
-            <>
-              {results.length === 0 ? (
-                <p className="text-sm text-gray-500 mb-3">아직 생성된 결과물이 없습니다.</p>
-              ) : (
-                <ul className="divide-y divide-gray-100 mb-3">
-                  {results.map((result) => (
-                    <li key={result.id} className="flex items-center justify-between py-2">
-                      <div className="min-w-0">
-                        <p className="text-sm text-gray-950 truncate">
-                          {RESULT_TYPE_LABEL[result.resultType]} · {result.originalFilename}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {(result.fileSize / 1024).toFixed(0)}KB · {new Date(result.createdAt).toLocaleString('ko-KR')}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDownloadResult(result)}
-                        className="shrink-0 flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-                      >
-                        <Download size={12} />
-                        다운로드
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {results.length === 0 && (
-                <button
-                  onClick={handleGenerateResults}
-                  disabled={isGeneratingResults}
-                  className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {isGeneratingResults ? '생성 중...' : '결과물 생성'}
-                </button>
-              )}
-            </>
           )}
         </section>
       )}

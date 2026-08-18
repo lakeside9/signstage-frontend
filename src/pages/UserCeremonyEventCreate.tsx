@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, SquareCheckBig } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { CeremonyEventSummary, CeremonyEventType } from '../types';
+import type { CeremonyEventSummary, CeremonyEventType, OptionalFeatureSummary } from '../types';
 
 /**
  * 하위 행사(CeremonyEvent) 등록 화면. TEST/MAIN 두 유형이 있고(signstage-docs
  * business/ceremony-feature-migration-review.md 2.2절), 생성 시점엔 `DRAFT` 상태로 시작한다 —
  * 문서 매핑/서명자 배정을 마쳐야 `READY`로 전이할 수 있다(2·3라운드 이후).
+ *
+ * 적용 선택옵션은 이전에는 등록 후 상세 화면에서만 켤 수 있었는데, 이번에 등록 시점에
+ * 바로 적용할 수 있게 추가했다(수정 화면도 동일 — `UserCeremonyDetail.tsx`의 "하위 행사
+ * 수정" 모달 참고). 목록은 이 행사 마스터가 실제로 쓸 수 있는(플랜 포함분 + 승인된
+ * 추가구매) 옵션만 `/available-optional-features`로 걸러서 보여준다.
  */
 export const UserCeremonyEventCreate: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -24,7 +29,46 @@ export const UserCeremonyEventCreate: FC = () => {
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const [availableFeatures, setAvailableFeatures] = useState<OptionalFeatureSummary[]>([]);
+  const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
+  const [selectedFeatureIds, setSelectedFeatureIds] = useState<number[]>([]);
+
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(
+          `/organizations/${organizationId}/ceremonies/${ceremonyId}/available-optional-features`,
+        );
+        if (!cancelled) {
+          setAvailableFeatures(response.data as OptionalFeatureSummary[]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '선택옵션을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsFeaturesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  const toggleFeature = (featureId: number) => {
+    setSelectedFeatureIds((prev) =>
+      prev.includes(featureId) ? prev.filter((id) => id !== featureId) : [...prev, featureId],
+    );
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,6 +87,7 @@ export const UserCeremonyEventCreate: FC = () => {
         scheduledStartAt: scheduledStartAt || null,
         scheduledEndAt: scheduledEndAt || null,
         description: description.trim() || null,
+        optionalFeatureIds: selectedFeatureIds,
       });
       const created = response.data as CeremonyEventSummary;
       showSnackbar('하위 행사가 등록되었습니다.', 'success');
@@ -144,6 +189,34 @@ export const UserCeremonyEventCreate: FC = () => {
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
             placeholder="선택 입력"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">적용 선택옵션</label>
+          {isFeaturesLoading ? (
+            <p className="text-xs text-gray-400">불러오는 중...</p>
+          ) : availableFeatures.length === 0 ? (
+            <p className="text-xs text-gray-400">적용할 수 있는 선택옵션이 없습니다. 구매는 행사 상세 화면에서 합니다.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg px-3">
+              {availableFeatures.map((feature) => (
+                <li key={feature.id} className="flex items-center gap-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleFeature(feature.id)}
+                    disabled={isLoading}
+                    className="shrink-0 text-gray-950"
+                  >
+                    <SquareCheckBig
+                      size={18}
+                      className={selectedFeatureIds.includes(feature.id) ? 'text-gray-950' : 'text-gray-300'}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-950">{feature.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <button

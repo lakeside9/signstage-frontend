@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Settings,
+  SquareCheckBig,
   Trash2,
   Upload,
   Users,
@@ -28,6 +29,7 @@ import type {
   CeremonyEventType,
   CeremonyStatus,
   CeremonySummary,
+  OptionalFeatureSummary,
   SignerSummary,
   TemplateDocumentRole,
   TemplateStatus,
@@ -137,7 +139,12 @@ export const UserCeremonyDetail: FC = () => {
   const [editEventScheduledStart, setEditEventScheduledStart] = useState('');
   const [editEventScheduledEnd, setEditEventScheduledEnd] = useState('');
   const [editEventDescription, setEditEventDescription] = useState('');
+  const [editEventFeatureIds, setEditEventFeatureIds] = useState<number[]>([]);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+
+  // "하위 행사 수정" 모달의 적용 선택옵션 체크박스용 — 이 행사 마스터가 실제로 쓸 수 있는
+  // (플랜 포함분 + 승인된 추가구매) 목록만 걸러서 보여준다(등록 화면과 같은 엔드포인트).
+  const [availableEventFeatures, setAvailableEventFeatures] = useState<OptionalFeatureSummary[]>([]);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -212,6 +219,27 @@ export const UserCeremonyDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`${basePath}/available-optional-features`);
+        if (!cancelled) {
+          setAvailableEventFeatures(response.data as OptionalFeatureSummary[]);
+        }
+      } catch {
+        // 수정 모달을 아직 안 열었을 수도 있어 조용히 넘어간다 — 모달을 열 때 목록이 비어
+        // 있으면 "적용할 수 있는 선택옵션이 없습니다"로 보이는 것으로 충분하다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const startEditEvent = (event: CeremonyEventSummary) => {
     setDeletingEventId(null);
     setEditingEventId(event.id);
@@ -220,6 +248,13 @@ export const UserCeremonyDetail: FC = () => {
     setEditEventScheduledStart(toDateTimeLocalValue(event.scheduledStartAt));
     setEditEventScheduledEnd(toDateTimeLocalValue(event.scheduledEndAt));
     setEditEventDescription(event.description ?? '');
+    setEditEventFeatureIds(event.optionalFeatureIds);
+  };
+
+  const toggleEditEventFeature = (featureId: number) => {
+    setEditEventFeatureIds((prev) =>
+      prev.includes(featureId) ? prev.filter((id) => id !== featureId) : [...prev, featureId],
+    );
   };
 
   const handleSaveEventEdit = async (eventId: number) => {
@@ -235,6 +270,7 @@ export const UserCeremonyDetail: FC = () => {
         scheduledStartAt: editEventScheduledStart || null,
         scheduledEndAt: editEventScheduledEnd || null,
         description: editEventDescription.trim() || null,
+        optionalFeatureIds: editEventFeatureIds,
       });
       showSnackbar('하위 행사를 저장했습니다.', 'success');
       setEditingEventId(null);
@@ -1124,6 +1160,31 @@ export const UserCeremonyDetail: FC = () => {
               placeholder="선택 입력"
               className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">적용 선택옵션</label>
+            {availableEventFeatures.length === 0 ? (
+              <p className="text-xs text-gray-400">적용할 수 있는 선택옵션이 없습니다. 구매는 행사 상세에서 합니다.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 border border-gray-200 rounded-md px-2">
+                {availableEventFeatures.map((feature) => (
+                  <li key={feature.id} className="flex items-center gap-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleEditEventFeature(feature.id)}
+                      disabled={processingEventId === editingEventId}
+                      className="shrink-0 text-gray-950"
+                    >
+                      <SquareCheckBig
+                        size={16}
+                        className={editEventFeatureIds.includes(feature.id) ? 'text-gray-950' : 'text-gray-300'}
+                      />
+                    </button>
+                    <span className="text-sm text-gray-950">{feature.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button
