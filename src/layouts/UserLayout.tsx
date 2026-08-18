@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, ChevronLeft, ClipboardCheck, Key, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
+import {
+  Building2,
+  ChevronLeft,
+  ClipboardCheck,
+  FileSignature,
+  Key,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  User,
+} from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types';
@@ -10,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/org', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
   { to: '/org/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
   { to: '/org/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
+  { to: '/org/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
   { to: '/org/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 

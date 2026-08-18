@@ -17,6 +17,12 @@ import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
 import { UserOrganizationRequests } from './pages/UserOrganizationRequests';
 import { AdminOrganizationRequestList } from './pages/AdminOrganizationRequestList';
+import { UserCeremonyEntry } from './pages/UserCeremonyEntry';
+import { UserCeremonyList } from './pages/UserCeremonyList';
+import { UserCeremonyCreate } from './pages/UserCeremonyCreate';
+import { UserCeremonyDetail } from './pages/UserCeremonyDetail';
+import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
+import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -41,6 +47,15 @@ function App() {
           <Route path="organizations" element={<UserOrganizationList />} />
           <Route path="organizations/:organizationId" element={<UserOrganizationDetail />} />
           <Route path="organization-requests" element={<UserOrganizationRequests />} />
+          <Route path="ceremonies" element={<UserCeremonyEntry />} />
+          <Route path="ceremonies/:organizationId" element={<UserCeremonyList />} />
+          <Route path="ceremonies/:organizationId/new" element={<UserCeremonyCreate />} />
+          <Route path="ceremonies/:organizationId/:ceremonyId" element={<UserCeremonyDetail />} />
+          <Route path="ceremonies/:organizationId/:ceremonyId/events/new" element={<UserCeremonyEventCreate />} />
+          <Route
+            path="ceremonies/:organizationId/:ceremonyId/events/:eventId"
+            element={<UserCeremonyEventDetail />}
+          />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 

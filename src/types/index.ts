@@ -245,3 +245,180 @@ export interface PageResponse<T> {
   totalPages: number;
   hasNext: boolean;
 }
+
+// ── 행사(Ceremony) ──────────────────────────────────────────────────────
+// signstage-docs business/ceremony-feature-migration-review.md,
+// business/ceremony-billing-options-review.md 결정을 구현한 signstage-backend
+// feature.ceremony 패키지 DTO와 맞춘다.
+
+/** feature.ceremony.entity.DiscountType 값과 맞춘다. */
+export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
+
+/** GET /api/billing-plans 응답(BillingPlanDto.Response.BillingPlanSummary)과 맞춘다. */
+export interface BillingPlanSummary {
+  id: number;
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  maxSigners: number;
+  maxTemplates: number;
+  maxTestEvents: number;
+  maxMainEvents: number;
+  optionalFeatureIds: number[];
+  createdAt: string;
+}
+
+/** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
+export type OptionalFeatureCode = 'SIGNER_FIELD_ZOOM' | 'ALL_SIGNED_FIREWORKS' | 'VIDEO_ATTENDANCE';
+
+/** GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다. */
+export interface OptionalFeatureSummary {
+  id: number;
+  code: OptionalFeatureCode;
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  createdAt: string;
+}
+
+/** feature.ceremony.entity.CapacityType 값과 맞춘다. */
+export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'MAIN_EVENTS';
+
+/** GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다. */
+export interface CapacityAddOnSummary {
+  id: number;
+  capacityType: CapacityType;
+  unitAmount: number;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  createdAt: string;
+}
+
+/** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */
+export interface CreateCeremonyRequest {
+  billingPlanId: number;
+  title: string;
+}
+
+/**
+ * GET/POST /api/organizations/{organizationId}/ceremonies(/{id}) 응답
+ * (CeremonyDto.Response.CeremonySummary)과 맞춘다.
+ */
+export interface CeremonySummary {
+  id: number;
+  organizationId: number;
+  billingPlanId: number;
+  title: string;
+  createdBy: number;
+  createdAt: string;
+}
+
+/** POST .../capacity-purchases 요청(CeremonyDto.Request.PurchaseCapacity)과 맞춘다. */
+export interface PurchaseCapacityRequest {
+  capacityAddOnId: number;
+  quantity: number;
+}
+
+/** POST .../capacity-purchases 응답(CeremonyDto.Response.CapacityPurchaseSummary)과 맞춘다. */
+export interface CapacityPurchaseSummary {
+  id: number;
+  ceremonyId: number;
+  capacityAddOnId: number;
+  quantity: number;
+  purchasedSalePrice: number;
+  purchasedDiscountType: DiscountType;
+  purchasedDiscountValue: number;
+  createdAt: string;
+}
+
+/** POST .../optional-feature-purchases 요청(CeremonyDto.Request.PurchaseOptionalFeature)과 맞춘다. */
+export interface PurchaseOptionalFeatureRequest {
+  optionalFeatureId: number;
+}
+
+/** POST .../optional-feature-purchases 응답(CeremonyDto.Response.OptionalFeaturePurchaseSummary)과 맞춘다. */
+export interface OptionalFeaturePurchaseSummary {
+  id: number;
+  ceremonyId: number;
+  optionalFeatureId: number;
+  purchasedSalePrice: number;
+  purchasedDiscountType: DiscountType;
+  purchasedDiscountValue: number;
+  createdAt: string;
+}
+
+/** feature.ceremony.entity.CeremonyEventType 값과 맞춘다. */
+export type CeremonyEventType = 'TEST' | 'MAIN';
+
+/** feature.ceremony.entity.CeremonyEventStatus 값과 맞춘다. 전이는 앞으로만 간다(역행 없음). */
+export type CeremonyEventStatus = 'DRAFT' | 'READY' | 'STARTED' | 'FINISHED';
+
+/** POST .../events 요청(CeremonyEventDto.Request.CreateCeremonyEvent)과 맞춘다. */
+export interface CreateCeremonyEventRequest {
+  name: string;
+  eventType: CeremonyEventType;
+  venue: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  description: string | null;
+}
+
+/** PUT .../events/{eventId}/optional-features 요청(CeremonyEventDto.Request.UpdateOptionalFeatures)과 맞춘다. */
+export interface UpdateOptionalFeaturesRequest {
+  optionalFeatureIds: number[];
+}
+
+/**
+ * GET/POST /api/organizations/{organizationId}/ceremonies/{ceremonyId}/events(/{id}) 응답
+ * (CeremonyEventDto.Response.CeremonyEventSummary)과 맞춘다. accessKey는 서명자 포털/WebSocket
+ * 구독 인가에 쓰인다(4라운드 이후에 의미가 생긴다).
+ */
+export interface CeremonyEventSummary {
+  id: number;
+  ceremonyId: number;
+  name: string;
+  eventType: CeremonyEventType;
+  status: CeremonyEventStatus;
+  venue: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  actualStartAt: string | null;
+  actualEndAt: string | null;
+  accessKey: string;
+  description: string | null;
+  optionalFeatureIds: number[];
+  createdAt: string;
+}
+
+/** feature.ceremony.entity.ActorType 값과 맞춘다. */
+export type CeremonyActorType = 'ADMIN' | 'SIGNER';
+
+/** feature.ceremony.entity.CeremonyEventAction 값과 맞춘다. */
+export type CeremonyEventAction =
+  | 'START_EVENT'
+  | 'FINISH_EVENT'
+  | 'SIGNATURE_COMPLETE'
+  | 'SIGNATURE_CLEAR'
+  | 'SIGNATURE_REPLACE'
+  | 'GENERATE_RESULTS';
+
+/**
+ * GET .../events/{eventId}/logs 응답(CeremonyEventLogDto.Response.CeremonyEventLogSummary)과 맞춘다.
+ * append-only 감사 로그다.
+ */
+export interface CeremonyEventLogSummary {
+  id: number;
+  ceremonyEventId: number;
+  actorType: CeremonyActorType;
+  actorId: number;
+  eventAction: CeremonyEventAction;
+  targetSignerId: number | null;
+  message: string | null;
+  createdAt: string;
+}
