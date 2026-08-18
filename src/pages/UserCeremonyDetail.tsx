@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -6,13 +6,17 @@ import {
   CalendarClock,
   Check,
   Copy,
+  ExternalLink,
   FileSignature,
   FileText,
   Loader2,
+  Pencil,
   Plus,
   Settings,
+  Trash2,
   Upload,
   Users,
+  X,
 } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -53,7 +57,12 @@ const EVENT_STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = { TEST: '테스트', MAIN: '본행사' };
 
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
-const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '작성 중', COMPLETED: '완료' };
+/** 저장된 상태값이 아니라 서명란(fieldCount) 유무로 매번 계산돼서 온다 — 1개 이상이면 COMPLETED. */
+const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '설정 필요', COMPLETED: '설정 완료' };
+const TEMPLATE_STATUS_COLOR: Record<TemplateStatus, string> = {
+  DRAFT: 'bg-gray-50 text-gray-600 border-gray-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 
 /**
  * 행사(Ceremony) 상세(`/org/ceremonies/:organizationId/:ceremonyId`). legacy 화면 구성을
@@ -94,6 +103,12 @@ export const UserCeremonyDetail: FC = () => {
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [processingTemplateId, setProcessingTemplateId] = useState<number | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [editTemplateTitle, setEditTemplateTitle] = useState('');
+  const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
+  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -314,6 +329,69 @@ export const UserCeremonyDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setIsUploadingTemplate(false);
+    }
+  };
+
+  const handleDuplicateTemplate = async (templateId: number) => {
+    setProcessingTemplateId(templateId);
+    try {
+      await api.post(`${basePath}/templates/${templateId}/duplicate`, {});
+      showSnackbar('문서 양식을 복제했습니다.', 'success');
+      setTemplates(await fetchTemplates());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 양식 복제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingTemplateId(null);
+    }
+  };
+
+  const startEditTemplate = (template: TemplateSummary) => {
+    setDeletingTemplateId(null);
+    setEditingTemplateId(template.id);
+    setEditTemplateTitle(template.title);
+    setEditTemplateDocumentRole(template.documentRole);
+  };
+
+  const handleSaveTemplateEdit = async (templateId: number) => {
+    if (!editTemplateTitle.trim()) {
+      showSnackbar('문서 제목을 입력해주세요.', 'error');
+      return;
+    }
+    setProcessingTemplateId(templateId);
+    try {
+      await api.put(`${basePath}/templates/${templateId}`, {
+        title: editTemplateTitle.trim(),
+        documentRole: editTemplateDocumentRole,
+      });
+      showSnackbar('문서 양식을 저장했습니다.', 'success');
+      setEditingTemplateId(null);
+      setTemplates(await fetchTemplates());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 양식 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingTemplateId(null);
+    }
+  };
+
+  const openDeleteTemplate = (templateId: number) => {
+    setEditingTemplateId(null);
+    setDeletingTemplateId(templateId);
+  };
+
+  const handleDeleteTemplate = async (templateId: number) => {
+    setProcessingTemplateId(templateId);
+    try {
+      await api.delete(`${basePath}/templates/${templateId}`);
+      showSnackbar('문서 양식을 삭제했습니다.', 'success');
+      setDeletingTemplateId(null);
+      setTemplates(await fetchTemplates());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 양식 삭제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingTemplateId(null);
     }
   };
 
@@ -575,25 +653,151 @@ export const UserCeremonyDetail: FC = () => {
         )}
 
         <ListContainer isLoading={isTemplatesLoading} isEmpty={templates.length === 0} emptyMessage="아직 업로드된 문서 양식이 없습니다.">
-          <ul className="divide-y divide-gray-100">
-            {templates.map((template) => (
-              <li key={template.id}>
-                <Link
-                  to={`${detailPath}/templates/${template.id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <FileText size={16} className="text-gray-400 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-950 truncate">{template.title}</p>
-                    <p className="text-xs text-gray-500">
-                      {DOCUMENT_ROLE_LABEL[template.documentRole]} · {template.originalFilename}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-gray-500">{TEMPLATE_STATUS_LABEL[template.status]}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <table className="w-full text-sm">
+            <thead className="text-gray-500 text-xs">
+              <tr>
+                <th className="text-left font-medium px-4 py-2">문서 유형</th>
+                <th className="text-left font-medium px-4 py-2">양식명</th>
+                <th className="text-left font-medium px-4 py-2">상태</th>
+                <th className="text-left font-medium px-4 py-2">서명란</th>
+                <th className="text-right font-medium px-4 py-2">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {templates.map((template) => (
+                <Fragment key={template.id}>
+                  <tr>
+                    <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
+                    <td className="px-4 py-2">
+                      <p className="font-medium text-gray-950">{template.title}</p>
+                      <p className="text-xs text-gray-400">{template.originalFilename}</p>
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[template.status]}`}
+                      >
+                        {TEMPLATE_STATUS_LABEL[template.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{template.fieldCount}개</td>
+                    <td className="px-4 py-2">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => handleDuplicateTemplate(template.id)}
+                          disabled={processingTemplateId === template.id || isCompleted}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          <Copy size={12} />
+                          복제
+                        </button>
+                        <Link
+                          to={`${detailPath}/templates/${template.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        >
+                          <ExternalLink size={12} />
+                          서명란 배치
+                        </Link>
+                        {!isCompleted && (
+                          <>
+                            <button
+                              onClick={() => startEditTemplate(template)}
+                              disabled={processingTemplateId === template.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                            >
+                              <Pencil size={12} />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteTemplate(template.id)}
+                              disabled={processingTemplateId === template.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                            >
+                              <Trash2 size={12} />
+                              삭제
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {editingTemplateId === template.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={5} className="px-4 py-3">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
+                            <input
+                              type="text"
+                              value={editTemplateTitle}
+                              onChange={(e) => setEditTemplateTitle(e.target.value)}
+                              disabled={processingTemplateId === template.id}
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
+                            <select
+                              value={editTemplateDocumentRole}
+                              onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+                              disabled={processingTemplateId === template.id}
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+                            >
+                              <option value="CONTRACT">계약서</option>
+                              <option value="EXHIBITION">전시문서</option>
+                            </select>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveTemplateEdit(template.id)}
+                              disabled={processingTemplateId === template.id}
+                              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                            >
+                              {processingTemplateId === template.id ? '저장 중...' : '저장'}
+                            </button>
+                            <button
+                              onClick={() => setEditingTemplateId(null)}
+                              disabled={processingTemplateId === template.id}
+                              className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {deletingTemplateId === template.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={5} className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-700">
+                            "{template.title}" 문서 양식을 정말 삭제할까요? 이미 하위 행사에 매핑된 문서
+                            양식은 삭제할 수 없습니다.
+                          </p>
+                          <button
+                            onClick={() => handleDeleteTemplate(template.id)}
+                            disabled={processingTemplateId === template.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
+                          >
+                            <Trash2 size={12} />
+                            삭제 확정
+                          </button>
+                          <button
+                            onClick={() => setDeletingTemplateId(null)}
+                            disabled={processingTemplateId === template.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
+                          >
+                            <X size={12} />
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
         </ListContainer>
       </section>
 

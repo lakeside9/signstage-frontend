@@ -660,7 +660,8 @@ export type TemplateStatus = 'DRAFT' | 'COMPLETED';
 /**
  * POST(multipart)/GET .../templates(/{id}) 응답(TemplateDto.Response.TemplateSummary)과 맞춘다.
  * 업로드 자체는 `title`/`documentRole`(문자열 그대로)/`file`을 FormData로 보낸다 — 별도 요청
- * DTO 타입이 없다(백엔드가 `@RequestParam`으로 직접 받음).
+ * DTO 타입이 없다(백엔드가 `@RequestParam`으로 직접 받음). status는 저장된 값이 아니라
+ * fieldCount(서명란 개수)로 매번 계산돼서 온다 — 1개 이상이면 COMPLETED다.
  */
 export interface TemplateSummary {
   id: number;
@@ -669,7 +670,14 @@ export interface TemplateSummary {
   documentRole: TemplateDocumentRole;
   originalFilename: string;
   status: TemplateStatus;
+  fieldCount: number;
   createdAt: string;
+}
+
+/** PUT .../templates/{templateId} 요청(TemplateDto.Request.UpdateTemplate)과 맞춘다. */
+export interface UpdateTemplateRequest {
+  title: string;
+  documentRole: TemplateDocumentRole;
 }
 
 /** POST .../templates/{templateId}/fields 요청(TemplateFieldDto.Request.CreateTemplateField)과 맞춘다. */
