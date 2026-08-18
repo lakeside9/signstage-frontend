@@ -5,7 +5,7 @@ import { ArrowLeft, Check, Copy, Plus, Users } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { SignerSummary } from '../types';
+import type { CeremonySummary, SignerSummary } from '../types';
 
 /**
  * 서명자(Signer) 관리(`/org/ceremonies/:organizationId/:ceremonyId/signers`). 목록과 등록 폼을
@@ -19,6 +19,7 @@ export const UserSignerList: FC = () => {
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [name, setName] = useState('');
@@ -61,6 +62,25 @@ export const UserSignerList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}`);
+        if (!cancelled) {
+          setIsCompleted((response.data as CeremonySummary).status === 'COMPLETED');
+        }
+      } catch {
+        // 완료 여부를 못 가져와도 목록 자체를 막지는 않는다 — 최종 방어선은 백엔드다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId, ceremonyId]);
 
   const handleAdd = async (e: FormEvent) => {
@@ -117,8 +137,9 @@ export const UserSignerList: FC = () => {
             서명자 관리
           </h1>
           <p className="mt-1 text-sm text-gray-500">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
+          {isCompleted && <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 서명자 등록은 더 이상 할 수 없습니다.</p>}
         </div>
-        {!isAddFormOpen && (
+        {!isAddFormOpen && !isCompleted && (
           <button
             onClick={() => setIsAddFormOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"

@@ -11,9 +11,16 @@ import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
+  CeremonyStatus,
   CeremonySummary,
   OptionalFeatureSummary,
 } from '../types';
+
+const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = { IN_PROGRESS: '진행중', COMPLETED: '완료' };
+const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
+  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 
 const EVENT_STATUS_LABEL: Record<CeremonyEventStatus, string> = {
   DRAFT: '준비 중',
@@ -254,6 +261,8 @@ export const UserCeremonyDetail: FC = () => {
     return null;
   }
 
+  const isCompleted = ceremony.status === 'COMPLETED';
+
   return (
     <div>
       <Link
@@ -268,8 +277,16 @@ export const UserCeremonyDetail: FC = () => {
         <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
           <FileSignature size={20} className="text-gray-400" />
           {ceremony.title}
+          <span
+            className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${CEREMONY_STATUS_COLOR[ceremony.status]}`}
+          >
+            {CEREMONY_STATUS_LABEL[ceremony.status]}
+          </span>
         </h1>
         <p className="mt-1 text-sm text-gray-500">플랜: {plan?.name ?? `#${ceremony.billingPlanId}`}</p>
+        {isCompleted && (
+          <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -302,6 +319,8 @@ export const UserCeremonyDetail: FC = () => {
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
+        ) : isCompleted ? (
+          <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
         ) : capacityAddOns.length === 0 ? (
           <p className="text-sm text-gray-500">추가구매 가능한 상품이 없습니다.</p>
         ) : (
@@ -359,6 +378,8 @@ export const UserCeremonyDetail: FC = () => {
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
+        ) : isCompleted ? (
+          <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
         ) : optionalFeatures.length === 0 ? (
           <p className="text-sm text-gray-500">구매 가능한 선택옵션이 없습니다.</p>
         ) : (
@@ -393,13 +414,15 @@ export const UserCeremonyDetail: FC = () => {
             <CalendarClock size={14} />
             하위 행사
           </h2>
-          <Link
-            to={`/org/ceremonies/${organizationId}/${ceremonyId}/events/new`}
-            className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-          >
-            <Plus size={12} />
-            새 하위 행사
-          </Link>
+          {!isCompleted && (
+            <Link
+              to={`/org/ceremonies/${organizationId}/${ceremonyId}/events/new`}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+            >
+              <Plus size={12} />
+              새 하위 행사
+            </Link>
+          )}
         </div>
 
         <ListContainer isLoading={isEventsLoading} isEmpty={events.length === 0} emptyMessage="아직 등록된 하위 행사가 없습니다.">

@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, Loader2 } fro
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { SignerSummary, TemplateFieldSummary, TemplateSummary } from '../types';
+import type { CeremonySummary, SignerSummary, TemplateFieldSummary, TemplateSummary } from '../types';
 
 // Vite 환경에서 pdfjs 워커를 정적 자산으로 잡는 표준 패턴이다 — 별도 복사 플러그인이 필요 없다.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
@@ -37,6 +37,7 @@ export const UserTemplateDetail: FC = () => {
 
   const [template, setTemplate] = useState<TemplateSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const [fileBlobUrl, setFileBlobUrl] = useState<string | null>(null);
   const [isFileLoading, setIsFileLoading] = useState(true);
@@ -116,6 +117,26 @@ export const UserTemplateDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId, templateId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(basePath);
+        if (!cancelled) {
+          setIsCompleted((response.data as CeremonySummary).status === 'COMPLETED');
+        }
+      } catch {
+        // 완료 여부를 못 가져와도 화면 자체를 막지는 않는다 — 최종 방어선은 백엔드다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const fetchFields = async () => {
     const response = await api.get(`${basePath}/templates/${templateId}/fields`);
     return response.data as TemplateFieldSummary[];
@@ -153,6 +174,7 @@ export const UserTemplateDetail: FC = () => {
   const signerName = (signerId: number | null) => signers.find((signer) => signer.id === signerId)?.name ?? null;
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (isCompleted) return; // 완료된 행사는 서명란을 더 추가할 수 없다.
     if (pendingPoint) return; // 이미 입력 중인 서명란이 있으면 새로 시작하지 않는다.
     const rect = e.currentTarget.getBoundingClientRect();
     const clickXRatio = (e.clientX - rect.left) / rect.width;
@@ -251,7 +273,9 @@ export const UserTemplateDetail: FC = () => {
       </div>
 
       <p className="text-xs text-gray-400 mb-3">
-        문서 위 빈 곳을 클릭해 서명란을 추가하세요. 기본 크기로 놓이며, 이름과 배정 서명자를 바로 입력할 수 있습니다.
+        {isCompleted
+          ? '완료된 행사입니다. 서명란 배치는 조회만 할 수 있습니다.'
+          : '문서 위 빈 곳을 클릭해 서명란을 추가하세요. 기본 크기로 놓이며, 이름과 배정 서명자를 바로 입력할 수 있습니다.'}
       </p>
 
       {isFileLoading ? (

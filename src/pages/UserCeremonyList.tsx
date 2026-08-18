@@ -1,16 +1,43 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { FileSignature, Plus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
+import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { BillingPlanSummary, CeremonySummary } from '../types';
+import type { BillingPlanSummary, CeremonyStatus, CeremonySummary, PageResponse } from '../types';
+
+const PAGE_SIZE = 20;
+
+const STATUS_OPTIONS: Array<{ value: CeremonyStatus | 'ALL'; label: string }> = [
+  { value: 'ALL', label: '전체' },
+  { value: 'IN_PROGRESS', label: '진행중' },
+  { value: 'COMPLETED', label: '완료' },
+];
+
+const STATUS_BADGE_CLASS: Record<CeremonyStatus, string> = {
+  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
+
+const STATUS_LABEL: Record<CeremonyStatus, string> = {
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+};
+
+interface SearchParams {
+  title: string;
+  status: CeremonyStatus | 'ALL';
+}
+
+const EMPTY_SEARCH: SearchParams = { title: '', status: 'ALL' };
 
 /**
- * 행사(Ceremony) 목록(`/org/ceremonies/:organizationId`). 백엔드가
- * 페이지네이션 없는 `List<>`를 그대로 반환하므로(UserOrganizationList와 같은 경우)
- * `ListContainer`만 쓰고 `Pagination`은 붙이지 않는다(frontend/list-screen-convention.md).
+ * 행사(Ceremony) 목록(`/org/ceremonies/:organizationId`). signstage-docs
+ * frontend/list-screen-convention.md의 "검색 영역 → 목록 → 페이지네비게이션" 3단 구조를
+ * 따른다(`AdminOrganizationList.tsx`와 같은 패턴) — 검색은 행사명(부분 일치)/행사 상태(정확
+ * 일치)로 한다.
  *
  * OWNER/ADMIN은 조직의 전체 행사를, OPERATOR는 배정된 행사만 본다(백엔드가 이미 필터링해서
  * 돌려준다 — 프런트는 받은 목록을 그대로 보여주기만 한다).
@@ -18,9 +45,13 @@ import type { BillingPlanSummary, CeremonySummary } from '../types';
 export const UserCeremonyList: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
 
-  const [ceremonies, setCeremonies] = useState<CeremonySummary[]>([]);
-  const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
+  const [formValues, setFormValues] = useState<SearchParams>(EMPTY_SEARCH);
+  const [searchParams, setSearchParams] = useState<SearchParams>(EMPTY_SEARCH);
+  const [page, setPage] = useState(0);
+  const [pageData, setPageData] = useState<PageResponse<CeremonySummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
@@ -29,12 +60,18 @@ export const UserCeremonyList: FC = () => {
 
     (async () => {
       try {
+        const query = new URLSearchParams();
+        if (searchParams.title) query.set('title', searchParams.title);
+        if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
+        query.set('page', String(page));
+        query.set('size', String(PAGE_SIZE));
+
         const [ceremoniesRes, plansRes] = await Promise.all([
-          api.get(`/organizations/${organizationId}/ceremonies`),
+          api.get(`/organizations/${organizationId}/ceremonies?${query.toString()}`),
           api.get('/billing-plans'),
         ]);
         if (!cancelled) {
-          setCeremonies(ceremoniesRes.data as CeremonySummary[]);
+          setPageData(ceremoniesRes.data as PageResponse<CeremonySummary>);
           setPlans(plansRes.data as BillingPlanSummary[]);
         }
       } catch (err) {
@@ -53,9 +90,30 @@ export const UserCeremonyList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId]);
+  }, [organizationId, searchParams, page]);
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setPage(0);
+    setSearchParams(formValues);
+  };
+
+  const handleReset = () => {
+    setIsLoading(true);
+    setFormValues(EMPTY_SEARCH);
+    setPage(0);
+    setSearchParams(EMPTY_SEARCH);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setIsLoading(true);
+    setPage(nextPage);
+  };
 
   const planName = (billingPlanId: number) => plans.find((plan) => plan.id === billingPlanId)?.name ?? `#${billingPlanId}`;
+
+  const ceremonies = pageData?.content ?? [];
 
   return (
     <div>
@@ -73,7 +131,48 @@ export const UserCeremonyList: FC = () => {
         </Link>
       </div>
 
-      <ListContainer isLoading={isLoading} isEmpty={ceremonies.length === 0} emptyMessage="아직 등록된 행사가 없습니다.">
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="행사명" className="w-56">
+          <input
+            type="text"
+            value={formValues.title}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, title: e.target.value }))}
+            placeholder="행사 이름"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+          />
+        </SearchField>
+
+        <SearchField label="행사 상태">
+          <select
+            value={formValues.status}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value as CeremonyStatus | 'ALL' }))}
+            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </SearchField>
+      </SearchBar>
+
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={ceremonies.length === 0}
+        emptyMessage="해당 조건의 행사가 없습니다."
+        pagination={
+          pageData
+            ? {
+                page: pageData.page,
+                totalPages: pageData.totalPages,
+                hasNext: pageData.hasNext,
+                totalElements: pageData.totalElements,
+                onPageChange: handlePageChange,
+              }
+            : undefined
+        }
+      >
         <ul className="divide-y divide-gray-100">
           {ceremonies.map((ceremony) => (
             <li key={ceremony.id}>
@@ -86,6 +185,11 @@ export const UserCeremonyList: FC = () => {
                   <p className="text-sm font-medium text-gray-950 truncate">{ceremony.title}</p>
                   <p className="text-xs text-gray-500">플랜: {planName(ceremony.billingPlanId)}</p>
                 </div>
+                <span
+                  className={`shrink-0 inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[ceremony.status]}`}
+                >
+                  {STATUS_LABEL[ceremony.status]}
+                </span>
                 <span className="shrink-0 text-xs text-gray-500">
                   {new Date(ceremony.createdAt).toLocaleDateString('ko-KR')}
                 </span>

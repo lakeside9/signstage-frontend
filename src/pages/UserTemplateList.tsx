@@ -5,7 +5,7 @@ import { ArrowLeft, FileText, Plus, Upload } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { TemplateDocumentRole, TemplateStatus, TemplateSummary } from '../types';
+import type { CeremonySummary, TemplateDocumentRole, TemplateStatus, TemplateSummary } from '../types';
 
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
 const STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '작성 중', COMPLETED: '완료' };
@@ -22,6 +22,7 @@ export const UserTemplateList: FC = () => {
 
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const [isUploadFormOpen, setIsUploadFormOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -62,6 +63,25 @@ export const UserTemplateList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}`);
+        if (!cancelled) {
+          setIsCompleted((response.data as CeremonySummary).status === 'COMPLETED');
+        }
+      } catch {
+        // 완료 여부를 못 가져와도 목록 자체를 막지는 않는다 — 최종 방어선은 백엔드다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId, ceremonyId]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -123,8 +143,9 @@ export const UserTemplateList: FC = () => {
             문서 양식 관리
           </h1>
           <p className="mt-1 text-sm text-gray-500">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
+          {isCompleted && <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 문서 업로드는 더 이상 할 수 없습니다.</p>}
         </div>
-        {!isUploadFormOpen && (
+        {!isUploadFormOpen && !isCompleted && (
           <button
             onClick={() => setIsUploadFormOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"

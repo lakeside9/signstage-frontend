@@ -387,11 +387,19 @@ export interface CreateCeremonyRequest {
  * GET/POST /api/organizations/{organizationId}/ceremonies(/{id}) 응답
  * (CeremonyDto.Response.CeremonySummary)과 맞춘다.
  */
+/**
+ * feature.ceremony.entity.CeremonyStatus 값과 맞춘다. 하위 행사(CeremonyEvent)의 상태와는
+ * 별개다 — 이 Ceremony 아래 본행사(MAIN)가 전부 끝나고 결과 PDF까지 생성되면 COMPLETED로
+ * 자동 전이하고, 그 뒤로는 하위 데이터가 조회만 가능해진다.
+ */
+export type CeremonyStatus = 'IN_PROGRESS' | 'COMPLETED';
+
 export interface CeremonySummary {
   id: number;
   organizationId: number;
   billingPlanId: number;
   title: string;
+  status: CeremonyStatus;
   createdBy: number;
   createdAt: string;
 }
