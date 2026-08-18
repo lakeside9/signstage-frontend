@@ -22,6 +22,7 @@ import { UserCeremonyEntry } from './pages/UserCeremonyEntry';
 import { UserCeremonyList } from './pages/UserCeremonyList';
 import { UserCeremonyCreate } from './pages/UserCeremonyCreate';
 import { UserCeremonyDetail } from './pages/UserCeremonyDetail';
+import { UserCeremonyEdit } from './pages/UserCeremonyEdit';
 import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
 import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
 import { UserTemplateDetail } from './pages/UserTemplateDetail';
@@ -57,6 +58,7 @@ function App() {
           <Route path="ceremonies/:organizationId" element={<UserCeremonyList />} />
           <Route path="ceremonies/:organizationId/new" element={<UserCeremonyCreate />} />
           <Route path="ceremonies/:organizationId/:ceremonyId" element={<UserCeremonyDetail />} />
+          <Route path="ceremonies/:organizationId/:ceremonyId/edit" element={<UserCeremonyEdit />} />
           <Route path="ceremonies/:organizationId/:ceremonyId/events/new" element={<UserCeremonyEventCreate />} />
           <Route
             path="ceremonies/:organizationId/:ceremonyId/events/:eventId"
