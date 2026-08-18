@@ -255,7 +255,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice}
+                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -265,7 +265,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.salePrice}
+                value={createDraft.salePrice === 0 ? '' : createDraft.salePrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -289,7 +289,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.discountValue}
+                value={createDraft.discountValue === 0 ? '' : createDraft.discountValue}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -302,7 +302,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.maxSigners}
+                value={createDraft.maxSigners === 0 ? '' : createDraft.maxSigners}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxSigners: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -312,7 +312,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.maxTemplates}
+                value={createDraft.maxTemplates === 0 ? '' : createDraft.maxTemplates}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxTemplates: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -322,7 +322,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.maxTestEvents}
+                value={createDraft.maxTestEvents === 0 ? '' : createDraft.maxTestEvents}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxTestEvents: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -332,7 +332,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.maxMainEvents}
+                value={createDraft.maxMainEvents === 0 ? '' : createDraft.maxMainEvents}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxMainEvents: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -412,7 +412,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice}
+                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -422,7 +422,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.salePrice}
+                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -448,7 +448,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.discountValue}
+                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -460,7 +460,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.maxSigners}
+                          value={editDraft.maxSigners === 0 ? '' : editDraft.maxSigners}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxSigners: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -470,7 +470,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.maxTemplates}
+                          value={editDraft.maxTemplates === 0 ? '' : editDraft.maxTemplates}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxTemplates: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -480,7 +480,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.maxTestEvents}
+                          value={editDraft.maxTestEvents === 0 ? '' : editDraft.maxTestEvents}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxTestEvents: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -490,7 +490,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.maxMainEvents}
+                          value={editDraft.maxMainEvents === 0 ? '' : editDraft.maxMainEvents}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxMainEvents: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -706,7 +706,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice}
+                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -716,7 +716,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <input
                 type="number"
                 min={0}
-                value={createDraft.salePrice}
+                value={createDraft.salePrice === 0 ? '' : createDraft.salePrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -740,7 +740,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <input
                 type="number"
                 min={0}
-                value={createDraft.discountValue}
+                value={createDraft.discountValue === 0 ? '' : createDraft.discountValue}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -797,7 +797,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice}
+                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -807,7 +807,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.salePrice}
+                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -833,7 +833,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.discountValue}
+                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -1015,7 +1015,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <input
                 type="number"
                 min={1}
-                value={createDraft.unitAmount}
+                value={createDraft.unitAmount === 0 ? '' : createDraft.unitAmount}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, unitAmount: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -1025,7 +1025,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice}
+                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -1035,7 +1035,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <input
                 type="number"
                 min={0}
-                value={createDraft.salePrice}
+                value={createDraft.salePrice === 0 ? '' : createDraft.salePrice}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -1059,7 +1059,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <input
                 type="number"
                 min={0}
-                value={createDraft.discountValue}
+                value={createDraft.discountValue === 0 ? '' : createDraft.discountValue}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
@@ -1107,7 +1107,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         <input
                           type="number"
                           min={1}
-                          value={editDraft.unitAmount}
+                          value={editDraft.unitAmount === 0 ? '' : editDraft.unitAmount}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, unitAmount: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -1117,7 +1117,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice}
+                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -1127,7 +1127,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.salePrice}
+                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
@@ -1153,7 +1153,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.discountValue}
+                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
