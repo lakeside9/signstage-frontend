@@ -56,6 +56,19 @@ const EVENT_STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 
 const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = { TEST: '테스트', MAIN: '본행사' };
 
+/** LocalDateTime 문자열("2026-07-29T05:00:00")을 "2026-07-29 05:00"으로 자른다 — 타임존 변환 없이 그대로 보여준다. */
+const formatEventDateTime = (value: string | null) => (value ? `${value.slice(0, 10)} ${value.slice(11, 16)}` : null);
+
+const formatEventSchedule = (event: CeremonyEventSummary) => {
+  if (!event.scheduledStartAt && !event.scheduledEndAt) return '일정 미정';
+  const start = formatEventDateTime(event.scheduledStartAt) ?? '미정';
+  const end = formatEventDateTime(event.scheduledEndAt) ?? '미정';
+  return `${start} ~ ${end}`;
+};
+
+/** <input type="datetime-local">에 바로 넣을 수 있게 앞 16자로 자른다("2026-07-29T05:00"). */
+const toDateTimeLocalValue = (value: string | null) => (value ? value.slice(0, 16) : '');
+
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
 /** 저장된 상태값이 아니라 서명란(fieldCount) 유무로 매번 계산돼서 온다 — 1개 이상이면 COMPLETED. */
 const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '설정 필요', COMPLETED: '설정 완료' };
@@ -109,6 +122,15 @@ export const UserCeremonyDetail: FC = () => {
   const [editTemplateTitle, setEditTemplateTitle] = useState('');
   const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
+
+  const [processingEventId, setProcessingEventId] = useState<number | null>(null);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [editEventName, setEditEventName] = useState('');
+  const [editEventVenue, setEditEventVenue] = useState('');
+  const [editEventScheduledStart, setEditEventScheduledStart] = useState('');
+  const [editEventScheduledEnd, setEditEventScheduledEnd] = useState('');
+  const [editEventDescription, setEditEventDescription] = useState('');
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -182,6 +204,61 @@ export const UserCeremonyDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
+
+  const startEditEvent = (event: CeremonyEventSummary) => {
+    setDeletingEventId(null);
+    setEditingEventId(event.id);
+    setEditEventName(event.name);
+    setEditEventVenue(event.venue ?? '');
+    setEditEventScheduledStart(toDateTimeLocalValue(event.scheduledStartAt));
+    setEditEventScheduledEnd(toDateTimeLocalValue(event.scheduledEndAt));
+    setEditEventDescription(event.description ?? '');
+  };
+
+  const handleSaveEventEdit = async (eventId: number) => {
+    if (!editEventName.trim()) {
+      showSnackbar('하위 행사 이름을 입력해주세요.', 'error');
+      return;
+    }
+    setProcessingEventId(eventId);
+    try {
+      await api.put(`${basePath}/events/${eventId}`, {
+        name: editEventName.trim(),
+        venue: editEventVenue.trim() || null,
+        scheduledStartAt: editEventScheduledStart || null,
+        scheduledEndAt: editEventScheduledEnd || null,
+        description: editEventDescription.trim() || null,
+      });
+      showSnackbar('하위 행사를 저장했습니다.', 'success');
+      setEditingEventId(null);
+      setEvents(await fetchEvents());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '하위 행사 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingEventId(null);
+    }
+  };
+
+  const openDeleteEvent = (eventId: number) => {
+    setEditingEventId(null);
+    setDeletingEventId(eventId);
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    setProcessingEventId(eventId);
+    try {
+      await api.delete(`${basePath}/events/${eventId}`);
+      showSnackbar('하위 행사를 삭제했습니다.', 'success');
+      setDeletingEventId(null);
+      setEvents(await fetchEvents());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '하위 행사 삭제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingEventId(null);
+    }
+  };
 
   const fetchSigners = async () => {
     const response = await api.get(`${basePath}/signers`);
@@ -820,26 +897,177 @@ export const UserCeremonyDetail: FC = () => {
         </div>
 
         <ListContainer isLoading={isEventsLoading} isEmpty={events.length === 0} emptyMessage="아직 등록된 하위 행사가 없습니다.">
-          <ul className="divide-y divide-gray-100">
-            {events.map((event) => (
-              <li key={event.id}>
-                <Link
-                  to={`${detailPath}/events/${event.id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-950 truncate">{event.name}</p>
-                    <p className="text-xs text-gray-500">{EVENT_TYPE_LABEL[event.eventType]}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[event.status]}`}
-                  >
-                    {EVENT_STATUS_LABEL[event.status]}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <table className="w-full text-sm">
+            <thead className="text-gray-500 text-xs">
+              <tr>
+                <th className="text-left font-medium px-4 py-2">구분</th>
+                <th className="text-left font-medium px-4 py-2">행사 상세명</th>
+                <th className="text-left font-medium px-4 py-2">상태</th>
+                <th className="text-left font-medium px-4 py-2">일정</th>
+                <th className="text-right font-medium px-4 py-2">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {events.map((event) => {
+                const isEventLocked = event.status === 'STARTED' || event.status === 'FINISHED';
+                return (
+                  <Fragment key={event.id}>
+                    <tr>
+                      <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
+                      <td className="px-4 py-2 font-medium text-gray-950">{event.name}</td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[event.status]}`}
+                        >
+                          {EVENT_STATUS_LABEL[event.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{formatEventSchedule(event)}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex justify-end gap-1">
+                          <Link
+                            to={`${detailPath}/events/${event.id}`}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          >
+                            <FileText size={12} />
+                            문서 매핑
+                          </Link>
+                          <Link
+                            to={`${detailPath}/events/${event.id}`}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          >
+                            <Settings size={12} />
+                            행사 제어
+                          </Link>
+                          {!isCompleted && !isEventLocked && (
+                            <>
+                              <button
+                                onClick={() => startEditEvent(event)}
+                                disabled={processingEventId === event.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                              >
+                                <Pencil size={12} />
+                                수정
+                              </button>
+                              <button
+                                onClick={() => openDeleteEvent(event.id)}
+                                disabled={processingEventId === event.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                              >
+                                <Trash2 size={12} />
+                                삭제
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {editingEventId === event.id && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={5} className="px-4 py-3">
+                          <div className="flex flex-wrap items-end gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+                              <input
+                                type="text"
+                                value={editEventName}
+                                onChange={(e) => setEditEventName(e.target.value)}
+                                disabled={processingEventId === event.id}
+                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">장소</label>
+                              <input
+                                type="text"
+                                value={editEventVenue}
+                                onChange={(e) => setEditEventVenue(e.target.value)}
+                                disabled={processingEventId === event.id}
+                                placeholder="선택 입력"
+                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">예정 시작</label>
+                              <input
+                                type="datetime-local"
+                                value={editEventScheduledStart}
+                                onChange={(e) => setEditEventScheduledStart(e.target.value)}
+                                disabled={processingEventId === event.id}
+                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">예정 종료</label>
+                              <input
+                                type="datetime-local"
+                                value={editEventScheduledEnd}
+                                onChange={(e) => setEditEventScheduledEnd(e.target.value)}
+                                disabled={processingEventId === event.id}
+                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                              />
+                            </div>
+                            <div className="w-full">
+                              <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
+                              <textarea
+                                value={editEventDescription}
+                                onChange={(e) => setEditEventDescription(e.target.value)}
+                                disabled={processingEventId === event.id}
+                                rows={2}
+                                placeholder="선택 입력"
+                                className="w-full max-w-md px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSaveEventEdit(event.id)}
+                                disabled={processingEventId === event.id}
+                                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                              >
+                                {processingEventId === event.id ? '저장 중...' : '저장'}
+                              </button>
+                              <button
+                                onClick={() => setEditingEventId(null)}
+                                disabled={processingEventId === event.id}
+                                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {deletingEventId === event.id && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={5} className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-gray-700">"{event.name}" 하위 행사를 정말 삭제할까요?</p>
+                            <button
+                              onClick={() => handleDeleteEvent(event.id)}
+                              disabled={processingEventId === event.id}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
+                            >
+                              <Trash2 size={12} />
+                              삭제 확정
+                            </button>
+                            <button
+                              onClick={() => setDeletingEventId(null)}
+                              disabled={processingEventId === event.id}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
+                            >
+                              <X size={12} />
+                              취소
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </ListContainer>
       </section>
     </div>

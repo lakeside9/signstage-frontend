@@ -535,6 +535,15 @@ export interface CreateCeremonyEventRequest {
   description: string | null;
 }
 
+/** PUT .../events/{eventId} 요청(CeremonyEventDto.Request.UpdateCeremonyEvent)과 맞춘다. */
+export interface UpdateCeremonyEventRequest {
+  name: string;
+  venue: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  description: string | null;
+}
+
 /** PUT .../events/{eventId}/optional-features 요청(CeremonyEventDto.Request.UpdateOptionalFeatures)과 맞춘다. */
 export interface UpdateOptionalFeaturesRequest {
   optionalFeatureIds: number[];
