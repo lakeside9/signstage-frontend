@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Package, Settings, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileSignature, Info, Loader2, Package, Settings, Sparkles } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { CapacityAddOnSummary, CeremonySummary, OptionalFeatureSummary } from '../types';
+import type { BillingPlanSummary, CapacityAddOnSummary, CeremonySummary, OptionalFeatureSummary } from '../types';
 
 const CAPACITY_TYPE_LABEL: Record<string, string> = {
   SIGNERS: '서명자 수',
@@ -14,14 +14,17 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
 };
 
 const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+const formatDiscount = (discountType: string, discountValue: number) =>
+  discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
 
 /**
  * 행사(Ceremony) 수정(`/org/ceremonies/:organizationId/:ceremonyId/edit`). 용량/선택옵션
  * 추가구매를 행사 상세(`UserCeremonyDetail`)에서 분리해 여기로 옮겼다 — 상세 화면은 조회
- * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(추가구매)은
- * 별도 수정 화면에 모은다.
+ * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
+ * 추가구매)은 별도 수정 화면에 모은다. 선택한 플랜은 생성 시점에 고정이라(4.10절) 여기서
+ * 바꿀 수 없고, 상세정보만 읽기 전용으로 보여준다.
  *
- * 둘 다 이력 조회 API가 없어 방금 구매한 것만 화면에 안내로 남긴다(백엔드에
+ * 추가구매 둘 다 이력 조회 API가 없어 방금 구매한 것만 화면에 안내로 남긴다(백엔드에
  * CapacityPurchase/OptionalFeaturePurchase 목록 조회 엔드포인트가 아직 없다).
  */
 export const UserCeremonyEdit: FC = () => {
@@ -31,6 +34,13 @@ export const UserCeremonyEdit: FC = () => {
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
+  const [isPlanLoading, setIsPlanLoading] = useState(true);
+
+  const [titleDraft, setTitleDraft] = useState('');
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   const [capacityAddOns, setCapacityAddOns] = useState<CapacityAddOnSummary[]>([]);
   const [isCapacityLoading, setIsCapacityLoading] = useState(true);
@@ -54,7 +64,10 @@ export const UserCeremonyEdit: FC = () => {
       try {
         const response = await api.get(basePath);
         if (!cancelled) {
-          setCeremony(response.data as CeremonySummary);
+          const data = response.data as CeremonySummary;
+          setCeremony(data);
+          setTitleDraft(data.title);
+          setDescriptionDraft(data.description ?? '');
         }
       } catch (err) {
         if (!cancelled) {
@@ -74,6 +87,35 @@ export const UserCeremonyEdit: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
+
+  useEffect(() => {
+    if (!ceremony) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get('/billing-plans');
+        if (!cancelled) {
+          const found = (response.data as BillingPlanSummary[]).find((p) => p.id === ceremony.billingPlanId);
+          setPlan(found ?? null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '플랜 정보를 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPlanLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ceremony]);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +170,29 @@ export const UserCeremonyEdit: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleUpdateCeremony = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!titleDraft.trim()) {
+      showSnackbar('행사명을 입력해주세요.', 'error');
+      return;
+    }
+
+    setIsSavingInfo(true);
+    try {
+      const response = await api.put(basePath, {
+        title: titleDraft.trim(),
+        description: descriptionDraft.trim() || null,
+      });
+      setCeremony(response.data as CeremonySummary);
+      showSnackbar('행사 정보를 저장했습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '행사 정보 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsSavingInfo(false);
+    }
+  };
 
   const handlePurchaseCapacity = async (e: FormEvent) => {
     e.preventDefault();
@@ -208,8 +273,89 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </div>
 
-      {/* 용량 추가구매 */}
+      {/* 행사 정보 수정 */}
       <section className="bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <FileSignature size={14} />
+          행사 정보
+        </h2>
+        {isCompleted ? (
+          <p className="text-sm text-gray-400">완료된 행사는 이름/설명을 수정할 수 없습니다.</p>
+        ) : (
+          <form onSubmit={handleUpdateCeremony} className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">행사명</label>
+              <input
+                type="text"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                disabled={isSavingInfo}
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">행사 설명</label>
+              <textarea
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                disabled={isSavingInfo}
+                rows={3}
+                placeholder="선택 입력"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingInfo}
+              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              {isSavingInfo ? '저장 중...' : '저장'}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* 선택한 플랜 상세정보(읽기 전용 — 플랜은 생성 시점에 고정되어 여기서 바꿀 수 없다) */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <Info size={14} />
+          선택한 플랜
+        </h2>
+        {isPlanLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : !plan ? (
+          <p className="text-sm text-gray-500">플랜 정보를 찾을 수 없습니다(#{ceremony.billingPlanId}).</p>
+        ) : (
+          <div className="divide-y divide-gray-100 text-sm">
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">플랜명</span>
+              <span className="text-gray-950 font-medium">{plan.name}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">공급가/판매가</span>
+              <span className="text-gray-950">
+                {formatPrice(plan.supplyPrice)} / {formatPrice(plan.salePrice)}
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">할인</span>
+              <span className="text-gray-950">{formatDiscount(plan.discountType, plan.discountValue)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">서명자/템플릿/테스트행사/본행사 한도</span>
+              <span className="text-gray-950">
+                {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxMainEvents}
+              </span>
+            </div>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-gray-400">플랜은 행사 생성 시점에 정해지며, 이후 바꿀 수 없습니다.</p>
+      </section>
+
+      {/* 용량 추가구매 */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <Package size={14} />
           용량 추가구매

@@ -399,9 +399,19 @@ export interface CeremonySummary {
   organizationId: number;
   billingPlanId: number;
   title: string;
+  description: string | null;
   status: CeremonyStatus;
   createdBy: number;
   createdAt: string;
+}
+
+/**
+ * PUT /api/organizations/{organizationId}/ceremonies/{ceremonyId} 요청
+ * (CeremonyDto.Request.UpdateCeremony)과 맞춘다. 플랜은 여기서 바꿀 수 없다(생성 시점에 고정).
+ */
+export interface UpdateCeremonyRequest {
+  title: string;
+  description: string | null;
 }
 
 /** POST .../capacity-purchases 요청(CeremonyDto.Request.PurchaseCapacity)과 맞춘다. */
