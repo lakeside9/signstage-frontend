@@ -1062,14 +1062,14 @@ export const UserCeremonyDetail: FC = () => {
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">
                         <Link
-                          to={`${detailPath}/events/${event.id}`}
+                          to={`${detailPath}/events/${event.id}/mapping`}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           <FileText size={12} />
                           문서 매핑
                         </Link>
                         <Link
-                          to={`${detailPath}/events/${event.id}`}
+                          to={`${detailPath}/events/${event.id}/control`}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           <Settings size={12} />

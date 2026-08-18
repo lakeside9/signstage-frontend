@@ -27,6 +27,7 @@ import { UserCeremonyEdit } from './pages/UserCeremonyEdit';
 import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
 import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
 import { UserCeremonyEventControl } from './pages/UserCeremonyEventControl';
+import { UserCeremonyEventMapping } from './pages/UserCeremonyEventMapping';
 import { UserTemplateDetail } from './pages/UserTemplateDetail';
 import { SignerPortalView } from './pages/SignerPortalView';
 import { DocumentVerificationView } from './pages/DocumentVerificationView';
@@ -71,6 +72,10 @@ function App() {
           <Route
             path="ceremonies/:organizationId/:ceremonyId/events/:eventId/control"
             element={<UserCeremonyEventControl />}
+          />
+          <Route
+            path="ceremonies/:organizationId/:ceremonyId/events/:eventId/mapping"
+            element={<UserCeremonyEventMapping />}
           />
           <Route
             path="ceremonies/:organizationId/:ceremonyId/templates/:templateId"
