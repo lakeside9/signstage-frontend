@@ -645,6 +645,14 @@ export interface CreateSignerRequest {
   roleCode: string | null;
 }
 
+/** PUT .../signers/{signerId} 요청(SignerDto.Request.UpdateSigner)과 맞춘다. accessKey는 여기서 바꾸지 않는다. */
+export interface UpdateSignerRequest {
+  name: string;
+  position: string | null;
+  affiliation: string | null;
+  roleCode: string | null;
+}
+
 /**
  * GET/POST .../signers(/{id}) 응답(SignerDto.Response.SignerSummary)과 맞춘다. accessKey는
  * 서명자 포털 접속에 쓰인다(4라운드 이후에 의미가 생긴다).

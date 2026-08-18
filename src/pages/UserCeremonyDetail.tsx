@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   CalendarClock,
-  Check,
   Copy,
   ExternalLink,
   FileSignature,
@@ -106,7 +105,14 @@ export const UserCeremonyDetail: FC = () => {
   const [signerAffiliation, setSignerAffiliation] = useState('');
   const [signerRoleCode, setSignerRoleCode] = useState('');
   const [isAddingSigner, setIsAddingSigner] = useState(false);
-  const [copiedSignerId, setCopiedSignerId] = useState<number | null>(null);
+
+  const [processingSignerId, setProcessingSignerId] = useState<number | null>(null);
+  const [editingSignerId, setEditingSignerId] = useState<number | null>(null);
+  const [editSignerName, setEditSignerName] = useState('');
+  const [editSignerPosition, setEditSignerPosition] = useState('');
+  const [editSignerAffiliation, setEditSignerAffiliation] = useState('');
+  const [editSignerRoleCode, setEditSignerRoleCode] = useState('');
+  const [deletingSignerId, setDeletingSignerId] = useState<number | null>(null);
 
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
@@ -354,13 +360,56 @@ export const UserCeremonyDetail: FC = () => {
     }
   };
 
-  const handleCopySignerAccessKey = async (signer: SignerSummary) => {
+  const startEditSigner = (signer: SignerSummary) => {
+    setDeletingSignerId(null);
+    setEditingSignerId(signer.id);
+    setEditSignerName(signer.name);
+    setEditSignerPosition(signer.position ?? '');
+    setEditSignerAffiliation(signer.affiliation ?? '');
+    setEditSignerRoleCode(signer.roleCode ?? '');
+  };
+
+  const handleSaveSignerEdit = async (signerId: number) => {
+    if (!editSignerName.trim()) {
+      showSnackbar('서명자 이름을 입력해주세요.', 'error');
+      return;
+    }
+    setProcessingSignerId(signerId);
     try {
-      await navigator.clipboard.writeText(signer.accessKey);
-      setCopiedSignerId(signer.id);
-      setTimeout(() => setCopiedSignerId((prev) => (prev === signer.id ? null : prev)), 1500);
-    } catch {
-      showSnackbar('접속키 복사에 실패했습니다.', 'error');
+      await api.put(`${basePath}/signers/${signerId}`, {
+        name: editSignerName.trim(),
+        position: editSignerPosition.trim() || null,
+        affiliation: editSignerAffiliation.trim() || null,
+        roleCode: editSignerRoleCode.trim() || null,
+      });
+      showSnackbar('서명자를 저장했습니다.', 'success');
+      setEditingSignerId(null);
+      setSigners(await fetchSigners());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명자 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingSignerId(null);
+    }
+  };
+
+  const openDeleteSigner = (signerId: number) => {
+    setEditingSignerId(null);
+    setDeletingSignerId(signerId);
+  };
+
+  const handleDeleteSigner = async (signerId: number) => {
+    setProcessingSignerId(signerId);
+    try {
+      await api.delete(`${basePath}/signers/${signerId}`);
+      showSnackbar('서명자를 삭제했습니다.', 'success');
+      setDeletingSignerId(null);
+      setSigners(await fetchSigners());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명자 삭제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingSignerId(null);
     }
   };
 
@@ -615,34 +664,130 @@ export const UserCeremonyDetail: FC = () => {
                 <th className="text-left font-medium px-4 py-2">이름</th>
                 <th className="text-left font-medium px-4 py-2">직책</th>
                 <th className="text-left font-medium px-4 py-2">소속</th>
-                <th className="text-right font-medium px-4 py-2">접속키</th>
+                <th className="text-right font-medium px-4 py-2">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {signers.map((signer) => (
-                <tr key={signer.id}>
-                  <td className="px-4 py-2 text-gray-950">{signer.name}</td>
-                  <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
-                  <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button
-                      onClick={() => handleCopySignerAccessKey(signer)}
-                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-950"
-                    >
-                      {copiedSignerId === signer.id ? (
-                        <>
-                          <Check size={12} />
-                          복사됨
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={12} />
-                          복사
-                        </>
+                <Fragment key={signer.id}>
+                  <tr>
+                    <td className="px-4 py-2 text-gray-950">{signer.name}</td>
+                    <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
+                    <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
+                    <td className="px-4 py-2">
+                      {!isCompleted && (
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => startEditSigner(signer)}
+                            disabled={processingSignerId === signer.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                          >
+                            <Pencil size={12} />
+                            수정
+                          </button>
+                          <button
+                            onClick={() => openDeleteSigner(signer.id)}
+                            disabled={processingSignerId === signer.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                          >
+                            <Trash2 size={12} />
+                            삭제
+                          </button>
+                        </div>
                       )}
-                    </button>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                  {editingSignerId === signer.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={4} className="px-4 py-3">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+                            <input
+                              type="text"
+                              value={editSignerName}
+                              onChange={(e) => setEditSignerName(e.target.value)}
+                              disabled={processingSignerId === signer.id}
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
+                            <input
+                              type="text"
+                              value={editSignerPosition}
+                              onChange={(e) => setEditSignerPosition(e.target.value)}
+                              disabled={processingSignerId === signer.id}
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
+                            <input
+                              type="text"
+                              value={editSignerAffiliation}
+                              onChange={(e) => setEditSignerAffiliation(e.target.value)}
+                              disabled={processingSignerId === signer.id}
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">역할 코드</label>
+                            <input
+                              type="text"
+                              value={editSignerRoleCode}
+                              onChange={(e) => setEditSignerRoleCode(e.target.value)}
+                              disabled={processingSignerId === signer.id}
+                              placeholder="선택 입력"
+                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveSignerEdit(signer.id)}
+                              disabled={processingSignerId === signer.id}
+                              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                            >
+                              {processingSignerId === signer.id ? '저장 중...' : '저장'}
+                            </button>
+                            <button
+                              onClick={() => setEditingSignerId(null)}
+                              disabled={processingSignerId === signer.id}
+                              className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {deletingSignerId === signer.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={4} className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-700">"{signer.name}" 서명자를 정말 삭제할까요?</p>
+                          <button
+                            onClick={() => handleDeleteSigner(signer.id)}
+                            disabled={processingSignerId === signer.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
+                          >
+                            <Trash2 size={12} />
+                            삭제 확정
+                          </button>
+                          <button
+                            onClick={() => setDeletingSignerId(null)}
+                            disabled={processingSignerId === signer.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
+                          >
+                            <X size={12} />
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
