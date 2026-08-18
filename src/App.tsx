@@ -23,6 +23,9 @@ import { UserCeremonyCreate } from './pages/UserCeremonyCreate';
 import { UserCeremonyDetail } from './pages/UserCeremonyDetail';
 import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
 import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
+import { UserSignerList } from './pages/UserSignerList';
+import { UserTemplateList } from './pages/UserTemplateList';
+import { UserTemplateDetail } from './pages/UserTemplateDetail';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -55,6 +58,12 @@ function App() {
           <Route
             path="ceremonies/:organizationId/:ceremonyId/events/:eventId"
             element={<UserCeremonyEventDetail />}
+          />
+          <Route path="ceremonies/:organizationId/:ceremonyId/signers" element={<UserSignerList />} />
+          <Route path="ceremonies/:organizationId/:ceremonyId/templates" element={<UserTemplateList />} />
+          <Route
+            path="ceremonies/:organizationId/:ceremonyId/templates/:templateId"
+            element={<UserTemplateDetail />}
           />
           <Route path="profile" element={<ProfileView />} />
         </Route>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, FileSignature, Loader2, Package, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarClock, FileSignature, FileText, Loader2, Package, Plus, Sparkles, Users } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -270,6 +270,23 @@ export const UserCeremonyDetail: FC = () => {
           {ceremony.title}
         </h1>
         <p className="mt-1 text-sm text-gray-500">플랜: {plan?.name ?? `#${ceremony.billingPlanId}`}</p>
+      </div>
+
+      <div className="flex gap-2">
+        <Link
+          to={`/org/ceremonies/${organizationId}/${ceremonyId}/signers`}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+        >
+          <Users size={16} />
+          서명자 관리
+        </Link>
+        <Link
+          to={`/org/ceremonies/${organizationId}/${ceremonyId}/templates`}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+        >
+          <FileText size={16} />
+          문서 양식 관리
+        </Link>
       </div>
 
       {/* 용량 추가구매 */}

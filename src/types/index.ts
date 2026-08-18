@@ -422,3 +422,86 @@ export interface CeremonyEventLogSummary {
   message: string | null;
   createdAt: string;
 }
+
+/** POST .../signers 요청(SignerDto.Request.CreateSigner)과 맞춘다. */
+export interface CreateSignerRequest {
+  name: string;
+  position: string | null;
+  affiliation: string | null;
+  roleCode: string | null;
+}
+
+/**
+ * GET/POST .../signers(/{id}) 응답(SignerDto.Response.SignerSummary)과 맞춘다. accessKey는
+ * 서명자 포털 접속에 쓰인다(4라운드 이후에 의미가 생긴다).
+ */
+export interface SignerSummary {
+  id: number;
+  ceremonyId: number;
+  name: string;
+  position: string | null;
+  affiliation: string | null;
+  roleCode: string | null;
+  accessKey: string;
+  createdAt: string;
+}
+
+/** feature.ceremony.entity.TemplateDocumentRole 값과 맞춘다. */
+export type TemplateDocumentRole = 'CONTRACT' | 'EXHIBITION';
+
+/** feature.ceremony.entity.TemplateStatus 값과 맞춘다. */
+export type TemplateStatus = 'DRAFT' | 'COMPLETED';
+
+/**
+ * POST(multipart)/GET .../templates(/{id}) 응답(TemplateDto.Response.TemplateSummary)과 맞춘다.
+ * 업로드 자체는 `title`/`documentRole`(문자열 그대로)/`file`을 FormData로 보낸다 — 별도 요청
+ * DTO 타입이 없다(백엔드가 `@RequestParam`으로 직접 받음).
+ */
+export interface TemplateSummary {
+  id: number;
+  ceremonyId: number;
+  title: string;
+  documentRole: TemplateDocumentRole;
+  originalFilename: string;
+  status: TemplateStatus;
+  createdAt: string;
+}
+
+/** POST .../templates/{templateId}/fields 요청(TemplateFieldDto.Request.CreateTemplateField)과 맞춘다. */
+export interface CreateTemplateFieldRequest {
+  fieldKey: string;
+  pageIndex: number;
+  fieldIndex: number;
+  fieldName: string;
+  roleCode: string | null;
+  signOrder: number | null;
+  isRequired: boolean | null;
+  signerId: number | null;
+  xRatio: number;
+  yRatio: number;
+  widthRatio: number;
+  heightRatio: number;
+}
+
+/**
+ * GET/POST .../templates/{templateId}/fields 응답(TemplateFieldDto.Response.TemplateFieldSummary)과
+ * 맞춘다. 좌표 4종은 페이지 기준 0~1 비율, 좌상단 원점이다(signstage-backend
+ * feature.ceremony.support.SignatureOverlayRenderer와 같은 좌표계).
+ */
+export interface TemplateFieldSummary {
+  id: number;
+  templateId: number;
+  signerId: number | null;
+  fieldKey: string;
+  pageIndex: number;
+  fieldIndex: number;
+  fieldName: string;
+  roleCode: string | null;
+  signOrder: number | null;
+  isRequired: boolean;
+  xRatio: number;
+  yRatio: number;
+  widthRatio: number;
+  heightRatio: number;
+  createdAt: string;
+}
