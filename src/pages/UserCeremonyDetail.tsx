@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -15,9 +15,10 @@ import {
   Trash2,
   Upload,
   Users,
-  X,
 } from 'lucide-react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ListContainer } from '../components/ListContainer';
+import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
@@ -669,130 +670,109 @@ export const UserCeremonyDetail: FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {signers.map((signer) => (
-                <Fragment key={signer.id}>
-                  <tr>
-                    <td className="px-4 py-2 text-gray-950">{signer.name}</td>
-                    <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
-                    <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
-                    <td className="px-4 py-2">
-                      {!isCompleted && (
-                        <div className="flex justify-end gap-1">
-                          <button
-                            onClick={() => startEditSigner(signer)}
-                            disabled={processingSignerId === signer.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                          >
-                            <Pencil size={12} />
-                            수정
-                          </button>
-                          <button
-                            onClick={() => openDeleteSigner(signer.id)}
-                            disabled={processingSignerId === signer.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                          >
-                            <Trash2 size={12} />
-                            삭제
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                  {editingSignerId === signer.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={4} className="px-4 py-3">
-                        <div className="flex flex-wrap items-end gap-2">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
-                            <input
-                              type="text"
-                              value={editSignerName}
-                              onChange={(e) => setEditSignerName(e.target.value)}
-                              disabled={processingSignerId === signer.id}
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
-                            <input
-                              type="text"
-                              value={editSignerPosition}
-                              onChange={(e) => setEditSignerPosition(e.target.value)}
-                              disabled={processingSignerId === signer.id}
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
-                            <input
-                              type="text"
-                              value={editSignerAffiliation}
-                              onChange={(e) => setEditSignerAffiliation(e.target.value)}
-                              disabled={processingSignerId === signer.id}
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">역할 코드</label>
-                            <input
-                              type="text"
-                              value={editSignerRoleCode}
-                              onChange={(e) => setEditSignerRoleCode(e.target.value)}
-                              disabled={processingSignerId === signer.id}
-                              placeholder="선택 입력"
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleSaveSignerEdit(signer.id)}
-                              disabled={processingSignerId === signer.id}
-                              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                            >
-                              {processingSignerId === signer.id ? '저장 중...' : '저장'}
-                            </button>
-                            <button
-                              onClick={() => setEditingSignerId(null)}
-                              disabled={processingSignerId === signer.id}
-                              className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  {deletingSignerId === signer.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={4} className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm text-gray-700">"{signer.name}" 서명자를 정말 삭제할까요?</p>
-                          <button
-                            onClick={() => handleDeleteSigner(signer.id)}
-                            disabled={processingSignerId === signer.id}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
-                          >
-                            <Trash2 size={12} />
-                            삭제 확정
-                          </button>
-                          <button
-                            onClick={() => setDeletingSignerId(null)}
-                            disabled={processingSignerId === signer.id}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
-                          >
-                            <X size={12} />
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                <tr key={signer.id}>
+                  <td className="px-4 py-2 text-gray-950">{signer.name}</td>
+                  <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
+                  <td className="px-4 py-2">
+                    {!isCompleted && (
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => startEditSigner(signer)}
+                          disabled={processingSignerId === signer.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          <Pencil size={12} />
+                          수정
+                        </button>
+                        <button
+                          onClick={() => openDeleteSigner(signer.id)}
+                          disabled={processingSignerId === signer.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                        >
+                          <Trash2 size={12} />
+                          삭제
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
         </ListContainer>
       </section>
+
+      <Modal open={editingSignerId !== null} onClose={() => setEditingSignerId(null)} title="서명자 수정">
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+            <input
+              type="text"
+              value={editSignerName}
+              onChange={(e) => setEditSignerName(e.target.value)}
+              disabled={processingSignerId === editingSignerId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
+            <input
+              type="text"
+              value={editSignerPosition}
+              onChange={(e) => setEditSignerPosition(e.target.value)}
+              disabled={processingSignerId === editingSignerId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
+            <input
+              type="text"
+              value={editSignerAffiliation}
+              onChange={(e) => setEditSignerAffiliation(e.target.value)}
+              disabled={processingSignerId === editingSignerId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">역할 코드</label>
+            <input
+              type="text"
+              value={editSignerRoleCode}
+              onChange={(e) => setEditSignerRoleCode(e.target.value)}
+              disabled={processingSignerId === editingSignerId}
+              placeholder="선택 입력"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={() => setEditingSignerId(null)}
+              disabled={processingSignerId === editingSignerId}
+              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => editingSignerId !== null && handleSaveSignerEdit(editingSignerId)}
+              disabled={processingSignerId === editingSignerId}
+              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              {processingSignerId === editingSignerId ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deletingSignerId !== null}
+        title="서명자 삭제"
+        message={`"${signers.find((s) => s.id === deletingSignerId)?.name ?? ''}" 서명자를 정말 삭제할까요?`}
+        isSubmitting={processingSignerId === deletingSignerId}
+        onConfirm={() => deletingSignerId !== null && handleDeleteSigner(deletingSignerId)}
+        onCancel={() => setDeletingSignerId(null)}
+      />
 
       {/* 문서 양식 관리 */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
@@ -887,141 +867,117 @@ export const UserCeremonyDetail: FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {templates.map((template) => (
-                <Fragment key={template.id}>
-                  <tr>
-                    <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
-                    <td className="px-4 py-2">
-                      <p className="font-medium text-gray-950">{template.title}</p>
-                      <p className="text-xs text-gray-400">{template.originalFilename}</p>
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[template.status]}`}
+                <tr key={template.id}>
+                  <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
+                  <td className="px-4 py-2">
+                    <p className="font-medium text-gray-950">{template.title}</p>
+                    <p className="text-xs text-gray-400">{template.originalFilename}</p>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[template.status]}`}
+                    >
+                      {TEMPLATE_STATUS_LABEL[template.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">{template.fieldCount}개</td>
+                  <td className="px-4 py-2">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => handleDuplicateTemplate(template.id)}
+                        disabled={processingTemplateId === template.id || isCompleted}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
                       >
-                        {TEMPLATE_STATUS_LABEL[template.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">{template.fieldCount}개</td>
-                    <td className="px-4 py-2">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => handleDuplicateTemplate(template.id)}
-                          disabled={processingTemplateId === template.id || isCompleted}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                        >
-                          <Copy size={12} />
-                          복제
-                        </button>
-                        <Link
-                          to={`${detailPath}/templates/${template.id}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
-                        >
-                          <ExternalLink size={12} />
-                          서명란 배치
-                        </Link>
-                        {!isCompleted && (
-                          <>
-                            <button
-                              onClick={() => startEditTemplate(template)}
-                              disabled={processingTemplateId === template.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                            >
-                              <Pencil size={12} />
-                              수정
-                            </button>
-                            <button
-                              onClick={() => openDeleteTemplate(template.id)}
-                              disabled={processingTemplateId === template.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                            >
-                              <Trash2 size={12} />
-                              삭제
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {editingTemplateId === template.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={5} className="px-4 py-3">
-                        <div className="flex flex-wrap items-end gap-2">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
-                            <input
-                              type="text"
-                              value={editTemplateTitle}
-                              onChange={(e) => setEditTemplateTitle(e.target.value)}
-                              disabled={processingTemplateId === template.id}
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
-                            <select
-                              value={editTemplateDocumentRole}
-                              onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
-                              disabled={processingTemplateId === template.id}
-                              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
-                            >
-                              <option value="CONTRACT">계약서</option>
-                              <option value="EXHIBITION">전시문서</option>
-                            </select>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleSaveTemplateEdit(template.id)}
-                              disabled={processingTemplateId === template.id}
-                              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                            >
-                              {processingTemplateId === template.id ? '저장 중...' : '저장'}
-                            </button>
-                            <button
-                              onClick={() => setEditingTemplateId(null)}
-                              disabled={processingTemplateId === template.id}
-                              className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  {deletingTemplateId === template.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={5} className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm text-gray-700">
-                            "{template.title}" 문서 양식을 정말 삭제할까요? 이미 하위 행사에 매핑된 문서
-                            양식은 삭제할 수 없습니다.
-                          </p>
+                        <Copy size={12} />
+                        복제
+                      </button>
+                      <Link
+                        to={`${detailPath}/templates/${template.id}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                      >
+                        <ExternalLink size={12} />
+                        서명란 배치
+                      </Link>
+                      {!isCompleted && (
+                        <>
                           <button
-                            onClick={() => handleDeleteTemplate(template.id)}
+                            onClick={() => startEditTemplate(template)}
                             disabled={processingTemplateId === template.id}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                          >
+                            <Pencil size={12} />
+                            수정
+                          </button>
+                          <button
+                            onClick={() => openDeleteTemplate(template.id)}
+                            disabled={processingTemplateId === template.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
                           >
                             <Trash2 size={12} />
-                            삭제 확정
+                            삭제
                           </button>
-                          <button
-                            onClick={() => setDeletingTemplateId(null)}
-                            disabled={processingTemplateId === template.id}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
-                          >
-                            <X size={12} />
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
         </ListContainer>
       </section>
+
+      <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정">
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
+            <input
+              type="text"
+              value={editTemplateTitle}
+              onChange={(e) => setEditTemplateTitle(e.target.value)}
+              disabled={processingTemplateId === editingTemplateId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
+            <select
+              value={editTemplateDocumentRole}
+              onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+              disabled={processingTemplateId === editingTemplateId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+            >
+              <option value="CONTRACT">계약서</option>
+              <option value="EXHIBITION">전시문서</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={() => setEditingTemplateId(null)}
+              disabled={processingTemplateId === editingTemplateId}
+              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => editingTemplateId !== null && handleSaveTemplateEdit(editingTemplateId)}
+              disabled={processingTemplateId === editingTemplateId}
+              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              {processingTemplateId === editingTemplateId ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deletingTemplateId !== null}
+        title="문서 양식 삭제"
+        message={`"${templates.find((t) => t.id === deletingTemplateId)?.title ?? ''}" 문서 양식을 정말 삭제할까요? 이미 하위 행사에 매핑된 문서 양식은 삭제할 수 없습니다.`}
+        isSubmitting={processingTemplateId === deletingTemplateId}
+        onConfirm={() => deletingTemplateId !== null && handleDeleteTemplate(deletingTemplateId)}
+        onCancel={() => setDeletingTemplateId(null)}
+      />
 
       {/* 하위 행사 목록 */}
       <section className="mt-4">
@@ -1056,165 +1012,146 @@ export const UserCeremonyDetail: FC = () => {
               {events.map((event) => {
                 const isEventLocked = event.status === 'STARTED' || event.status === 'FINISHED';
                 return (
-                  <Fragment key={event.id}>
-                    <tr>
-                      <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
-                      <td className="px-4 py-2 font-medium text-gray-950">{event.name}</td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[event.status]}`}
+                  <tr key={event.id}>
+                    <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
+                    <td className="px-4 py-2 font-medium text-gray-950">{event.name}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[event.status]}`}
+                      >
+                        {EVENT_STATUS_LABEL[event.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{formatEventSchedule(event)}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex justify-end gap-1">
+                        <Link
+                          to={`${detailPath}/events/${event.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
-                          {EVENT_STATUS_LABEL[event.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{formatEventSchedule(event)}</td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Link
-                            to={`${detailPath}/events/${event.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
-                          >
-                            <FileText size={12} />
-                            문서 매핑
-                          </Link>
-                          <Link
-                            to={`${detailPath}/events/${event.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
-                          >
-                            <Settings size={12} />
-                            행사 제어
-                          </Link>
-                          {!isCompleted && !isEventLocked && (
-                            <>
-                              <button
-                                onClick={() => startEditEvent(event)}
-                                disabled={processingEventId === event.id}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                              >
-                                <Pencil size={12} />
-                                수정
-                              </button>
-                              <button
-                                onClick={() => openDeleteEvent(event.id)}
-                                disabled={processingEventId === event.id}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                              >
-                                <Trash2 size={12} />
-                                삭제
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {editingEventId === event.id && (
-                      <tr className="bg-gray-50">
-                        <td colSpan={5} className="px-4 py-3">
-                          <div className="flex flex-wrap items-end gap-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
-                              <input
-                                type="text"
-                                value={editEventName}
-                                onChange={(e) => setEditEventName(e.target.value)}
-                                disabled={processingEventId === event.id}
-                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">장소</label>
-                              <input
-                                type="text"
-                                value={editEventVenue}
-                                onChange={(e) => setEditEventVenue(e.target.value)}
-                                disabled={processingEventId === event.id}
-                                placeholder="선택 입력"
-                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">예정 시작</label>
-                              <input
-                                type="datetime-local"
-                                value={editEventScheduledStart}
-                                onChange={(e) => setEditEventScheduledStart(e.target.value)}
-                                disabled={processingEventId === event.id}
-                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">예정 종료</label>
-                              <input
-                                type="datetime-local"
-                                value={editEventScheduledEnd}
-                                onChange={(e) => setEditEventScheduledEnd(e.target.value)}
-                                disabled={processingEventId === event.id}
-                                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-                              />
-                            </div>
-                            <div className="w-full">
-                              <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
-                              <textarea
-                                value={editEventDescription}
-                                onChange={(e) => setEditEventDescription(e.target.value)}
-                                disabled={processingEventId === event.id}
-                                rows={2}
-                                placeholder="선택 입력"
-                                className="w-full max-w-md px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSaveEventEdit(event.id)}
-                                disabled={processingEventId === event.id}
-                                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                              >
-                                {processingEventId === event.id ? '저장 중...' : '저장'}
-                              </button>
-                              <button
-                                onClick={() => setEditingEventId(null)}
-                                disabled={processingEventId === event.id}
-                                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                              >
-                                취소
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {deletingEventId === event.id && (
-                      <tr className="bg-gray-50">
-                        <td colSpan={5} className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm text-gray-700">"{event.name}" 하위 행사를 정말 삭제할까요?</p>
+                          <FileText size={12} />
+                          문서 매핑
+                        </Link>
+                        <Link
+                          to={`${detailPath}/events/${event.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        >
+                          <Settings size={12} />
+                          행사 제어
+                        </Link>
+                        {!isCompleted && !isEventLocked && (
+                          <>
                             <button
-                              onClick={() => handleDeleteEvent(event.id)}
+                              onClick={() => startEditEvent(event)}
                               disabled={processingEventId === event.id}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                            >
+                              <Pencil size={12} />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteEvent(event.id)}
+                              disabled={processingEventId === event.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
                             >
                               <Trash2 size={12} />
-                              삭제 확정
+                              삭제
                             </button>
-                            <button
-                              onClick={() => setDeletingEventId(null)}
-                              disabled={processingEventId === event.id}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50 shrink-0"
-                            >
-                              <X size={12} />
-                              취소
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
         </ListContainer>
       </section>
+
+      <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-lg">
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+            <input
+              type="text"
+              value={editEventName}
+              onChange={(e) => setEditEventName(e.target.value)}
+              disabled={processingEventId === editingEventId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">장소</label>
+            <input
+              type="text"
+              value={editEventVenue}
+              onChange={(e) => setEditEventVenue(e.target.value)}
+              disabled={processingEventId === editingEventId}
+              placeholder="선택 입력"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">예정 시작</label>
+              <input
+                type="datetime-local"
+                value={editEventScheduledStart}
+                onChange={(e) => setEditEventScheduledStart(e.target.value)}
+                disabled={processingEventId === editingEventId}
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">예정 종료</label>
+              <input
+                type="datetime-local"
+                value={editEventScheduledEnd}
+                onChange={(e) => setEditEventScheduledEnd(e.target.value)}
+                disabled={processingEventId === editingEventId}
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
+            <textarea
+              value={editEventDescription}
+              onChange={(e) => setEditEventDescription(e.target.value)}
+              disabled={processingEventId === editingEventId}
+              rows={2}
+              placeholder="선택 입력"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={() => setEditingEventId(null)}
+              disabled={processingEventId === editingEventId}
+              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => editingEventId !== null && handleSaveEventEdit(editingEventId)}
+              disabled={processingEventId === editingEventId}
+              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              {processingEventId === editingEventId ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deletingEventId !== null}
+        title="하위 행사 삭제"
+        message={`"${events.find((e) => e.id === deletingEventId)?.name ?? ''}" 하위 행사를 정말 삭제할까요?`}
+        isSubmitting={processingEventId === deletingEventId}
+        onConfirm={() => deletingEventId !== null && handleDeleteEvent(deletingEventId)}
+        onCancel={() => setDeletingEventId(null)}
+      />
     </div>
   );
 };
