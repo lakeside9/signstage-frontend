@@ -64,9 +64,9 @@ const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '�
  * 보여준다 — 구매하지 않은 옵션을 켜면 백엔드가 `OPTIONAL_FEATURE_NOT_PURCHASED`로 막고 그
  * 메시지를 그대로 스낵바에 띄운다.
  *
- * 3라운드부터 문서 매핑을 실제로 할 수 있어 READY/START 전이가 실제로 통과한다. 다만 FINISH는
- * 서명자 포털(4라운드)이 있어야 채울 수 있는 조건(전원 서명 완료)이 있어, 지금은
- * `CEREMONY_EVENT_FINISH_CONDITION_NOT_MET`으로 실패하는 게 정상이다.
+ * 3라운드부터 문서 매핑을 실제로 할 수 있어 READY/START 전이가 실제로 통과한다. FINISH는
+ * 필수 서명자 전원이 서명자 포털(`SignerPortalView`, `/portal/:eventAccessKey/:signerAccessKey`,
+ * 4라운드)에서 서명을 완료해야 통과한다 — 완료 전 시도하면 `CEREMONY_EVENT_FINISH_CONDITION_NOT_MET`.
  */
 export const UserCeremonyEventDetail: FC = () => {
   const { organizationId, ceremonyId, eventId } = useParams<{
@@ -410,7 +410,7 @@ export const UserCeremonyEventDetail: FC = () => {
           </button>
           {event.status === 'STARTED' && (
             <p className="mt-1.5 text-xs text-gray-400">
-              서명자 포털 기능은 아직 없습니다(다음 라운드) — 지금은 서명 미완료 오류가 정상입니다.
+              필수 서명자 전원이 서명자 포털(accessKey 접속)에서 서명을 완료해야 종료할 수 있습니다.
             </p>
           )}
         </div>

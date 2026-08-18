@@ -502,6 +502,48 @@ export interface CreateTemplateFieldRequest {
   heightRatio: number;
 }
 
+// ── 서명자 포털(공개, JWT 없음) ─────────────────────────────────────────
+// feature.ceremony.controller.SignerPortalController DTO와 맞춘다. eventAccessKey/
+// signerAccessKey 소지만으로 접근하는 공개 API라 이 타입들은 인증 컨텍스트와 무관하다.
+
+/**
+ * GET /api/portal/events/{eventAccessKey}/signers/{signerAccessKey} 응답 중 requiredFields
+ * 원소(SignerPortalDto.Response.RequiredFieldStatus)와 맞춘다. 좌표는 없다 — 포털은 좌표가
+ * 있는 TemplateField 조회 API(JWT 필요)를 못 부른다(SignaturePad가 필드 박스 역할을 대신함).
+ */
+export interface PortalRequiredFieldStatus {
+  templateFieldId: number;
+  templateId: number;
+  fieldName: string;
+  pageIndex: number;
+  hasStroke: boolean;
+}
+
+/** GET /api/portal/events/{eventAccessKey}/signers/{signerAccessKey} 응답과 맞춘다. */
+export interface PortalContext {
+  eventId: number;
+  eventName: string;
+  eventStatus: CeremonyEventStatus;
+  signerId: number;
+  signerName: string;
+  requiredFields: PortalRequiredFieldStatus[];
+}
+
+/** POST .../strokes 요청(SignerPortalDto.Request.SubmitStroke)과 맞춘다. */
+export interface SubmitStrokeRequest {
+  templateFieldId: number;
+  strokeSeq: number;
+  rawData: string;
+}
+
+/** POST .../strokes 응답(SignerPortalDto.Response.StrokeSubmitted)과 맞춘다. */
+export interface StrokeSubmitted {
+  id: number;
+  templateFieldId: number;
+  strokeSeq: number;
+  createdAt: string;
+}
+
 /**
  * GET/POST .../templates/{templateId}/fields 응답(TemplateFieldDto.Response.TemplateFieldSummary)과
  * 맞춘다. 좌표 4종은 페이지 기준 0~1 비율, 좌상단 원점이다(signstage-backend

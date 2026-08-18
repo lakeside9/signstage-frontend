@@ -26,6 +26,7 @@ import { UserCeremonyEventDetail } from './pages/UserCeremonyEventDetail';
 import { UserSignerList } from './pages/UserSignerList';
 import { UserTemplateList } from './pages/UserTemplateList';
 import { UserTemplateDetail } from './pages/UserTemplateDetail';
+import { SignerPortalView } from './pages/SignerPortalView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -37,6 +38,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginView />} />
         <Route path="/signup" element={<SignupView />} />
+        <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
 
         <Route
           path="/org"
