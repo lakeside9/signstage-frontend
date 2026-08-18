@@ -12,6 +12,7 @@ import {
   Menu,
   Package,
   ShieldCheck,
+  ShoppingCart,
   User,
   Users,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { to: '/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
   { to: '/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
+  { to: '/purchase-requests', end: false, icon: <ShoppingCart size={20} />, label: '추가구매 요청' },
   { to: '/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
   { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];

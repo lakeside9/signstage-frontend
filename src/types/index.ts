@@ -420,7 +420,16 @@ export interface PurchaseCapacityRequest {
   quantity: number;
 }
 
-/** POST .../capacity-purchases 응답(CeremonyDto.Response.CapacityPurchaseSummary)과 맞춘다. */
+/**
+ * feature.ceremony.entity.PurchaseStatus 값과 맞춘다. 요청 즉시 PENDING으로 생기고,
+ * 플랫폼 관리자가 APPROVED로 승인해야 유효 한도/구매한 선택옵션 집계에 반영된다.
+ */
+export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/**
+ * GET/POST .../capacity-purchases 응답(CeremonyDto.Response.CapacityPurchaseSummary)과 맞춘다.
+ * 요청자 본인이 볼 수 있는 이력이다.
+ */
 export interface CapacityPurchaseSummary {
   id: number;
   ceremonyId: number;
@@ -429,6 +438,9 @@ export interface CapacityPurchaseSummary {
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  status: PurchaseStatus;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 }
 
@@ -437,7 +449,10 @@ export interface PurchaseOptionalFeatureRequest {
   optionalFeatureId: number;
 }
 
-/** POST .../optional-feature-purchases 응답(CeremonyDto.Response.OptionalFeaturePurchaseSummary)과 맞춘다. */
+/**
+ * GET/POST .../optional-feature-purchases 응답(CeremonyDto.Response.OptionalFeaturePurchaseSummary)과
+ * 맞춘다. 요청자 본인이 볼 수 있는 이력이다.
+ */
 export interface OptionalFeaturePurchaseSummary {
   id: number;
   ceremonyId: number;
@@ -445,6 +460,50 @@ export interface OptionalFeaturePurchaseSummary {
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  status: PurchaseStatus;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * GET/POST/PUT /api/platform-admin/capacity-purchases 응답
+ * (PlatformAdminCeremonyPurchaseDto.Response.CapacityPurchaseRequestSummary)과 맞춘다.
+ */
+export interface PlatformAdminCapacityPurchaseRequestSummary {
+  id: number;
+  requesterId: number;
+  requesterLoginId: string;
+  organizationId: number;
+  ceremonyId: number;
+  ceremonyTitle: string;
+  capacityAddOnId: number;
+  quantity: number;
+  purchasedSalePrice: number;
+  status: PurchaseStatus;
+  rejectionReason: string | null;
+  reviewerLoginId: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * GET/POST/PUT /api/platform-admin/optional-feature-purchases 응답
+ * (PlatformAdminCeremonyPurchaseDto.Response.OptionalFeaturePurchaseRequestSummary)과 맞춘다.
+ */
+export interface PlatformAdminOptionalFeaturePurchaseRequestSummary {
+  id: number;
+  requesterId: number;
+  requesterLoginId: string;
+  organizationId: number;
+  ceremonyId: number;
+  ceremonyTitle: string;
+  optionalFeatureId: number;
+  purchasedSalePrice: number;
+  status: PurchaseStatus;
+  rejectionReason: string | null;
+  reviewerLoginId: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 }
 

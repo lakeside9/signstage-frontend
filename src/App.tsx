@@ -13,6 +13,7 @@ import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { AdminBillingCatalog } from './pages/AdminBillingCatalog';
+import { AdminCeremonyPurchaseRequests } from './pages/AdminCeremonyPurchaseRequests';
 import { UserDashboard } from './pages/UserDashboard';
 import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
@@ -91,6 +92,7 @@ function App() {
           <Route path="accounts/new" element={<AdminAccountCreate />} />
           <Route path="audit-logs" element={<AdminAuditLogList />} />
           <Route path="billing-catalog" element={<AdminBillingCatalog />} />
+          <Route path="purchase-requests" element={<AdminCeremonyPurchaseRequests />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 

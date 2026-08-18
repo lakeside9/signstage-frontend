@@ -4,7 +4,15 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileSignature, Info, Loader2, Package, Settings, Sparkles } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { BillingPlanSummary, CapacityAddOnSummary, CeremonySummary, OptionalFeatureSummary } from '../types';
+import type {
+  BillingPlanSummary,
+  CapacityAddOnSummary,
+  CapacityPurchaseSummary,
+  CeremonySummary,
+  OptionalFeaturePurchaseSummary,
+  OptionalFeatureSummary,
+  PurchaseStatus,
+} from '../types';
 
 const CAPACITY_TYPE_LABEL: Record<string, string> = {
   SIGNERS: '서명자 수',
@@ -13,9 +21,27 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   MAIN_EVENTS: '본행사 수',
 };
 
+const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = {
+  PENDING: '대기중',
+  APPROVED: '승인됨',
+  REJECTED: '반려됨',
+};
+
+const PURCHASE_STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+  APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  REJECTED: 'bg-red-50 text-red-700 border-red-200',
+};
+
 const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 const formatDiscount = (discountType: string, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
+
+const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
+  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${PURCHASE_STATUS_BADGE_CLASS[status]}`}>
+    {PURCHASE_STATUS_LABEL[status]}
+  </span>
+);
 
 /**
  * 행사(Ceremony) 수정(`/org/ceremonies/:organizationId/:ceremonyId/edit`). 용량/선택옵션
@@ -24,8 +50,9 @@ const formatDiscount = (discountType: string, discountValue: number) =>
  * 추가구매)은 별도 수정 화면에 모은다. 선택한 플랜은 생성 시점에 고정이라(4.10절) 여기서
  * 바꿀 수 없고, 상세정보만 읽기 전용으로 보여준다.
  *
- * 추가구매 둘 다 이력 조회 API가 없어 방금 구매한 것만 화면에 안내로 남긴다(백엔드에
- * CapacityPurchase/OptionalFeaturePurchase 목록 조회 엔드포인트가 아직 없다).
+ * 추가구매는 요청 즉시 반영되지 않는다 — 플랫폼 관리자가 승인해야 유효 한도/구매한 선택옵션에
+ * 반영된다(signstage-docs business/ceremony-billing-options-review.md). 요청자 본인 이력
+ * 조회 API로 대기중(PENDING)/승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
  */
 export const UserCeremonyEdit: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -47,12 +74,14 @@ export const UserCeremonyEdit: FC = () => {
   const [selectedAddOnId, setSelectedAddOnId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isPurchasingCapacity, setIsPurchasingCapacity] = useState(false);
-  const [purchasedCapacityNote, setPurchasedCapacityNote] = useState<string | null>(null);
+  const [capacityPurchases, setCapacityPurchases] = useState<CapacityPurchaseSummary[]>([]);
+  const [isCapacityHistoryLoading, setIsCapacityHistoryLoading] = useState(true);
 
   const [optionalFeatures, setOptionalFeatures] = useState<OptionalFeatureSummary[]>([]);
   const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
   const [processingFeatureId, setProcessingFeatureId] = useState<number | null>(null);
-  const [purchasedFeatureIds, setPurchasedFeatureIds] = useState<number[]>([]);
+  const [featurePurchases, setFeaturePurchases] = useState<OptionalFeaturePurchaseSummary[]>([]);
+  const [isFeatureHistoryLoading, setIsFeatureHistoryLoading] = useState(true);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -171,6 +200,70 @@ export const UserCeremonyEdit: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchCapacityPurchases = async () => {
+    const response = await api.get(`${basePath}/capacity-purchases`);
+    return response.data as CapacityPurchaseSummary[];
+  };
+
+  const fetchFeaturePurchases = async () => {
+    const response = await api.get(`${basePath}/optional-feature-purchases`);
+    return response.data as OptionalFeaturePurchaseSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchCapacityPurchases();
+        if (!cancelled) {
+          setCapacityPurchases(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '용량 추가구매 이력을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCapacityHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchFeaturePurchases();
+        if (!cancelled) {
+          setFeaturePurchases(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '선택옵션 추가구매 이력을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsFeatureHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const handleUpdateCeremony = async (e: FormEvent) => {
     e.preventDefault();
     if (!titleDraft.trim()) {
@@ -211,14 +304,11 @@ export const UserCeremonyEdit: FC = () => {
         capacityAddOnId: selectedAddOnId,
         quantity,
       });
-      const addOn = capacityAddOns.find((item) => item.id === selectedAddOnId);
-      showSnackbar('용량을 추가구매했습니다.', 'success');
-      setPurchasedCapacityNote(
-        addOn ? `방금 구매: ${CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +${addOn.unitAmount * quantity}` : null,
-      );
+      showSnackbar('용량 추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
       setQuantity(1);
+      setCapacityPurchases(await fetchCapacityPurchases());
     } catch (err) {
-      const message = err instanceof Error ? err.message : '용량 추가구매에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '용량 추가구매 요청에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
       setIsPurchasingCapacity(false);
@@ -231,15 +321,21 @@ export const UserCeremonyEdit: FC = () => {
       await api.post(`${basePath}/optional-feature-purchases`, {
         optionalFeatureId,
       });
-      showSnackbar('선택옵션을 추가구매했습니다.', 'success');
-      setPurchasedFeatureIds((prev) => [...prev, optionalFeatureId]);
+      showSnackbar('선택옵션 추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
+      setFeaturePurchases(await fetchFeaturePurchases());
     } catch (err) {
-      const message = err instanceof Error ? err.message : '선택옵션 추가구매에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '선택옵션 추가구매 요청에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
       setProcessingFeatureId(null);
     }
   };
+
+  /** REJECTED는 재요청할 수 있어야 하므로 PENDING/APPROVED가 있을 때만 구매 버튼을 막는다. */
+  const hasActiveFeaturePurchase = (optionalFeatureId: number) =>
+    featurePurchases.some(
+      (purchase) => purchase.optionalFeatureId === optionalFeatureId && purchase.status !== 'REJECTED',
+    );
 
   if (isLoading) {
     return (
@@ -361,7 +457,7 @@ export const UserCeremonyEdit: FC = () => {
           용량 추가구매
         </h2>
         <p className="text-xs text-gray-400 mb-3">
-          한 번 구매하면 취소할 수 없습니다. 구매 이력 조회는 아직 지원하지 않아 방금 구매한 항목만 아래에 표시됩니다.
+          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 유효 한도에 반영됩니다.
         </p>
         {isCapacityLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
@@ -406,11 +502,39 @@ export const UserCeremonyEdit: FC = () => {
               disabled={isPurchasingCapacity}
               className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
             >
-              {isPurchasingCapacity ? '구매 중...' : '구매'}
+              {isPurchasingCapacity ? '요청 중...' : '구매 요청'}
             </button>
           </form>
         )}
-        {purchasedCapacityNote && <p className="mt-3 text-xs text-emerald-600">{purchasedCapacityNote}</p>}
+
+        {isCapacityHistoryLoading ? (
+          <div className="flex items-center justify-center py-6 text-gray-400">
+            <Loader2 size={18} className="animate-spin" />
+          </div>
+        ) : capacityPurchases.length > 0 ? (
+          <ul className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
+            {capacityPurchases.map((purchase) => {
+              const addOn = capacityAddOns.find((item) => item.id === purchase.capacityAddOnId);
+              return (
+                <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm text-gray-950">
+                      {addOn ? CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType : `#${purchase.capacityAddOnId}`} +
+                      {(addOn?.unitAmount ?? 1) * purchase.quantity}
+                    </p>
+                    <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
+                    {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                      <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                    )}
+                  </div>
+                  <PurchaseStatusBadge status={purchase.status} />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">아직 요청한 용량 추가구매가 없습니다.</p>
+        )}
       </section>
 
       {/* 선택옵션 추가구매 */}
@@ -420,7 +544,7 @@ export const UserCeremonyEdit: FC = () => {
           선택옵션 추가구매
         </h2>
         <p className="text-xs text-gray-400 mb-3">
-          구매한 옵션은 하위 행사별로 적용 여부를 켜고 끌 수 있습니다(하위 행사 상세에서 설정).
+          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 하위 행사에 적용할 수 있습니다.
         </p>
         {isFeaturesLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
@@ -438,20 +562,51 @@ export const UserCeremonyEdit: FC = () => {
                   <p className="text-sm text-gray-950">{feature.name}</p>
                   <p className="text-xs text-gray-500">{formatPrice(feature.salePrice)}</p>
                 </div>
-                {purchasedFeatureIds.includes(feature.id) ? (
-                  <span className="text-xs text-emerald-600">방금 구매함</span>
+                {hasActiveFeaturePurchase(feature.id) ? (
+                  <PurchaseStatusBadge
+                    status={
+                      featurePurchases.find((p) => p.optionalFeatureId === feature.id && p.status !== 'REJECTED')
+                        ?.status ?? 'PENDING'
+                    }
+                  />
                 ) : (
                   <button
                     onClick={() => handlePurchaseFeature(feature.id)}
                     disabled={processingFeatureId === feature.id}
                     className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
                   >
-                    {processingFeatureId === feature.id ? '구매 중...' : '구매'}
+                    {processingFeatureId === feature.id ? '요청 중...' : '구매 요청'}
                   </button>
                 )}
               </li>
             ))}
           </ul>
+        )}
+
+        {isFeatureHistoryLoading ? (
+          <div className="flex items-center justify-center py-6 text-gray-400">
+            <Loader2 size={18} className="animate-spin" />
+          </div>
+        ) : featurePurchases.length > 0 ? (
+          <ul className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
+            {featurePurchases.map((purchase) => {
+              const feature = optionalFeatures.find((item) => item.id === purchase.optionalFeatureId);
+              return (
+                <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm text-gray-950">{feature?.name ?? `#${purchase.optionalFeatureId}`}</p>
+                    <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
+                    {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                      <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                    )}
+                  </div>
+                  <PurchaseStatusBadge status={purchase.status} />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">아직 요청한 선택옵션 추가구매가 없습니다.</p>
         )}
       </section>
     </div>
