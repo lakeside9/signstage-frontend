@@ -440,10 +440,20 @@ export const UserCeremonyEdit: FC = () => {
               <span className="text-gray-950">{formatDiscount(plan.discountType, plan.discountValue)}</span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">서명자/템플릿/테스트행사/본행사 한도</span>
-              <span className="text-gray-950">
-                {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxMainEvents}
-              </span>
+              <span className="text-gray-500">서명자 한도</span>
+              <span className="text-gray-950">{plan.maxSigners}명</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">템플릿 한도</span>
+              <span className="text-gray-950">{plan.maxTemplates}건</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">테스트 행사 한도</span>
+              <span className="text-gray-950">{plan.maxTestEvents}건</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">본행사 한도</span>
+              <span className="text-gray-950">{plan.maxMainEvents}건</span>
             </div>
           </div>
         )}
