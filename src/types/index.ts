@@ -677,8 +677,9 @@ export type TemplateStatus = 'DRAFT' | 'COMPLETED';
 /**
  * POST(multipart)/GET .../templates(/{id}) 응답(TemplateDto.Response.TemplateSummary)과 맞춘다.
  * 업로드 자체는 `title`/`documentRole`(문자열 그대로)/`file`을 FormData로 보낸다 — 별도 요청
- * DTO 타입이 없다(백엔드가 `@RequestParam`으로 직접 받음). status는 저장된 값이 아니라
- * fieldCount(서명란 개수)로 매번 계산돼서 온다 — 1개 이상이면 COMPLETED다.
+ * DTO 타입이 없다(백엔드가 `@RequestParam`으로 직접 받음). status는 서명란 배치 화면의
+ * "설정 완료"를 눌러야 COMPLETED로 바뀐다(POST .../complete) — 완료되면 서명란을 더 이상
+ * 바꿀 수 없다(읽기 전용).
  */
 export interface TemplateSummary {
   id: number;
@@ -711,6 +712,21 @@ export interface CreateTemplateFieldRequest {
   yRatio: number;
   widthRatio: number;
   heightRatio: number;
+}
+
+/**
+ * PUT .../templates/{templateId}/fields 요청(TemplateFieldDto.Request.SetFields)과 맞춘다.
+ * 서명란 배치 화면의 "저장" — diff 없이 항상 전체 배열을 통째로 보낸다.
+ */
+export interface SetFieldsRequest {
+  fields: CreateTemplateFieldRequest[];
+}
+
+/** GET .../templates/{templateId}/info 응답(TemplateDto.Response.TemplateInfo)과 맞춘다. */
+export interface TemplateInfo {
+  pageCount: number;
+  width: number | null;
+  height: number | null;
 }
 
 // ── 서명자 포털(공개, JWT 없음) ─────────────────────────────────────────

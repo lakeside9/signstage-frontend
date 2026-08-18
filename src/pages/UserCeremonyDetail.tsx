@@ -70,7 +70,7 @@ const formatEventSchedule = (event: CeremonyEventSummary) => {
 const toDateTimeLocalValue = (value: string | null) => (value ? value.slice(0, 16) : '');
 
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
-/** 저장된 상태값이 아니라 서명란(fieldCount) 유무로 매번 계산돼서 온다 — 1개 이상이면 COMPLETED. */
+/** 서명란 배치 화면에서 "설정 완료"를 눌러야 COMPLETED로 바뀐다 — 그 전까지는 DRAFT다. */
 const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '설정 필요', COMPLETED: '설정 완료' };
 const TEMPLATE_STATUS_COLOR: Record<TemplateStatus, string> = {
   DRAFT: 'bg-gray-50 text-gray-600 border-gray-200',
