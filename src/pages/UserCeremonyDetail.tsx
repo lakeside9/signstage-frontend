@@ -1,7 +1,20 @@
-import { useEffect, useState } from 'react';
-import type { FC, FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, FileSignature, FileText, Loader2, Package, Plus, Sparkles, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  Check,
+  Copy,
+  FileSignature,
+  FileText,
+  Loader2,
+  Package,
+  Plus,
+  Sparkles,
+  Upload,
+  Users,
+} from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -14,6 +27,10 @@ import type {
   CeremonyStatus,
   CeremonySummary,
   OptionalFeatureSummary,
+  SignerSummary,
+  TemplateDocumentRole,
+  TemplateStatus,
+  TemplateSummary,
 } from '../types';
 
 const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = { IN_PROGRESS: '진행중', COMPLETED: '완료' };
@@ -45,14 +62,19 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   MAIN_EVENTS: '본행사 수',
 };
 
+const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '작성 중', COMPLETED: '완료' };
+
 const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 
 /**
- * 행사(Ceremony) 상세(`/org/ceremonies/:organizationId/:ceremonyId`). 기본 정보 +
- * 용량/선택옵션 추가구매(둘 다 이력 조회 API가 없어 방금 구매한 것만 화면에 안내로 남긴다 —
- * 백엔드에 CapacityPurchase/OptionalFeaturePurchase 목록 조회 엔드포인트가 아직 없다) + 하위
- * 행사(CeremonyEvent) 목록을 한 화면에 담는다. 섹션마다 독립적으로 불러오고 실패해도 서로
- * 막지 않는다(AdminOrganizationDetail과 같은 패턴).
+ * 행사(Ceremony) 상세(`/org/ceremonies/:organizationId/:ceremonyId`). legacy 화면 구성을
+ * 따라 서명자 관리 목록, 문서 양식 관리 목록, 하위 행사(이벤트) 목록을 이 화면 하나에 모두
+ * 담는다(예전엔 `UserSignerList`/`UserTemplateList`로 화면이 따로 있었으나 여기로 흡수됐다 —
+ * 문서 위 서명란 배치만 항목이 많고 복잡해 `UserTemplateDetail`로 계속 분리돼 있다) + 용량/
+ * 선택옵션 추가구매(둘 다 이력 조회 API가 없어 방금 구매한 것만 화면에 안내로 남긴다 —
+ * 백엔드에 CapacityPurchase/OptionalFeaturePurchase 목록 조회 엔드포인트가 아직 없다). 섹션마다
+ * 독립적으로 불러오고 실패해도 서로 막지 않는다(AdminOrganizationDetail과 같은 패턴).
  */
 export const UserCeremonyDetail: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -78,12 +100,34 @@ export const UserCeremonyDetail: FC = () => {
   const [events, setEvents] = useState<CeremonyEventSummary[]>([]);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
 
+  const [signers, setSigners] = useState<SignerSummary[]>([]);
+  const [isSignersLoading, setIsSignersLoading] = useState(true);
+  const [isSignerFormOpen, setIsSignerFormOpen] = useState(false);
+  const [signerName, setSignerName] = useState('');
+  const [signerPosition, setSignerPosition] = useState('');
+  const [signerAffiliation, setSignerAffiliation] = useState('');
+  const [signerRoleCode, setSignerRoleCode] = useState('');
+  const [isAddingSigner, setIsAddingSigner] = useState(false);
+  const [copiedSignerId, setCopiedSignerId] = useState<number | null>(null);
+
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
+  const [templateTitle, setTemplateTitle] = useState('');
+  const [templateDocumentRole, setTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
+  const templateFileInputRef = useRef<HTMLInputElement>(null);
+
+  const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
+  const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}`);
+        const response = await api.get(basePath);
         const data = response.data as CeremonySummary;
         if (cancelled) return;
         setCeremony(data);
@@ -171,7 +215,7 @@ export const UserCeremonyDetail: FC = () => {
   }, []);
 
   const fetchEvents = async () => {
-    const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/events`);
+    const response = await api.get(`${basePath}/events`);
     return response.data as CeremonyEventSummary[];
   };
 
@@ -202,6 +246,70 @@ export const UserCeremonyDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
 
+  const fetchSigners = async () => {
+    const response = await api.get(`${basePath}/signers`);
+    return response.data as SignerSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchSigners();
+        if (!cancelled) {
+          setSigners(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '서명자 목록을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSignersLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  const fetchTemplates = async () => {
+    const response = await api.get(`${basePath}/templates`);
+    return response.data as TemplateSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchTemplates();
+        if (!cancelled) {
+          setTemplates(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '문서 양식 목록을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsTemplatesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const handlePurchaseCapacity = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedAddOnId) {
@@ -215,7 +323,7 @@ export const UserCeremonyDetail: FC = () => {
 
     setIsPurchasingCapacity(true);
     try {
-      await api.post(`/organizations/${organizationId}/ceremonies/${ceremonyId}/capacity-purchases`, {
+      await api.post(`${basePath}/capacity-purchases`, {
         capacityAddOnId: selectedAddOnId,
         quantity,
       });
@@ -236,7 +344,7 @@ export const UserCeremonyDetail: FC = () => {
   const handlePurchaseFeature = async (optionalFeatureId: number) => {
     setProcessingFeatureId(optionalFeatureId);
     try {
-      await api.post(`/organizations/${organizationId}/ceremonies/${ceremonyId}/optional-feature-purchases`, {
+      await api.post(`${basePath}/optional-feature-purchases`, {
         optionalFeatureId,
       });
       showSnackbar('선택옵션을 추가구매했습니다.', 'success');
@@ -246,6 +354,91 @@ export const UserCeremonyDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setProcessingFeatureId(null);
+    }
+  };
+
+  const handleAddSigner = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!signerName.trim()) {
+      showSnackbar('서명자 이름을 입력해주세요.', 'error');
+      return;
+    }
+
+    setIsAddingSigner(true);
+    try {
+      await api.post(`${basePath}/signers`, {
+        name: signerName.trim(),
+        position: signerPosition.trim() || null,
+        affiliation: signerAffiliation.trim() || null,
+        roleCode: signerRoleCode.trim() || null,
+      });
+      showSnackbar('서명자를 등록했습니다.', 'success');
+      setSignerName('');
+      setSignerPosition('');
+      setSignerAffiliation('');
+      setSignerRoleCode('');
+      setIsSignerFormOpen(false);
+      setSigners(await fetchSigners());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명자 등록에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsAddingSigner(false);
+    }
+  };
+
+  const handleCopySignerAccessKey = async (signer: SignerSummary) => {
+    try {
+      await navigator.clipboard.writeText(signer.accessKey);
+      setCopiedSignerId(signer.id);
+      setTimeout(() => setCopiedSignerId((prev) => (prev === signer.id ? null : prev)), 1500);
+    } catch {
+      showSnackbar('접속키 복사에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleTemplateFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] ?? null;
+    if (selected && selected.type !== 'application/pdf') {
+      showSnackbar('PDF 파일만 업로드할 수 있습니다.', 'error');
+      e.target.value = '';
+      setTemplateFile(null);
+      return;
+    }
+    setTemplateFile(selected);
+  };
+
+  const handleUploadTemplate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!templateTitle.trim()) {
+      showSnackbar('문서 제목을 입력해주세요.', 'error');
+      return;
+    }
+    if (!templateFile) {
+      showSnackbar('업로드할 PDF 파일을 선택해주세요.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', templateTitle.trim());
+    formData.append('documentRole', templateDocumentRole);
+    formData.append('file', templateFile);
+
+    setIsUploadingTemplate(true);
+    try {
+      await api.post(`${basePath}/templates`, formData);
+      showSnackbar('문서 양식을 업로드했습니다.', 'success');
+      setTemplateTitle('');
+      setTemplateDocumentRole('CONTRACT');
+      setTemplateFile(null);
+      if (templateFileInputRef.current) templateFileInputRef.current.value = '';
+      setIsTemplateFormOpen(false);
+      setTemplates(await fetchTemplates());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 양식 업로드에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsUploadingTemplate(false);
     }
   };
 
@@ -289,25 +482,239 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </div>
 
-      <div className="flex gap-2">
-        <Link
-          to={`/org/ceremonies/${organizationId}/${ceremonyId}/signers`}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-        >
-          <Users size={16} />
-          서명자 관리
-        </Link>
-        <Link
-          to={`/org/ceremonies/${organizationId}/${ceremonyId}/templates`}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-        >
-          <FileText size={16} />
-          문서 양식 관리
-        </Link>
-      </div>
+      {/* 서명자 관리 */}
+      <section className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+              <Users size={14} />
+              서명자
+            </h2>
+            <p className="mt-1 text-xs text-gray-400">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
+          </div>
+          {!isSignerFormOpen && !isCompleted && (
+            <button
+              onClick={() => setIsSignerFormOpen(true)}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+            >
+              <Plus size={12} />
+              서명자 등록
+            </button>
+          )}
+        </div>
+
+        {isSignerFormOpen && (
+          <form
+            onSubmit={handleAddSigner}
+            className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-wrap items-end gap-2"
+          >
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+              <input
+                type="text"
+                value={signerName}
+                onChange={(e) => setSignerName(e.target.value)}
+                disabled={isAddingSigner}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
+              <input
+                type="text"
+                value={signerPosition}
+                onChange={(e) => setSignerPosition(e.target.value)}
+                disabled={isAddingSigner}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
+              <input
+                type="text"
+                value={signerAffiliation}
+                onChange={(e) => setSignerAffiliation(e.target.value)}
+                disabled={isAddingSigner}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">역할 코드</label>
+              <input
+                type="text"
+                value={signerRoleCode}
+                onChange={(e) => setSignerRoleCode(e.target.value)}
+                disabled={isAddingSigner}
+                placeholder="선택 입력"
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={isAddingSigner}
+                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isAddingSigner ? '등록 중...' : '등록'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSignerFormOpen(false)}
+                disabled={isAddingSigner}
+                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                취소
+              </button>
+            </div>
+          </form>
+        )}
+
+        <ListContainer isLoading={isSignersLoading} isEmpty={signers.length === 0} emptyMessage="아직 등록된 서명자가 없습니다.">
+          <table className="w-full text-sm">
+            <thead className="text-gray-500 text-xs">
+              <tr>
+                <th className="text-left font-medium px-4 py-2">이름</th>
+                <th className="text-left font-medium px-4 py-2">직책</th>
+                <th className="text-left font-medium px-4 py-2">소속</th>
+                <th className="text-right font-medium px-4 py-2">접속키</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {signers.map((signer) => (
+                <tr key={signer.id}>
+                  <td className="px-4 py-2 text-gray-950">{signer.name}</td>
+                  <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() => handleCopySignerAccessKey(signer)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-950"
+                    >
+                      {copiedSignerId === signer.id ? (
+                        <>
+                          <Check size={12} />
+                          복사됨
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} />
+                          복사
+                        </>
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListContainer>
+      </section>
+
+      {/* 문서 양식 관리 */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+              <FileText size={14} />
+              문서 양식
+            </h2>
+            <p className="mt-1 text-xs text-gray-400">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
+          </div>
+          {!isTemplateFormOpen && !isCompleted && (
+            <button
+              onClick={() => setIsTemplateFormOpen(true)}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+            >
+              <Plus size={12} />
+              문서 업로드
+            </button>
+          )}
+        </div>
+
+        {isTemplateFormOpen && (
+          <form
+            onSubmit={handleUploadTemplate}
+            className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-wrap items-end gap-2"
+          >
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
+              <input
+                type="text"
+                value={templateTitle}
+                onChange={(e) => setTemplateTitle(e.target.value)}
+                disabled={isUploadingTemplate}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
+              <select
+                value={templateDocumentRole}
+                onChange={(e) => setTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+                disabled={isUploadingTemplate}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+              >
+                <option value="CONTRACT">계약서</option>
+                <option value="EXHIBITION">전시문서</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">PDF 파일</label>
+              <input
+                ref={templateFileInputRef}
+                type="file"
+                accept="application/pdf"
+                onChange={handleTemplateFileChange}
+                disabled={isUploadingTemplate}
+                className="text-sm text-gray-600 file:mr-2 file:px-3 file:py-1.5 file:rounded-md file:border file:border-gray-200 file:text-xs file:font-medium file:bg-white hover:file:border-gray-400"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={isUploadingTemplate}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                <Upload size={12} />
+                {isUploadingTemplate ? '업로드 중...' : '업로드'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsTemplateFormOpen(false)}
+                disabled={isUploadingTemplate}
+                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                취소
+              </button>
+            </div>
+          </form>
+        )}
+
+        <ListContainer isLoading={isTemplatesLoading} isEmpty={templates.length === 0} emptyMessage="아직 업로드된 문서 양식이 없습니다.">
+          <ul className="divide-y divide-gray-100">
+            {templates.map((template) => (
+              <li key={template.id}>
+                <Link
+                  to={`${detailPath}/templates/${template.id}`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <FileText size={16} className="text-gray-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-950 truncate">{template.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {DOCUMENT_ROLE_LABEL[template.documentRole]} · {template.originalFilename}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-gray-500">{TEMPLATE_STATUS_LABEL[template.status]}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </ListContainer>
+      </section>
 
       {/* 용량 추가구매 */}
-      <section className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <Package size={14} />
           용량 추가구매
@@ -416,7 +823,7 @@ export const UserCeremonyDetail: FC = () => {
           </h2>
           {!isCompleted && (
             <Link
-              to={`/org/ceremonies/${organizationId}/${ceremonyId}/events/new`}
+              to={`${detailPath}/events/new`}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
             >
               <Plus size={12} />
@@ -430,7 +837,7 @@ export const UserCeremonyDetail: FC = () => {
             {events.map((event) => (
               <li key={event.id}>
                 <Link
-                  to={`/org/ceremonies/${organizationId}/${ceremonyId}/events/${event.id}`}
+                  to={`${detailPath}/events/${event.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <div className="min-w-0 flex-1">

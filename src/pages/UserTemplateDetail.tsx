@@ -253,9 +253,9 @@ export const UserTemplateDetail: FC = () => {
 
   return (
     <div>
-      <Link to={`${detailPath}/templates`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link to={detailPath} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
-        문서 양식 목록으로
+        행사 상세로
       </Link>
 
       <div className="mb-4 flex items-center justify-between">
