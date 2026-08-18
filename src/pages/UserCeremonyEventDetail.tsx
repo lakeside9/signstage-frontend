@@ -5,11 +5,13 @@ import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
 import {
   ArrowLeft,
+  Download,
   History,
   KeyRound,
   Link2,
   Loader2,
   Lock,
+  PackageCheck,
   PlayCircle,
   Radio,
   RotateCcw,
@@ -24,6 +26,8 @@ import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
+  CeremonyResultSummary,
+  CeremonyResultType,
   CeremonyTemplateSummary,
   OptionalFeatureSummary,
   RealtimeEventMessage,
@@ -58,10 +62,12 @@ const EVENT_ACTION_LABEL: Record<string, string> = {
 };
 
 const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
 
 /**
  * 하위 행사(CeremonyEvent) 상세. 상태 배지 + 전이 버튼(DRAFT→READY→STARTED→FINISHED, 역행
- * 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 감사 로그를 한 화면에 담는다.
+ * 없음) + 문서 매핑 + 적용 선택옵션 토글 + 재서명(REPLACE) + 결과물(FINISHED 전용) + 감사
+ * 로그를 한 화면에 담는다.
  *
  * 5라운드부터 WebSocket(STOMP, `/topic/events/{eventId}/state`)으로 실시간 동기화한다 —
  * 구독 인가는 JWT가 아니라 이 이벤트의 `accessKey`로 한다(포털과 같은 원리, 4.5절 결정).
@@ -109,6 +115,10 @@ export const UserCeremonyEventDetail: FC = () => {
   const [isSignersLoading, setIsSignersLoading] = useState(true);
   const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
   const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
+
+  const [results, setResults] = useState<CeremonyResultSummary[]>([]);
+  const [isResultsLoading, setIsResultsLoading] = useState(true);
+  const [isGeneratingResults, setIsGeneratingResults] = useState(false);
 
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
@@ -273,6 +283,79 @@ export const UserCeremonyEventDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
+
+  const fetchResults = async () => {
+    const response = await api.get(
+      `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results`,
+    );
+    return response.data as CeremonyResultSummary[];
+  };
+
+  // FINISHED가 아니면 결과물이 있을 수 없다(백엔드도 EVENT_NOT_FINISHED로 생성을 막는다) — 그
+  // 상태일 때만 조회한다.
+  // FINISHED가 아니면 조회하지 않고 그냥 끝낸다 — 결과물 섹션 자체가 event.status ===
+  // 'FINISHED'일 때만 렌더링되므로 다른 상태에서 isResultsLoading이 기본값(true)에 머물러도
+  // 화면에 영향이 없다(다른 로딩 상태들과 같은 패턴 — 초기값 true, async 콜백의 finally에서만
+  // false로 바꾼다. 이펙트 본문에서 동기적으로 setState하면 안 된다는 린트 규칙 때문이다).
+  useEffect(() => {
+    if (event?.status !== 'FINISHED') return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchResults();
+        if (!cancelled) {
+          setResults(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '결과물 목록을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsResultsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId, eventId, event?.status]);
+
+  const handleGenerateResults = async () => {
+    setIsGeneratingResults(true);
+    try {
+      await api.post(`/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results`);
+      showSnackbar('결과물을 생성했습니다.', 'success');
+      setResults(await fetchResults());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '결과물 생성에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsGeneratingResults(false);
+    }
+  };
+
+  const handleDownloadResult = async (result: CeremonyResultSummary) => {
+    try {
+      const blob = await api.getBlob(
+        `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}/results/${result.id}/file`,
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.originalFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '파일 다운로드에 실패했습니다.';
+      showSnackbar(message, 'error');
+    }
+  };
 
   // WebSocket(STOMP) 실시간 동기화. event.accessKey가 있어야 구독 인가를 받으므로 이벤트
   // 로드 이후에 연결한다. `event` 객체 전체가 아니라 id/accessKey 원시값에만 의존한다 —
@@ -690,6 +773,59 @@ export const UserCeremonyEventDetail: FC = () => {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+      )}
+
+      {/* 결과물 */}
+      {event.status === 'FINISHED' && (
+        <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-1">
+            <PackageCheck size={14} />
+            결과물
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">서명이 그려진 최종 PDF입니다. 이벤트당 한 번만 생성할 수 있습니다.</p>
+          {isResultsLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-400">
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          ) : (
+            <>
+              {results.length === 0 ? (
+                <p className="text-sm text-gray-500 mb-3">아직 생성된 결과물이 없습니다.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100 mb-3">
+                  {results.map((result) => (
+                    <li key={result.id} className="flex items-center justify-between py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-950 truncate">
+                          {RESULT_TYPE_LABEL[result.resultType]} · {result.originalFilename}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {(result.fileSize / 1024).toFixed(0)}KB · {new Date(result.createdAt).toLocaleString('ko-KR')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadResult(result)}
+                        className="shrink-0 flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+                      >
+                        <Download size={12} />
+                        다운로드
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {results.length === 0 && (
+                <button
+                  onClick={handleGenerateResults}
+                  disabled={isGeneratingResults}
+                  className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {isGeneratingResults ? '생성 중...' : '결과물 생성'}
+                </button>
+              )}
+            </>
           )}
         </section>
       )}

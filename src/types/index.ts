@@ -564,6 +564,37 @@ export interface StrokeSubmitted {
   createdAt: string;
 }
 
+/** feature.ceremony.entity.CeremonyResultType 값과 맞춘다. */
+export type CeremonyResultType = 'CONTRACT' | 'EXHIBITION';
+
+/**
+ * GET/POST .../events/{eventId}/results 응답(CeremonyResultDto.Response.CeremonyResultSummary)과
+ * 맞춘다. 이벤트당 결과물 종류(CONTRACT/EXHIBITION)별로 1회만 생성된다.
+ */
+export interface CeremonyResultSummary {
+  id: number;
+  ceremonyEventId: number;
+  templateId: number;
+  resultType: CeremonyResultType;
+  originalFilename: string;
+  fileSize: number;
+  checksum: string;
+  createdAt: string;
+}
+
+/**
+ * POST /api/verification/documents 응답(DocumentVerificationDto.Response.VerificationResult)과
+ * 맞춘다. `verified=false`면 나머지 필드는 전부 `null`이다(신원 노출 없음, 공개 API).
+ */
+export interface DocumentVerificationResult {
+  verified: boolean;
+  resultType: CeremonyResultType | null;
+  ceremonyTitle: string | null;
+  eventName: string | null;
+  generatedAt: string | null;
+  verifiedAt: string | null;
+}
+
 /**
  * GET/POST .../templates/{templateId}/fields 응답(TemplateFieldDto.Response.TemplateFieldSummary)과
  * 맞춘다. 좌표 4종은 페이지 기준 0~1 비율, 좌상단 원점이다(signstage-backend
