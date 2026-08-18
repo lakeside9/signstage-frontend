@@ -108,10 +108,10 @@ const usePageImage = (
  * 픽셀 단위로 legacy와 같은 구조를 유지했다(행사제어/프로젝터의 Konva 기반 실시간 렌더링과는
  * 다른 요구 — 여기는 서명 전 정적 미리보기라 실시간 스트로크가 필요 없다).
  *
- * legacy는 이미 매핑된 역할도 다시 선택해 통째로 교체(PUT)할 수 있지만, 우리 백엔드는 매핑
- * 추가(POST)만 있고 교체/해제 API가 없다 — 그래서 이미 매핑된 역할은 "문서 선택" 버튼을
- * 숨기고 잠금 안내만 보여준다(반쪽짜리 교체 요청을 보내 혼란스러운 상태를 만들지 않기 위한
- * 의도적 단순화).
+ * legacy는 이미 매핑된 역할도 다시 선택해 통째로 교체(PUT)한다. 우리 백엔드는 그런 통째
+ * 교체 엔드포인트 대신 매핑 해제(DELETE .../templates/{mappingId})를 새로 만들었다 — "교체"는
+ * 저장 시점에 기존 매핑을 지우고 새로 만드는 두 단계로 처리한다(REST 자원 하나씩 다루는 이
+ * 프로젝트 관례). 각 문서 패널의 "해제" 버튼은 교체 없이 매핑만 지우는 용도다.
  */
 export const UserCeremonyEventMapping: FC = () => {
   const { organizationId, ceremonyId, eventId } = useParams<{
@@ -132,10 +132,11 @@ export const UserCeremonyEventMapping: FC = () => {
   const [exhibition, setExhibition] = useState<DocumentPanelState>(emptyPanel);
   const [contract, setContract] = useState<DocumentPanelState>(emptyPanel);
 
-  // 아직 저장 전인 새 선택 — 이미 매핑된 역할은 재선택을 막으므로 항상 "이전에 비어있던
-  // 역할에 새로 고른 templateId"만 담긴다.
+  // 아직 저장 전인 새 선택 — 이미 매핑된 역할이면 "교체" 의미가 된다(저장 시점에 기존
+  // 매핑을 지우고 이 templateId로 새로 매핑한다).
   const [pendingExhibitionId, setPendingExhibitionId] = useState<number | null>(null);
   const [pendingContractId, setPendingContractId] = useState<number | null>(null);
+  const [isUnmapping, setIsUnmapping] = useState<TemplateDocumentRole | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalRole, setModalRole] = useState<TemplateDocumentRole | null>(null);
@@ -241,22 +242,24 @@ export const UserCeremonyEventMapping: FC = () => {
     setModalRole(null);
   };
 
+  /** 이미 매핑된 역할에 새 선택이 있으면 "교체"다 — 기존 매핑을 먼저 지우고 새로 매핑한다. */
+  const replaceOrMapRole = async (role: TemplateDocumentRole, newTemplateId: number) => {
+    const existing = mappedTemplates.find((m) => m.documentRole === role);
+    if (existing) {
+      await api.delete(`${apiBasePath}/events/${eventId}/templates/${existing.id}`);
+    }
+    await api.post(`${apiBasePath}/events/${eventId}/templates`, {
+      templateId: newTemplateId,
+      documentRole: role,
+    });
+  };
+
   const handleSaveMappings = async () => {
     if (!pendingExhibitionId && !pendingContractId) return true;
     setIsSaving(true);
     try {
-      if (pendingExhibitionId) {
-        await api.post(`${apiBasePath}/events/${eventId}/templates`, {
-          templateId: pendingExhibitionId,
-          documentRole: 'EXHIBITION',
-        });
-      }
-      if (pendingContractId) {
-        await api.post(`${apiBasePath}/events/${eventId}/templates`, {
-          templateId: pendingContractId,
-          documentRole: 'CONTRACT',
-        });
-      }
+      if (pendingExhibitionId) await replaceOrMapRole('EXHIBITION', pendingExhibitionId);
+      if (pendingContractId) await replaceOrMapRole('CONTRACT', pendingContractId);
       setPendingExhibitionId(null);
       setPendingContractId(null);
       setMappedTemplates(await fetchMappedTemplates());
@@ -268,6 +271,31 @@ export const UserCeremonyEventMapping: FC = () => {
       return false;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /** 교체 없이 매핑만 지운다 — 저장 대기 중인 선택이 있었다면 그것도 함께 취소한다. */
+  const handleUnmap = async (role: TemplateDocumentRole) => {
+    const existing = mappedTemplates.find((m) => m.documentRole === role);
+    if (!existing) return;
+
+    setIsUnmapping(role);
+    try {
+      await api.delete(`${apiBasePath}/events/${eventId}/templates/${existing.id}`);
+      if (role === 'EXHIBITION') {
+        setPendingExhibitionId(null);
+        setExhibition(emptyPanel);
+      } else {
+        setPendingContractId(null);
+        setContract(emptyPanel);
+      }
+      setMappedTemplates(await fetchMappedTemplates());
+      showSnackbar('문서 매핑을 해제했습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서 매핑 해제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsUnmapping(null);
     }
   };
 
@@ -323,24 +351,24 @@ export const UserCeremonyEventMapping: FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isLocked && exhibition.templateId == null && (
+          {!isLocked && (
             <button
               onClick={() => openTemplateSelection('EXHIBITION')}
               disabled={isSaving}
               className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-amber-400 hover:bg-amber-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
             >
               <Search size={14} className="text-amber-500" />
-              전시용 문서 선택
+              {exhibition.templateId == null ? '전시용 문서 선택' : '전시용 문서 변경'}
             </button>
           )}
-          {!isLocked && contract.templateId == null && (
+          {!isLocked && (
             <button
               onClick={() => openTemplateSelection('CONTRACT')}
               disabled={isSaving}
               className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
             >
               <Search size={14} className="text-emerald-500" />
-              서명용 문서 선택
+              {contract.templateId == null ? '서명용 문서 선택' : '서명용 문서 변경'}
             </button>
           )}
 
@@ -385,6 +413,9 @@ export const UserCeremonyEventMapping: FC = () => {
           panel={exhibition}
           setPanel={setExhibition}
           signerNameById={signerNameById}
+          onUnmap={!isLocked ? () => handleUnmap('EXHIBITION') : undefined}
+          isUnmapping={isUnmapping === 'EXHIBITION'}
+          hasPendingReplacement={pendingExhibitionId != null}
         />
         <DocumentPanel
           roleLabel="서명용 문서 (CONTRACT)"
@@ -393,6 +424,9 @@ export const UserCeremonyEventMapping: FC = () => {
           panel={contract}
           setPanel={setContract}
           signerNameById={signerNameById}
+          onUnmap={!isLocked ? () => handleUnmap('CONTRACT') : undefined}
+          isUnmapping={isUnmapping === 'CONTRACT'}
+          hasPendingReplacement={pendingContractId != null}
         />
       </div>
 
@@ -486,9 +520,24 @@ interface DocumentPanelProps {
   panel: DocumentPanelState;
   setPanel: (updater: (prev: DocumentPanelState) => DocumentPanelState) => void;
   signerNameById: Map<number, string>;
+  /** 매핑 해제 핸들러 — 잠긴 상태(STARTED/FINISHED)면 undefined를 넘겨 버튼 자체를 숨긴다. */
+  onUnmap?: () => void;
+  isUnmapping: boolean;
+  /** 상단 "OO 문서 변경" 버튼으로 새 문서를 골라둔 상태 — "저장"을 눌러야 실제로 바뀐다. */
+  hasPendingReplacement: boolean;
 }
 
-const DocumentPanel: FC<DocumentPanelProps> = ({ roleLabel, dotColorClass, emptyMessage, panel, setPanel, signerNameById }) => {
+const DocumentPanel: FC<DocumentPanelProps> = ({
+  roleLabel,
+  dotColorClass,
+  emptyMessage,
+  panel,
+  setPanel,
+  signerNameById,
+  onUnmap,
+  isUnmapping,
+  hasPendingReplacement,
+}) => {
   const visibleFields = panel.fields.filter((f) => f.pageIndex === panel.currentPage);
 
   return (
@@ -498,6 +547,20 @@ const DocumentPanel: FC<DocumentPanelProps> = ({ roleLabel, dotColorClass, empty
           <div className={`w-2 h-2 rounded-full ${dotColorClass}`} />
           <span className="text-[11px] font-bold text-gray-700 uppercase tracking-tight">{roleLabel}</span>
           <span className="text-[10px] text-gray-400 ml-1">{panel.templateTitle}</span>
+          {hasPendingReplacement && (
+            <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full ml-1">
+              새 문서 선택됨 · 저장 대기
+            </span>
+          )}
+          {onUnmap && panel.templateId != null && (
+            <button
+              onClick={onUnmap}
+              disabled={isUnmapping}
+              className="text-[10px] font-bold text-red-500 hover:text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded transition-all disabled:opacity-50 ml-1"
+            >
+              {isUnmapping ? '해제 중...' : '해제'}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 mr-2">
