@@ -732,14 +732,16 @@ export const UserCeremonyDetail: FC = () => {
                   <td className="px-4 py-2">
                     {!isCompleted && (
                       <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => startEditSigner(signer)}
-                          disabled={processingSignerId === signer.id}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                        >
-                          <Pencil size={12} />
-                          수정
-                        </button>
+                        {!signer.locked && (
+                          <button
+                            onClick={() => startEditSigner(signer)}
+                            disabled={processingSignerId === signer.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                          >
+                            <Pencil size={12} />
+                            수정
+                          </button>
+                        )}
                         <button
                           onClick={() => openDeleteSigner(signer.id)}
                           disabled={processingSignerId === signer.id}
@@ -972,14 +974,16 @@ export const UserCeremonyDetail: FC = () => {
                       </Link>
                       {!isCompleted && (
                         <>
-                          <button
-                            onClick={() => startEditTemplate(template)}
-                            disabled={processingTemplateId === template.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                          >
-                            <Pencil size={12} />
-                            수정
-                          </button>
+                          {!template.locked && (
+                            <button
+                              onClick={() => startEditTemplate(template)}
+                              disabled={processingTemplateId === template.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                            >
+                              <Pencil size={12} />
+                              수정
+                            </button>
+                          )}
                           <button
                             onClick={() => openDeleteTemplate(template.id)}
                             disabled={processingTemplateId === template.id}

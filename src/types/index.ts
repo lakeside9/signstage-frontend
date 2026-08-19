@@ -694,6 +694,8 @@ export interface SignerSummary {
   affiliation: string | null;
   roleCode: string | null;
   accessKey: string;
+  /** 시작/종료된 하위 행사에 배정돼 수정이 막힌 서명자면 true. */
+  locked: boolean;
   createdAt: string;
 }
 
@@ -718,6 +720,8 @@ export interface TemplateSummary {
   originalFilename: string;
   status: TemplateStatus;
   fieldCount: number;
+  /** 시작/종료된 하위 행사에 매핑돼 수정이 막힌 문서 양식이면 true. */
+  locked: boolean;
   createdAt: string;
 }
 
