@@ -11,6 +11,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Eye,
   FilePlus,
   Loader2,
   Monitor,
@@ -380,6 +381,25 @@ export const UserCeremonyEventControl: FC = () => {
     }
   };
 
+  /**
+   * 다운로드 없이 새 탭에서 바로 확인 — 서버 응답의 `Content-Disposition: attachment`는
+   * 브라우저가 그 URL로 직접 이동할 때만 강제 다운로드를 일으킨다. blob으로 받아 새
+   * object URL을 만들어 여니 그 헤더와 무관하게 브라우저 내장 PDF 뷰어로 열린다. object URL은
+   * 새 탭이 다 불러올 시간을 준 뒤 넉넉하게(60초) 정리한다 — 너무 빨리 지우면 새 탭에서 못
+   * 열릴 수 있다.
+   */
+  const handlePreviewResult = async (result: CeremonyResultSummary) => {
+    try {
+      const blob = await api.getBlob(`${apiBasePath}/results/${result.id}/file`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '문서를 불러오지 못했습니다.';
+      showSnackbar(message, 'error');
+    }
+  };
+
   const copyPortalUrl = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -545,7 +565,7 @@ export const UserCeremonyEventControl: FC = () => {
               결과물 관리
             </div>
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              행사 종료 후 결과 PDF를 생성하고 다운로드할 수 있습니다.
+              행사 종료 후 결과 PDF를 생성하고, 다운로드 전에 웹에서 먼저 확인할 수 있습니다.
             </p>
             <button
               onClick={handleGenerateResults}
@@ -560,13 +580,22 @@ export const UserCeremonyEventControl: FC = () => {
                 {results.map((result) => (
                   <li key={result.id} className="flex items-center justify-between text-xs">
                     <span className="text-gray-700 truncate">{RESULT_TYPE_LABEL[result.resultType]}</span>
-                    <button
-                      onClick={() => handleDownloadResult(result)}
-                      className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded text-gray-600 font-bold"
-                    >
-                      <Download size={11} />
-                      다운로드
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handlePreviewResult(result)}
+                        className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded text-gray-600 font-bold"
+                      >
+                        <Eye size={11} />
+                        미리보기
+                      </button>
+                      <button
+                        onClick={() => handleDownloadResult(result)}
+                        className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded text-gray-600 font-bold"
+                      >
+                        <Download size={11} />
+                        다운로드
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
