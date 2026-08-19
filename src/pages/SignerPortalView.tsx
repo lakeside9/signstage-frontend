@@ -14,6 +14,9 @@ const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.25;
 const POLL_INTERVAL_MS = 5000;
+// 문서 이미지 로딩 실패 시 자동 재시도까지의 대기 시간(ProjectorView.tsx와 같은 이유 —
+// 레이트리밋 윈도우(60초)보다 훨씬 짧게 잡아 스스로 복구되는 게 보이게 한다).
+const PAGE_IMAGE_RETRY_DELAY_MS = 3000;
 
 const upsertStroke = (list: StrokeSummary[], stroke: StrokeSummary): StrokeSummary[] => {
   if (list.some((s) => s.templateFieldId === stroke.templateFieldId && s.strokeSeq === stroke.strokeSeq)) return list;
@@ -91,6 +94,7 @@ export const SignerPortalView: FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [pageImageUrl, setPageImageUrl] = useState('');
   const [pageImageError, setPageImageError] = useState(false);
+  const [pageImageRetryCount, setPageImageRetryCount] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
 
   const [myField, setMyField] = useState<TemplateFieldSummary | null>(null);
@@ -175,13 +179,23 @@ export const SignerPortalView: FC = () => {
   useEffect(() => {
     if (!context?.eventId || !eventAccessKey) return;
 
+    // 최초 연결인지 재연결인지 구분한다(ProjectorView.tsx와 같은 이유) — 최초 연결에서까지
+    // fetchAll()로 캐치업하면 마운트 시 이미 불러온 것과 거의 동시에 또 불러오는 셈이라
+    // 요청이 불필요하게 배로 늘고, IP당 요청 수를 제한하는 RateLimiter(포털/프로젝터/WS
+    // SUBSCRIBE가 예산을 공유한다)에 부담을 더해 화면을 여는 순간 "문서 이미지를 불러오지
+    // 못했습니다"가 뜰 확률을 높인다 — 놓친 이벤트를 따라잡아야 하는 건 재연결뿐이다.
+    let hasConnectedOnce = false;
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const client = new Client({
       brokerURL: `${wsProtocol}://${window.location.hostname}:8080/ws-signstage`,
       reconnectDelay: 5000,
       onConnect: () => {
         setIsRealtimeConnected(true);
-        fetchAll().catch(() => undefined);
+        if (hasConnectedOnce) {
+          fetchAll().catch(() => undefined);
+        }
+        hasConnectedOnce = true;
 
         client.subscribe(
           `/topic/events/${context.eventId}/state`,
@@ -297,7 +311,16 @@ export const SignerPortalView: FC = () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contract?.templateId, currentPage]);
+  }, [contract?.templateId, currentPage, pageImageRetryCount]);
+
+  // 실패해도 이 화면은 서명자가 그 자리에서 계속 보고 있을 화면이라, 새로고침 없이 스스로
+  // 복구되게 한다 — 레이트리밋(포털/프로젝터/WS SUBSCRIBE가 IP당 예산을 공유한다) 순간 초과나
+  // 일시적 네트워크 오류로 실패해도 잠시 뒤 같은 페이지를 다시 시도하면 대개 정상으로 돌아온다.
+  useEffect(() => {
+    if (!pageImageError) return;
+    const timeout = window.setTimeout(() => setPageImageRetryCount((count) => count + 1), PAGE_IMAGE_RETRY_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [pageImageError]);
 
   if (isLoading) {
     return (
