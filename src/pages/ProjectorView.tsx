@@ -127,11 +127,13 @@ const ProjectorPageLayer = ({
   eventAccessKey,
   frame,
   fieldById,
+  fieldBySignerId,
   strokes,
 }: {
   eventAccessKey: string;
   frame: PageFrame;
   fieldById: Map<number, TemplateFieldSummary>;
+  fieldBySignerId: Map<number, TemplateFieldSummary>;
   strokes: StrokeSummary[];
 }) => {
   const [img, status] = useImage(`${API_BASE}/${eventAccessKey}/pages/${frame.pageIndex}?scale=${PAGE_RENDER_SCALE}`, 'anonymous');
@@ -165,7 +167,12 @@ const ProjectorPageLayer = ({
       )}
 
       {strokes.map((stroke) => {
-        const field = fieldById.get(stroke.templateFieldId);
+        // 스트로크는 서명자가 실제로 그린 문서(대개 CONTRACT)의 필드 id를 그대로 갖고 있다 —
+        // 전시용 문서에 그 id의 필드가 없으면(별도 업로드라 필드 id가 다르다) 같은 서명자의
+        // 전시용 문서 필드로 대신 그린다. legacy `ProjectorView.tsx`의
+        // `fieldById.get(stroke.fieldId) ?? fieldBySignerId.get(stroke.signerId)`와 같은 방식 —
+        // 획의 모양(필드 박스 기준 0~1 상대좌표)은 그대로 두고 앉힐 박스만 바꾼다.
+        const field = fieldById.get(stroke.templateFieldId) ?? fieldBySignerId.get(stroke.signerId);
         if (!field) return null;
 
         let points: number[];
@@ -264,17 +271,28 @@ export const ProjectorView: FC = () => {
     () => new Map((context?.exhibition?.fields ?? []).map((field) => [field.id, field])),
     [context?.exhibition?.fields],
   );
+  // 서명자가 CONTRACT 등 다른 문서에 그린 스트로크도 전시용 문서의 같은 서명자 필드로 대신
+  // 그리기 위한 조회용 — ProjectorPageLayer의 문서 주석 참고.
+  const fieldBySignerId = useMemo(() => {
+    const map = new Map<number, TemplateFieldSummary>();
+    (context?.exhibition?.fields ?? []).forEach((field) => {
+      if (field.signerId != null && !map.has(field.signerId)) {
+        map.set(field.signerId, field);
+      }
+    });
+    return map;
+  }, [context?.exhibition?.fields]);
   const strokesByPage = useMemo(() => {
     const map = new Map<number, StrokeSummary[]>();
     strokes.forEach((stroke) => {
-      const field = fieldById.get(stroke.templateFieldId);
+      const field = fieldById.get(stroke.templateFieldId) ?? fieldBySignerId.get(stroke.signerId);
       if (!field) return;
       const pageStrokes = map.get(field.pageIndex) ?? [];
       pageStrokes.push(stroke);
       map.set(field.pageIndex, pageStrokes);
     });
     return map;
-  }, [fieldById, strokes]);
+  }, [fieldById, fieldBySignerId, strokes]);
 
   const pageFrames = useMemo<PageFrame[]>(() => {
     if (visiblePages.length === 0) return [];
@@ -599,6 +617,7 @@ export const ProjectorView: FC = () => {
                     eventAccessKey={eventAccessKey!}
                     frame={frame}
                     fieldById={fieldById}
+                    fieldBySignerId={fieldBySignerId}
                     strokes={strokesByPage.get(frame.pageIndex) ?? []}
                   />
                 ))}

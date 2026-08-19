@@ -24,6 +24,24 @@ const removeStrokesForSigner = (list: StrokeSummary[], signerId: number) => list
 const mergeStrokes = (current: StrokeSummary[], incoming: StrokeSummary[]) => incoming.reduce(upsertStroke, current);
 
 /**
+ * `PortalSignCanvas`(legacy `SignCanvas.tsx`를 그대로 포팅)는 legacy 관례대로 한 획을 flat
+ * `[x0,y0,x1,y1,...]` 배열로 다룬다. 하지만 `StrokeData.rawData`(우리 백엔드/`MappedDocumentPreview`/
+ * `ProjectorView` 전부가 따르는 계약, `SignaturePad.tsx` 때부터의 관례)는 좌표쌍 배열
+ * `[[x,y],...]` 이다 — 서버에 보내기 직전에 여기서 변환해야 한다. 이 변환을 빠뜨리면 스트로크
+ * 자체는 (그 순간 로컬 상태로) 그려진 것처럼 보이지만, 저장된 rawData를 다시 읽어 그리는
+ * 다른 화면(전시용 화면/행사제어)에서는 `[x,y]` 구조분해가 깨져 조용히 무시된다 — 서명자
+ * 본인 눈에는 성공한 것처럼 보이는데 다른 화면에는 실시간으로 반영되지 않는 버그가 이래서
+ * 생겼었다.
+ */
+const toPointPairs = (flatPoints: number[]): [number, number][] => {
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < flatPoints.length; i += 2) {
+    pairs.push([flatPoints[i], flatPoints[i + 1]]);
+  }
+  return pairs;
+};
+
+/**
  * 서명자 포털(공개, JWT 없음) — `/portal/:eventAccessKey/:signerAccessKey`. legacy
  * (~/Works/eform/source/signstage/signstage-frontend) `SignerView.tsx`(871줄)와 기능적으로
  * 동일하게 다시 만들었다 — 이전 버전(서명란마다 독립된 빈 서명 패드 목록만 보여주던 화면)을
@@ -361,7 +379,7 @@ export const SignerPortalView: FC = () => {
         nextStrokes = removeStrokesForField(nextStrokes, myField.id);
       }
       for (let i = 0; i < pendingSignatureStrokes.length; i += 1) {
-        const rawData = JSON.stringify(pendingSignatureStrokes[i]);
+        const rawData = JSON.stringify(toPointPairs(pendingSignatureStrokes[i]));
         const res = await api.post(`${portalBase}/strokes`, { templateFieldId: myField.id, strokeSeq: i, rawData });
         const submitted = res.data as StrokeSubmitted;
         nextStrokes = upsertStroke(nextStrokes, {

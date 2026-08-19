@@ -112,11 +112,28 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
 
   const visibleFields = fields.filter((f) => f.pageIndex === safePage);
 
+  // 서명자가 이 문서가 아닌 다른 매핑 문서(대개 CONTRACT)에 그린 스트로크도 같은 서명자의
+  // 이 문서 필드로 대신 그린다 — legacy `ProjectorView.tsx`의
+  // `fieldById.get(stroke.fieldId) ?? fieldBySignerId.get(stroke.signerId)`와 같은 방식이다.
+  // 두 문서(CONTRACT/EXHIBITION)는 서로 다른 Template이라 필드 id가 겹치지 않으므로, id로
+  // 못 찾으면 signerId로 이 문서의 필드를 대신 찾는다(획의 0~1 상대좌표는 그대로 두고 앉힐
+  // 박스만 바꾼다).
+  const fieldBySignerId = new Map<number, TemplateFieldSummary>();
+  fields.forEach((field) => {
+    if (field.signerId != null && !fieldBySignerId.has(field.signerId)) {
+      fieldBySignerId.set(field.signerId, field);
+    }
+  });
+
   const strokesByField = new Map<number, StrokeSummary[]>();
   (strokes ?? []).forEach((stroke) => {
-    const list = strokesByField.get(stroke.templateFieldId) ?? [];
+    const fieldId = fields.some((f) => f.id === stroke.templateFieldId)
+      ? stroke.templateFieldId
+      : fieldBySignerId.get(stroke.signerId)?.id;
+    if (fieldId == null) return;
+    const list = strokesByField.get(fieldId) ?? [];
     list.push(stroke);
-    strokesByField.set(stroke.templateFieldId, list);
+    strokesByField.set(fieldId, list);
   });
 
   if (pageCount === 0) {
