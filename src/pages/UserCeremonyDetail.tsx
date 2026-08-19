@@ -1054,7 +1054,7 @@ export const UserCeremonyDetail: FC = () => {
       />
 
       {/* 하위 행사 목록 */}
-      <section className="mt-4">
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <button
             type="button"
