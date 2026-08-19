@@ -456,6 +456,18 @@ export interface CapacityPurchaseSummary {
   createdAt: string;
 }
 
+/**
+ * GET .../capacity-status 응답(CeremonyDto.Response.CapacityStatus)과 맞춘다. 서명자/문서양식/
+ * 하위 행사 등록 화면이 "등록할 수 있는 개수"를 보여주는 데 쓴다. 플랜이 없는 행사는
+ * Integer.MAX_VALUE(2147483647)로 온다 — "무제한"으로 표시한다.
+ */
+export interface CapacityStatus {
+  signerLimit: number;
+  templateLimit: number;
+  testEventLimit: number;
+  mainEventLimit: number;
+}
+
 /** POST .../optional-feature-purchases 요청(CeremonyDto.Request.PurchaseOptionalFeature)과 맞춘다. */
 export interface PurchaseOptionalFeatureRequest {
   optionalFeatureId: number;
@@ -629,14 +641,17 @@ export type CeremonyEventAction =
  * feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다.
  * `SIGNATURE_STROKE_SUBMITTED`는 행사제어/프로젝터 화면의 실시간 펜 궤적 렌더링 전용이다
  * (payload: signerId/templateFieldId/strokeSeq/rawData) — legacy처럼 "확정 이벤트만
- * 전파"하던 정책을 이번에 뒤집었다.
+ * 전파"하던 정책을 이번에 뒤집었다. `ALL_SIGNERS_COMPLETED`(payload 없음)는 그 이벤트의
+ * 필수 서명자 전원이 방금 완료로 전환된 순간에만 온다 — 프로젝터의 폭죽(ALL_SIGNED_FIREWORKS)
+ * 연출 트리거 전용이다(`pages/projectorEffects.ts`).
  */
 export type RealtimeEventType =
   | 'EVENT_STATUS_CHANGED'
   | 'SIGNATURE_COMPLETED'
   | 'SIGNATURE_CLEARED'
   | 'SIGNATURE_REPLACED'
-  | 'SIGNATURE_STROKE_SUBMITTED';
+  | 'SIGNATURE_STROKE_SUBMITTED'
+  | 'ALL_SIGNERS_COMPLETED';
 
 /**
  * WebSocket(STOMP) `/topic/events/{eventId}/state` 메시지 봉투(RealtimeEventDto)와 맞춘다.
@@ -696,6 +711,8 @@ export interface SignerSummary {
   accessKey: string;
   /** 시작/종료된 하위 행사에 배정돼 수정이 막힌 서명자면 true. */
   locked: boolean;
+  /** 서명란 배정/서명·감사 기록이 있어 삭제할 수 없는 서명자면 false — 삭제 버튼을 숨긴다. */
+  deletable: boolean;
   createdAt: string;
 }
 
@@ -722,6 +739,8 @@ export interface TemplateSummary {
   fieldCount: number;
   /** 시작/종료된 하위 행사에 매핑돼 수정이 막힌 문서 양식이면 true. */
   locked: boolean;
+  /** 하위 행사에 매핑돼 있어 삭제할 수 없는 문서 양식이면 false — 삭제 버튼을 숨긴다. */
+  deletable: boolean;
   createdAt: string;
 }
 
@@ -899,6 +918,8 @@ export interface ProjectorContext {
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
+  /** 이 하위 행사에 적용된 선택옵션 코드 — 서명확대/폭죽 같은 프로젝터 전용 연출 효과의 on/off 판단에 쓴다. */
+  appliedOptionalFeatureCodes: OptionalFeatureCode[];
 }
 
 export interface ProjectorExhibitionDocument {

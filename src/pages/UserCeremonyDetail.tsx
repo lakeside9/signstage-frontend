@@ -26,6 +26,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
   BillingPlanSummary,
+  CapacityStatus,
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
@@ -81,6 +82,12 @@ const TEMPLATE_STATUS_COLOR: Record<TemplateStatus, string> = {
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
+/** 백엔드가 플랜 없는 행사(레거시)에 대해 돌려주는 Integer.MAX_VALUE — "무제한"으로 표시한다. */
+const UNLIMITED_CAPACITY = 2147483647;
+
+/** 등록 화면 타이틀에 "등록 가능 N명/건" 형태로 붙일 때 쓴다 — 숫자만 덜렁 보이지 않게 단위를 함께 준다. */
+const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPACITY ? '무제한' : `${limit}${unit}`);
+
 /**
  * 행사(Ceremony) 상세(`/org/ceremonies/:organizationId/:ceremonyId`). legacy 화면 구성을
  * 따라 서명자 관리 목록, 문서 양식 관리 목록, 하위 행사(이벤트) 목록을 이 화면 하나에 모두
@@ -110,10 +117,10 @@ export const UserCeremonyDetail: FC = () => {
   const [signerName, setSignerName] = useState('');
   const [signerPosition, setSignerPosition] = useState('');
   const [signerAffiliation, setSignerAffiliation] = useState('');
-  const [signerRoleCode, setSignerRoleCode] = useState('');
   const [isAddingSigner, setIsAddingSigner] = useState(false);
 
   const [processingSignerId, setProcessingSignerId] = useState<number | null>(null);
+  const [viewingSignerId, setViewingSignerId] = useState<number | null>(null);
   const [editingSignerId, setEditingSignerId] = useState<number | null>(null);
   const [editSignerName, setEditSignerName] = useState('');
   const [editSignerPosition, setEditSignerPosition] = useState('');
@@ -132,12 +139,14 @@ export const UserCeremonyDetail: FC = () => {
   const templateFileInputRef = useRef<HTMLInputElement>(null);
 
   const [processingTemplateId, setProcessingTemplateId] = useState<number | null>(null);
+  const [viewingTemplateId, setViewingTemplateId] = useState<number | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
   const [editTemplateTitle, setEditTemplateTitle] = useState('');
   const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
 
   const [processingEventId, setProcessingEventId] = useState<number | null>(null);
+  const [viewingEventId, setViewingEventId] = useState<number | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [editEventName, setEditEventName] = useState('');
   const [editEventVenue, setEditEventVenue] = useState('');
@@ -150,6 +159,10 @@ export const UserCeremonyDetail: FC = () => {
   // "하위 행사 수정" 모달의 적용 선택옵션 체크박스용 — 이 행사 마스터가 실제로 쓸 수 있는
   // (플랜 포함분 + 승인된 추가구매) 목록만 걸러서 보여준다(등록 화면과 같은 엔드포인트).
   const [availableEventFeatures, setAvailableEventFeatures] = useState<OptionalFeatureSummary[]>([]);
+
+  // 서명자/문서 양식/하위 행사 섹션 타이틀에 "등록할 수 있는 개수"를 보여주는 데 쓴다
+  // (플랜 기본값 + 승인된 추가구매 반영). 못 불러와도 개수 안내만 빠질 뿐이라 조용히 넘어간다.
+  const [capacityStatus, setCapacityStatus] = useState<CapacityStatus | null>(null);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -245,7 +258,28 @@ export const UserCeremonyDetail: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`${basePath}/capacity-status`);
+        if (!cancelled) {
+          setCapacityStatus(response.data as CapacityStatus);
+        }
+      } catch {
+        // 섹션 타이틀의 "등록 가능" 안내만 빠질 뿐이라 조회 자체를 막지 않는다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const startEditEvent = (event: CeremonyEventSummary) => {
+    setViewingEventId(null);
     setDeletingEventId(null);
     setEditingEventId(event.id);
     setEditEventName(event.name);
@@ -289,6 +323,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const openDeleteEvent = (eventId: number) => {
+    setViewingEventId(null);
     setEditingEventId(null);
     setDeletingEventId(eventId);
   };
@@ -385,13 +420,13 @@ export const UserCeremonyDetail: FC = () => {
         name: signerName.trim(),
         position: signerPosition.trim() || null,
         affiliation: signerAffiliation.trim() || null,
-        roleCode: signerRoleCode.trim() || null,
+        // 역할 코드는 등록 화면에 노출하지 않는다 — 필요하면 등록 후 수정 화면에서 채운다.
+        roleCode: null,
       });
       showSnackbar('서명자를 등록했습니다.', 'success');
       setSignerName('');
       setSignerPosition('');
       setSignerAffiliation('');
-      setSignerRoleCode('');
       setIsSignerFormOpen(false);
       setSigners(await fetchSigners());
     } catch (err) {
@@ -403,6 +438,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const startEditSigner = (signer: SignerSummary) => {
+    setViewingSignerId(null);
     setDeletingSignerId(null);
     setEditingSignerId(signer.id);
     setEditSignerName(signer.name);
@@ -436,6 +472,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const openDeleteSigner = (signerId: number) => {
+    setViewingSignerId(null);
     setEditingSignerId(null);
     setDeletingSignerId(signerId);
   };
@@ -464,6 +501,11 @@ export const UserCeremonyDetail: FC = () => {
       return;
     }
     setTemplateFile(selected);
+    // 파일을 고르면 확장자를 뺀 파일명을 제목에 자동으로 채운다 — 등록자가 그대로 두거나
+    // 이어서 직접 수정할 수 있다(강제 아님).
+    if (selected) {
+      setTemplateTitle(selected.name.replace(/\.pdf$/i, ''));
+    }
   };
 
   const handleUploadTemplate = async (e: FormEvent) => {
@@ -515,6 +557,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const startEditTemplate = (template: TemplateSummary) => {
+    setViewingTemplateId(null);
     setDeletingTemplateId(null);
     setEditingTemplateId(template.id);
     setEditTemplateTitle(template.title);
@@ -544,6 +587,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const openDeleteTemplate = (templateId: number) => {
+    setViewingTemplateId(null);
     setEditingTemplateId(null);
     setDeletingTemplateId(templateId);
   };
@@ -576,6 +620,9 @@ export const UserCeremonyDetail: FC = () => {
   }
 
   const isCompleted = ceremony.status === 'COMPLETED';
+  const viewingSigner = signers.find((s) => s.id === viewingSignerId) ?? null;
+  const viewingTemplate = templates.find((t) => t.id === viewingTemplateId) ?? null;
+  const viewingEvent = events.find((e) => e.id === viewingEventId) ?? null;
 
   return (
     <div>
@@ -630,14 +677,21 @@ export const UserCeremonyDetail: FC = () => {
                 <Users size={14} />
                 서명자
                 <span className="font-normal text-gray-400">({signers.length})</span>
+                {capacityStatus && (
+                  <span className="font-normal text-gray-400">
+                    · 등록 가능 인원 {formatCapacity(capacityStatus.signerLimit, '명')}
+                  </span>
+                )}
               </h2>
               <p className="mt-1 text-xs text-gray-400">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
             </div>
           </button>
-          {isSignersSectionOpen && !isSignerFormOpen && !isCompleted && (
+          {isSignersSectionOpen && !isSignerFormOpen && (
             <button
               onClick={() => setIsSignerFormOpen(true)}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+              disabled={isCompleted}
+              title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
             >
               <Plus size={12} />
               서명자 등록
@@ -663,16 +717,6 @@ export const UserCeremonyDetail: FC = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
-              <input
-                type="text"
-                value={signerPosition}
-                onChange={(e) => setSignerPosition(e.target.value)}
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-              />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
               <input
                 type="text"
@@ -683,13 +727,12 @@ export const UserCeremonyDetail: FC = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">역할 코드</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
               <input
                 type="text"
-                value={signerRoleCode}
-                onChange={(e) => setSignerRoleCode(e.target.value)}
+                value={signerPosition}
+                onChange={(e) => setSignerPosition(e.target.value)}
                 disabled={isAddingSigner}
-                placeholder="선택 입력"
                 className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
               />
             </div>
@@ -718,40 +761,58 @@ export const UserCeremonyDetail: FC = () => {
             <thead className="text-gray-500 text-xs">
               <tr>
                 <th className="text-left font-medium px-4 py-2">이름</th>
-                <th className="text-left font-medium px-4 py-2">직책</th>
                 <th className="text-left font-medium px-4 py-2">소속</th>
+                <th className="text-left font-medium px-4 py-2">직책</th>
                 <th className="text-right font-medium px-4 py-2">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {signers.map((signer) => (
                 <tr key={signer.id}>
-                  <td className="px-4 py-2 text-gray-950">{signer.name}</td>
-                  <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
-                  <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
                   <td className="px-4 py-2">
-                    {!isCompleted && (
-                      <div className="flex justify-end gap-1">
-                        {!signer.locked && (
-                          <button
-                            onClick={() => startEditSigner(signer)}
-                            disabled={processingSignerId === signer.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                          >
-                            <Pencil size={12} />
-                            수정
-                          </button>
-                        )}
-                        <button
-                          onClick={() => openDeleteSigner(signer.id)}
-                          disabled={processingSignerId === signer.id}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                        >
-                          <Trash2 size={12} />
-                          삭제
-                        </button>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingSignerId(signer.id)}
+                      className="text-gray-950 hover:underline text-left"
+                    >
+                      {signer.name}
+                    </button>
+                  </td>
+                  <td className="px-4 py-2 text-gray-500">{signer.affiliation ?? '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => startEditSigner(signer)}
+                        disabled={processingSignerId === signer.id || signer.locked || isCompleted}
+                        title={
+                          isCompleted
+                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            : signer.locked
+                              ? '시작되었거나 종료된 하위 행사에 배정돼 수정할 수 없습니다.'
+                              : undefined
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                      >
+                        <Pencil size={12} />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => openDeleteSigner(signer.id)}
+                        disabled={processingSignerId === signer.id || !signer.deletable || isCompleted}
+                        title={
+                          isCompleted
+                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            : !signer.deletable
+                              ? '서명란에 배정됐거나 서명·감사 기록이 남아 있어 삭제할 수 없습니다.'
+                              : undefined
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        <Trash2 size={12} />
+                        삭제
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -761,6 +822,37 @@ export const UserCeremonyDetail: FC = () => {
         </>
         )}
       </section>
+
+      <Modal open={viewingSigner !== null} onClose={() => setViewingSignerId(null)} title="서명자 상세">
+        {viewingSigner && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">이름</p>
+              <p className="text-sm text-gray-950">{viewingSigner.name}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">소속</p>
+              <p className="text-sm text-gray-950">{viewingSigner.affiliation ?? '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">직책</p>
+              <p className="text-sm text-gray-950">{viewingSigner.position ?? '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">역할 코드</p>
+              <p className="text-sm text-gray-950">{viewingSigner.roleCode ?? '-'}</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setViewingSignerId(null)}
+                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={editingSignerId !== null} onClose={() => setEditingSignerId(null)} title="서명자 수정">
         <div className="space-y-3">
@@ -775,21 +867,21 @@ export const UserCeremonyDetail: FC = () => {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
-            <input
-              type="text"
-              value={editSignerPosition}
-              onChange={(e) => setEditSignerPosition(e.target.value)}
-              disabled={processingSignerId === editingSignerId}
-              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-            />
-          </div>
-          <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
             <input
               type="text"
               value={editSignerAffiliation}
               onChange={(e) => setEditSignerAffiliation(e.target.value)}
+              disabled={processingSignerId === editingSignerId}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
+            <input
+              type="text"
+              value={editSignerPosition}
+              onChange={(e) => setEditSignerPosition(e.target.value)}
               disabled={processingSignerId === editingSignerId}
               className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
             />
@@ -851,14 +943,21 @@ export const UserCeremonyDetail: FC = () => {
                 <FileText size={14} />
                 문서 양식
                 <span className="font-normal text-gray-400">({templates.length})</span>
+                {capacityStatus && (
+                  <span className="font-normal text-gray-400">
+                    · 등록 가능 문서 수 {formatCapacity(capacityStatus.templateLimit, '건')}
+                  </span>
+                )}
               </h2>
               <p className="mt-1 text-xs text-gray-400">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
             </div>
           </button>
-          {isTemplatesSectionOpen && !isTemplateFormOpen && !isCompleted && (
+          {isTemplatesSectionOpen && !isTemplateFormOpen && (
             <button
               onClick={() => setIsTemplateFormOpen(true)}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+              disabled={isCompleted}
+              title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
             >
               <Plus size={12} />
               문서 업로드
@@ -944,7 +1043,13 @@ export const UserCeremonyDetail: FC = () => {
                 <tr key={template.id}>
                   <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
                   <td className="px-4 py-2">
-                    <p className="font-medium text-gray-950">{template.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => setViewingTemplateId(template.id)}
+                      className="block text-left font-medium text-gray-950 hover:underline"
+                    >
+                      {template.title}
+                    </button>
                     <p className="text-xs text-gray-400">{template.originalFilename}</p>
                   </td>
                   <td className="px-4 py-2">
@@ -960,7 +1065,8 @@ export const UserCeremonyDetail: FC = () => {
                       <button
                         onClick={() => handleDuplicateTemplate(template.id)}
                         disabled={processingTemplateId === template.id || isCompleted}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
+                        title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Copy size={12} />
                         복제
@@ -972,28 +1078,36 @@ export const UserCeremonyDetail: FC = () => {
                         <ExternalLink size={12} />
                         서명란 배치
                       </Link>
-                      {!isCompleted && (
-                        <>
-                          {!template.locked && (
-                            <button
-                              onClick={() => startEditTemplate(template)}
-                              disabled={processingTemplateId === template.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                            >
-                              <Pencil size={12} />
-                              수정
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openDeleteTemplate(template.id)}
-                            disabled={processingTemplateId === template.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                          >
-                            <Trash2 size={12} />
-                            삭제
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => startEditTemplate(template)}
+                        disabled={processingTemplateId === template.id || template.locked || isCompleted}
+                        title={
+                          isCompleted
+                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            : template.locked
+                              ? '시작되었거나 종료된 하위 행사에 매핑돼 수정할 수 없습니다.'
+                              : undefined
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                      >
+                        <Pencil size={12} />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => openDeleteTemplate(template.id)}
+                        disabled={processingTemplateId === template.id || !template.deletable || isCompleted}
+                        title={
+                          isCompleted
+                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            : !template.deletable
+                              ? '이미 하위 행사에 매핑된 문서 양식은 삭제할 수 없습니다.'
+                              : undefined
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        <Trash2 size={12} />
+                        삭제
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1004,6 +1118,45 @@ export const UserCeremonyDetail: FC = () => {
         </>
         )}
       </section>
+
+      <Modal open={viewingTemplate !== null} onClose={() => setViewingTemplateId(null)} title="문서 양식 상세">
+        {viewingTemplate && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">제목</p>
+              <p className="text-sm text-gray-950">{viewingTemplate.title}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">문서 유형</p>
+              <p className="text-sm text-gray-950">{DOCUMENT_ROLE_LABEL[viewingTemplate.documentRole]}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">원본 파일명</p>
+              <p className="text-sm text-gray-950">{viewingTemplate.originalFilename}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">상태</p>
+              <span
+                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[viewingTemplate.status]}`}
+              >
+                {TEMPLATE_STATUS_LABEL[viewingTemplate.status]}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">서명란</p>
+              <p className="text-sm text-gray-950">{viewingTemplate.fieldCount}개</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setViewingTemplateId(null)}
+                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정">
         <div className="space-y-3">
@@ -1070,20 +1223,44 @@ export const UserCeremonyDetail: FC = () => {
             ) : (
               <ChevronDown size={16} className="shrink-0 text-gray-400" />
             )}
-            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-              <CalendarClock size={14} />
-              하위 행사
-              <span className="font-normal text-gray-400">({events.length})</span>
-            </h2>
+            <div>
+              <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+                <CalendarClock size={14} />
+                하위 행사
+                <span className="font-normal text-gray-400">({events.length})</span>
+                {capacityStatus && (
+                  <span className="font-normal text-gray-400">
+                    · 등록 가능 테스트 행사 {formatCapacity(capacityStatus.testEventLimit, '회')} · 등록 가능 본행사{' '}
+                    {formatCapacity(capacityStatus.mainEventLimit, '회')}
+                  </span>
+                )}
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                실제로 서명이 진행되는 단위입니다. TEST로 리허설하거나 MAIN으로 정식 진행하며, 문서 매핑과
+                서명자 배정을 마쳐야 시작할 수 있습니다.
+              </p>
+            </div>
           </button>
-          {isEventsSectionOpen && !isCompleted && (
-            <Link
-              to={`${detailPath}/events/new`}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-            >
-              <Plus size={12} />
-              새 하위 행사
-            </Link>
+          {isEventsSectionOpen && (
+            isCompleted ? (
+              <button
+                type="button"
+                disabled
+                title="완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다."
+                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium opacity-40"
+              >
+                <Plus size={12} />
+                새 하위 행사
+              </button>
+            ) : (
+              <Link
+                to={`${detailPath}/events/new`}
+                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+              >
+                <Plus size={12} />
+                새 하위 행사
+              </Link>
+            )
           )}
         </div>
 
@@ -1105,7 +1282,15 @@ export const UserCeremonyDetail: FC = () => {
                 return (
                   <tr key={event.id}>
                     <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
-                    <td className="px-4 py-2 font-medium text-gray-950">{event.name}</td>
+                    <td className="px-4 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewingEventId(event.id)}
+                        className="text-left font-medium text-gray-950 hover:underline"
+                      >
+                        {event.name}
+                      </button>
+                    </td>
                     <td className="px-4 py-2">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[event.status]}`}
@@ -1130,26 +1315,36 @@ export const UserCeremonyDetail: FC = () => {
                           <Settings size={12} />
                           행사 제어
                         </Link>
-                        {!isCompleted && !isEventLocked && (
-                          <>
-                            <button
-                              onClick={() => startEditEvent(event)}
-                              disabled={processingEventId === event.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40"
-                            >
-                              <Pencil size={12} />
-                              수정
-                            </button>
-                            <button
-                              onClick={() => openDeleteEvent(event.id)}
-                              disabled={processingEventId === event.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                            >
-                              <Trash2 size={12} />
-                              삭제
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => startEditEvent(event)}
+                          disabled={processingEventId === event.id || isEventLocked || isCompleted}
+                          title={
+                            isCompleted
+                              ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                              : isEventLocked
+                                ? '시작되었거나 종료된 하위 행사는 수정할 수 없습니다.'
+                                : undefined
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                        >
+                          <Pencil size={12} />
+                          수정
+                        </button>
+                        <button
+                          onClick={() => openDeleteEvent(event.id)}
+                          disabled={processingEventId === event.id || isEventLocked || isCompleted}
+                          title={
+                            isCompleted
+                              ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                              : isEventLocked
+                                ? '시작되었거나 종료된 하위 행사는 삭제할 수 없습니다.'
+                                : undefined
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                        >
+                          <Trash2 size={12} />
+                          삭제
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1160,6 +1355,65 @@ export const UserCeremonyDetail: FC = () => {
         </ListContainer>
         )}
       </section>
+
+      <Modal open={viewingEvent !== null} onClose={() => setViewingEventId(null)} title="하위 행사 상세" widthClassName="max-w-lg">
+        {viewingEvent && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">구분</p>
+              <p className="text-sm text-gray-950">{EVENT_TYPE_LABEL[viewingEvent.eventType]}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">이름</p>
+              <p className="text-sm text-gray-950">{viewingEvent.name}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">상태</p>
+              <span
+                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${EVENT_STATUS_COLOR[viewingEvent.status]}`}
+              >
+                {EVENT_STATUS_LABEL[viewingEvent.status]}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">장소</p>
+              <p className="text-sm text-gray-950">{viewingEvent.venue ?? '-'}</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">예정 시작</p>
+                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.scheduledStartAt) ?? '미정'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">예정 종료</p>
+                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.scheduledEndAt) ?? '미정'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">실제 시작</p>
+                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualStartAt) ?? '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">실제 종료</p>
+                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualEndAt) ?? '-'}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">설명</p>
+              <p className="text-sm text-gray-950 whitespace-pre-wrap">{viewingEvent.description ?? '-'}</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setViewingEventId(null)}
+                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-lg">
         <div className="space-y-3">
