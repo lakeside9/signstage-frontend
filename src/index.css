@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+/* 프로젝터(전시화면) 폭죽(ALL_SIGNED_FIREWORKS) 연출 — pages/ProjectorView.tsx 전용.
+   위에서 떨어지며 회전하는 종이 조각(confetti) 하나의 궤적. 시작 회전각은 조각마다
+   --signstage-confetti-start-rotate(인라인 스타일)로 넘겨받는다 — CSS 애니메이션이 transform을
+   통째로 덮어써서 인라인 rotate()는 무시되므로, 변주를 주려면 커스텀 프로퍼티로 넘겨야 한다. */
+@keyframes signstage-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(var(--signstage-confetti-start-rotate, 0deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(108vh) rotate(calc(var(--signstage-confetti-start-rotate, 0deg) + 540deg));
+    opacity: 0;
+  }
+}
