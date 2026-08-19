@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
@@ -12,10 +12,7 @@ import {
   Download,
   ExternalLink,
   FilePlus,
-  History,
-  KeyRound,
   Loader2,
-  MapPin,
   Monitor,
   PackageCheck,
   Play,
@@ -26,12 +23,10 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { ListContainer } from '../components/ListContainer';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
-  CeremonyEventLogSummary,
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyResultSummary,
@@ -58,15 +53,6 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 };
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
-
-const EVENT_ACTION_LABEL: Record<string, string> = {
-  START_EVENT: '시작',
-  FINISH_EVENT: '종료',
-  SIGNATURE_COMPLETE: '서명 완료',
-  SIGNATURE_CLEAR: '서명 지우기',
-  SIGNATURE_REPLACE: '재서명 요청',
-  GENERATE_RESULTS: '결과물 생성',
-};
 
 const PortalQrCode: FC<{ value: string }> = ({ value }) => {
   const [dataUrl, setDataUrl] = useState('');
@@ -100,9 +86,11 @@ const PortalQrCode: FC<{ value: string }> = ({ value }) => {
  * 이전에는 별도 `UserCeremonyEventDetail.tsx`("설정" 화면)가 상태전이/문서매핑/적용옵션/
  * 재서명/로그를 담당했지만, 문서매핑은 전용 화면(`UserCeremonyEventMapping.tsx`)으로,
  * 적용옵션은 등록/수정 화면으로 이미 옮겨가 그 화면의 존재 이유가 사라졌다 — Detail 화면
- * 자체를 지우고 남은 상태전이(READY→START/START→FINISH)·재서명·감사로그·행사 기본 정보를
- * 전부 이 화면으로 옮겼다(DRAFT→READY 전이는 문서매핑 화면의 "행사 제어" 버튼이 이미
- * 처리한다 — legacy도 문서매핑을 마쳐야 이 화면에 들어오는 흐름과 같다).
+ * 자체를 지우고 남은 상태전이(READY→START/START→FINISH)·재서명을 이 화면으로 옮겼다
+ * (DRAFT→READY 전이는 문서매핑 화면의 "행사 제어" 버튼이 이미 처리한다 — legacy도
+ * 문서매핑을 마쳐야 이 화면에 들어오는 흐름과 같다). 행사 기본 정보/감사로그 섹션은 한 차례
+ * 옮겨왔다가 화면이 번잡하다는 피드백으로 다시 뺐다 — 필요하면 각각 API로 직접 조회한다
+ * (`GET .../events/{eventId}`, `GET .../events/{eventId}/logs`).
  *
  * "매핑된 서명자"는 legacy처럼 별도 매핑 테이블이 없어(4절 참고) CONTRACT/EXHIBITION 매핑된
  * 템플릿의 필수 서명란이 참조하는 signerId 집합으로 도출한다. 완료 여부도 별도 컬럼이
@@ -125,9 +113,6 @@ export const UserCeremonyEventControl: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const [logs, setLogs] = useState<CeremonyEventLogSummary[]>([]);
-  const [isLogsLoading, setIsLogsLoading] = useState(true);
 
   const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
   const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
@@ -155,34 +140,6 @@ export const UserCeremonyEventControl: FC = () => {
     const response = await api.get(apiBasePath);
     return response.data as CeremonyEventSummary;
   };
-
-  const fetchLogs = async () => {
-    const response = await api.get(`${apiBasePath}/logs`);
-    return response.data as CeremonyEventLogSummary[];
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const data = await fetchLogs();
-        if (!cancelled) setLogs(data);
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : '감사 로그를 불러오지 못했습니다.';
-          showSnackbar(message, 'error');
-        }
-      } finally {
-        if (!cancelled) setIsLogsLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, ceremonyId, eventId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,14 +280,6 @@ export const UserCeremonyEventControl: FC = () => {
                 .then(setEvent)
                 .catch(() => {
                   // 실시간 알림은 왔는데 재조회만 실패한 것 — 새로고침하면 되므로 무시한다.
-                });
-            }
-
-            if (realtimeEvent.type !== 'SIGNATURE_STROKE_SUBMITTED') {
-              fetchLogs()
-                .then(setLogs)
-                .catch(() => {
-                  // 위와 같은 이유로 무시한다.
                 });
             }
           },
@@ -543,19 +492,6 @@ export const UserCeremonyEventControl: FC = () => {
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-2">
-            <div className="flex items-center gap-2 font-bold text-gray-900 text-sm mb-1">
-              <MapPin size={16} className="text-indigo-500" />
-              행사 정보
-            </div>
-            <InfoRow label="장소" value={event.venue ?? '-'} />
-            <InfoRow label="예정 시작" value={event.scheduledStartAt ? new Date(event.scheduledStartAt).toLocaleString('ko-KR') : '-'} />
-            <InfoRow label="예정 종료" value={event.scheduledEndAt ? new Date(event.scheduledEndAt).toLocaleString('ko-KR') : '-'} />
-            <InfoRow label="실제 시작" value={event.actualStartAt ? new Date(event.actualStartAt).toLocaleString('ko-KR') : '-'} />
-            <InfoRow label="실제 종료" value={event.actualEndAt ? new Date(event.actualEndAt).toLocaleString('ko-KR') : '-'} />
-            <InfoRow icon={<KeyRound size={11} />} label="접속 키" value={event.accessKey} mono />
-          </div>
-
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
@@ -718,35 +654,6 @@ export const UserCeremonyEventControl: FC = () => {
         </div>
       </div>
 
-      <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <History size={14} />
-          감사 로그
-        </h2>
-        <ListContainer isLoading={isLogsLoading} isEmpty={logs.length === 0} emptyMessage="아직 기록된 로그가 없습니다.">
-          <table className="w-full text-sm">
-            <thead className="text-gray-500 text-xs">
-              <tr>
-                <th className="text-left font-medium px-4 py-2">시각</th>
-                <th className="text-left font-medium px-4 py-2">행위 주체</th>
-                <th className="text-left font-medium px-4 py-2">행위</th>
-                <th className="text-left font-medium px-4 py-2">비고</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-4 py-2 text-gray-500">{new Date(log.createdAt).toLocaleString('ko-KR')}</td>
-                  <td className="px-4 py-2 text-gray-700">{log.actorType === 'ADMIN' ? '관리자' : '서명자'} #{log.actorId}</td>
-                  <td className="px-4 py-2 text-gray-950">{EVENT_ACTION_LABEL[log.eventAction] ?? log.eventAction}</td>
-                  <td className="px-4 py-2 text-gray-500">{log.message ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ListContainer>
-      </section>
-
       {isQrModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -803,13 +710,3 @@ export const UserCeremonyEventControl: FC = () => {
     </div>
   );
 };
-
-const InfoRow: FC<{ icon?: ReactNode; label: string; value: string; mono?: boolean }> = ({ icon, label, value, mono }) => (
-  <div className="flex items-center gap-2 text-xs">
-    <span className="w-16 shrink-0 flex items-center gap-1 font-medium text-gray-500">
-      {icon}
-      {label}
-    </span>
-    <span className={`text-gray-950 truncate ${mono ? 'font-mono text-[10px]' : ''}`}>{value}</span>
-  </div>
-);
