@@ -384,12 +384,16 @@ export const ProjectorView: FC = () => {
     settingsSaveMessageTimeoutRef.current = window.setTimeout(() => setSettingsSaveMessage(''), 1800);
   }, [saveCurrentSettings]);
 
+  // 성공하면 context를 반영하고, 실패하면(네트워크 단절/서버 오류/잘못된 accessKey 전부) 그냥
+  // 던진다 — 호출부가 "최초 로딩"인지 "이미 떠 있는 화면의 백그라운드 캐치업"인지에 따라 실패를
+  // 다르게 다뤄야 해서다(최초 로딩 실패는 전체 화면 에러로, 캐치업 실패는 조용히 다음 기회를
+  // 기다리는 쪽으로 — 안 그러면 정상적으로 떠 있던 화면이 일시적인 캐치업 실패 한 번에 통째로
+  // 에러 화면으로 바뀌어버린다).
   const fetchContext = useCallback(async () => {
     if (!eventAccessKey) return;
     const res = await fetch(`${API_BASE}/${eventAccessKey}`).then((r) => r.json());
     if (res.code !== 'SUCCESS') {
-      setError(res.message ?? '행사 정보를 불러오지 못했습니다.');
-      return;
+      throw new Error(res.message ?? '행사 정보를 불러오지 못했습니다.');
     }
     const data = res.data as ProjectorContext;
     setContext(data);
@@ -425,6 +429,33 @@ export const ProjectorView: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventAccessKey]);
+
+  // 최초 로딩 자체가 네트워크 단절 중에 실패했을 때의 자동 복구. WebSocket 재연결(아래
+  // effect)과 5초 폴링 폴백은 둘 다 context가 이미 있어야 켜지는 조건이라, 최초 로딩이
+  // 실패하면(=context가 계속 null) 아무 것도 재시도되지 않고 에러 화면에 영원히 머문다 —
+  // 그래서 error가 남아 있는 동안만 별도로 'online' 이벤트(네트워크 복귀 즉시)와 5초
+  // 폴링(브라우저가 online 이벤트를 놓치는 경우 대비)으로 최초 로딩을 다시 시도한다.
+  useEffect(() => {
+    if (!eventAccessKey || !error) return;
+    let cancelled = false;
+
+    const retry = async () => {
+      try {
+        await Promise.all([fetchContext(), fetchStrokes()]);
+        if (!cancelled) setError(null);
+      } catch {
+        // 여전히 실패 — 다음 트리거(online 이벤트/폴링)를 기다린다.
+      }
+    };
+
+    window.addEventListener('online', retry);
+    const interval = window.setInterval(retry, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', retry);
+      window.clearInterval(interval);
+    };
+  }, [eventAccessKey, error, fetchContext, fetchStrokes]);
 
   // WebSocket 실시간 구독 — 스트로크/서명지우기/재서명/상태변경을 전부 받는다.
   useEffect(() => {

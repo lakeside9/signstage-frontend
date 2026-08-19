@@ -143,6 +143,34 @@ export const SignerPortalView: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventAccessKey, signerAccessKey]);
 
+  // 최초 로딩 자체가 네트워크 단절 중에 실패했을 때의 자동 복구(ProjectorView.tsx와 같은
+  // 이유). WebSocket 재연결(아래 effect)과 5초 폴링 폴백은 둘 다 context가 이미 있어야
+  // 켜지는 조건이라, 최초 로딩이 실패하면 아무 것도 재시도되지 않고 에러 화면에 영원히
+  // 머문다 — 그래서 loadError가 남아 있는 동안만 'online' 이벤트/5초 폴링으로 최초 로딩을
+  // 다시 시도한다.
+  useEffect(() => {
+    if (!eventAccessKey || !signerAccessKey || !loadError) return;
+    let cancelled = false;
+
+    const retry = async () => {
+      try {
+        await fetchAll();
+        if (!cancelled) setLoadError(null);
+      } catch {
+        // 여전히 실패 — 다음 트리거(online 이벤트/폴링)를 기다린다.
+      }
+    };
+
+    window.addEventListener('online', retry);
+    const interval = window.setInterval(retry, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', retry);
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventAccessKey, signerAccessKey, loadError]);
+
   // 실시간 구독 — 다른 서명자의 스트로크, 서명 지우기/재서명 요청, 행사 상태 변경까지 전부 받는다.
   useEffect(() => {
     if (!context?.eventId || !eventAccessKey) return;
