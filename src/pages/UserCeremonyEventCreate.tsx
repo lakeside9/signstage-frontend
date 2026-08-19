@@ -91,7 +91,7 @@ export const UserCeremonyEventCreate: FC = () => {
       });
       const created = response.data as CeremonyEventSummary;
       showSnackbar('하위 행사가 등록되었습니다.', 'success');
-      navigate(`${detailPath}/events/${created.id}`);
+      navigate(`${detailPath}/events/${created.id}/mapping`);
     } catch (err) {
       const message = err instanceof Error ? err.message : '하위 행사 등록에 실패했습니다.';
       showSnackbar(message, 'error');

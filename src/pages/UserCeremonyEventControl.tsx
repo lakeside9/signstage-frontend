@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
@@ -12,18 +12,26 @@ import {
   Download,
   ExternalLink,
   FilePlus,
+  History,
+  KeyRound,
   Loader2,
+  MapPin,
   Monitor,
   PackageCheck,
+  Play,
   QrCode,
   Radio,
+  RotateCcw,
+  Square,
   Users,
   X,
 } from 'lucide-react';
+import { ListContainer } from '../components/ListContainer';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
+  CeremonyEventLogSummary,
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyResultSummary,
@@ -51,6 +59,15 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
 
+const EVENT_ACTION_LABEL: Record<string, string> = {
+  START_EVENT: '시작',
+  FINISH_EVENT: '종료',
+  SIGNATURE_COMPLETE: '서명 완료',
+  SIGNATURE_CLEAR: '서명 지우기',
+  SIGNATURE_REPLACE: '재서명 요청',
+  GENERATE_RESULTS: '결과물 생성',
+};
+
 const PortalQrCode: FC<{ value: string }> = ({ value }) => {
   const [dataUrl, setDataUrl] = useState('');
 
@@ -76,10 +93,16 @@ const PortalQrCode: FC<{ value: string }> = ({ value }) => {
 
 /**
  * 행사제어(현장 실시간 운영 콘솔). legacy(~/Works/eform/source/signstage/signstage-frontend)
- * `CeremonyControl.tsx`(sub/10/control)와 같은 모양으로 새로 만들었다 — 기존
- * `UserCeremonyEventDetail.tsx`("설정" 화면)는 상태전이/문서매핑/적용옵션/재서명/로그를
- * 그대로 갖고, 이 화면은 실시간 모니터링(서명자 현황 + 문서 라이브 미리보기 + QR 포털 +
- * 경과시간)과 결과물 관리(생성/다운로드, Detail에서 이동)만 담당한다.
+ * `CeremonyControl.tsx`(sub/10/control)와 같은 모양으로 만들었다 — 실시간 모니터링(서명자
+ * 현황 + 문서 라이브 미리보기 + QR 포털 + 경과시간)과 결과물 관리, 그리고 legacy가 실제로
+ * 헤더에 두는 상태전이 버튼("행사 시작"/"행사 종료")까지 담당한다.
+ *
+ * 이전에는 별도 `UserCeremonyEventDetail.tsx`("설정" 화면)가 상태전이/문서매핑/적용옵션/
+ * 재서명/로그를 담당했지만, 문서매핑은 전용 화면(`UserCeremonyEventMapping.tsx`)으로,
+ * 적용옵션은 등록/수정 화면으로 이미 옮겨가 그 화면의 존재 이유가 사라졌다 — Detail 화면
+ * 자체를 지우고 남은 상태전이(READY→START/START→FINISH)·재서명·감사로그·행사 기본 정보를
+ * 전부 이 화면으로 옮겼다(DRAFT→READY 전이는 문서매핑 화면의 "행사 제어" 버튼이 이미
+ * 처리한다 — legacy도 문서매핑을 마쳐야 이 화면에 들어오는 흐름과 같다).
  *
  * "매핑된 서명자"는 legacy처럼 별도 매핑 테이블이 없어(4절 참고) CONTRACT/EXHIBITION 매핑된
  * 템플릿의 필수 서명란이 참조하는 signerId 집합으로 도출한다. 완료 여부도 별도 컬럼이
@@ -87,7 +110,7 @@ const PortalQrCode: FC<{ value: string }> = ({ value }) => {
  * 서명자 포털의 `completeSignature` 검증과 같은 조건이다.
  *
  * 실시간 펜 궤적은 `/topic/events/{eventId}/state`의 `SIGNATURE_STROKE_SUBMITTED` 메시지를
- * 누적해서 그린다(백엔드가 이번에 "확정 이벤트만 전파"하던 정책을 뒤집었다). 화면 진입 시
+ * 누적해서 그린다(백엔드가 "확정 이벤트만 전파"하던 정책을 뒤집었다). 화면 진입 시
  * `GET .../events/{eventId}/strokes`로 이미 그려진 획을 먼저 캐치업한다.
  */
 export const UserCeremonyEventControl: FC = () => {
@@ -101,6 +124,13 @@ export const UserCeremonyEventControl: FC = () => {
   const [event, setEvent] = useState<CeremonyEventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const [logs, setLogs] = useState<CeremonyEventLogSummary[]>([]);
+  const [isLogsLoading, setIsLogsLoading] = useState(true);
+
+  const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
+  const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [mappedTemplates, setMappedTemplates] = useState<CeremonyTemplateSummary[]>([]);
@@ -125,6 +155,34 @@ export const UserCeremonyEventControl: FC = () => {
     const response = await api.get(apiBasePath);
     return response.data as CeremonyEventSummary;
   };
+
+  const fetchLogs = async () => {
+    const response = await api.get(`${apiBasePath}/logs`);
+    return response.data as CeremonyEventLogSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchLogs();
+        if (!cancelled) setLogs(data);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '감사 로그를 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) setIsLogsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId, eventId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,6 +325,14 @@ export const UserCeremonyEventControl: FC = () => {
                   // 실시간 알림은 왔는데 재조회만 실패한 것 — 새로고침하면 되므로 무시한다.
                 });
             }
+
+            if (realtimeEvent.type !== 'SIGNATURE_STROKE_SUBMITTED') {
+              fetchLogs()
+                .then(setLogs)
+                .catch(() => {
+                  // 위와 같은 이유로 무시한다.
+                });
+            }
           },
           { eventAccessKey: event.accessKey },
         );
@@ -298,6 +364,34 @@ export const UserCeremonyEventControl: FC = () => {
 
     return () => clearInterval(timer);
   }, [event?.actualStartAt, event?.status]);
+
+  const handleTransition = async (action: 'start' | 'finish') => {
+    setIsTransitioning(true);
+    try {
+      const response = await api.post(`${apiBasePath}/${action}`);
+      setEvent(response.data as CeremonyEventSummary);
+      showSnackbar('상태를 변경했습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '상태 변경에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
+  const handleReplaceSignature = async (signerId: number) => {
+    setProcessingReplaceSignerId(signerId);
+    try {
+      await api.post(`${apiBasePath}/signers/${signerId}/replace-signature`);
+      showSnackbar('재서명을 요청했습니다. 서명자가 다시 서명해야 완료 처리됩니다.', 'success');
+      setConfirmingReplaceSignerId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '재서명 요청에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setProcessingReplaceSignerId(null);
+    }
+  };
 
   const handleGenerateResults = async () => {
     setIsGeneratingResults(true);
@@ -364,7 +458,7 @@ export const UserCeremonyEventControl: FC = () => {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-3">
-          <Link to={`${basePath}/events/${eventId}`} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+          <Link to={basePath} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -379,6 +473,43 @@ export const UserCeremonyEventControl: FC = () => {
                 <Radio size={12} />
                 {isRealtimeConnected ? '실시간 연결됨' : '연결 끊김'}
               </span>
+
+              <div className="h-4 w-px bg-gray-200 mx-1" />
+
+              {event.status === 'READY' && (
+                <button
+                  onClick={() => handleTransition('start')}
+                  disabled={isTransitioning}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                >
+                  <Play size={12} fill="currentColor" />
+                  행사 시작
+                </button>
+              )}
+              {event.status === 'STARTED' && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                      completedCount === mappedSigners.length ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    서명 {completedCount}/{mappedSigners.length}
+                  </span>
+                  <button
+                    onClick={() => handleTransition('finish')}
+                    disabled={isTransitioning || completedCount !== mappedSigners.length}
+                    title={
+                      completedCount === mappedSigners.length
+                        ? '행사 종료'
+                        : `서명 완료 ${completedCount}/${mappedSigners.length} - 모든 서명자가 서명해야 종료할 수 있습니다.`
+                    }
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+                  >
+                    <Square size={12} fill="currentColor" />
+                    행사 종료
+                  </button>
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">행사 실시간 제어 및 모니터링</p>
           </div>
@@ -412,6 +543,19 @@ export const UserCeremonyEventControl: FC = () => {
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 font-bold text-gray-900 text-sm mb-1">
+              <MapPin size={16} className="text-indigo-500" />
+              행사 정보
+            </div>
+            <InfoRow label="장소" value={event.venue ?? '-'} />
+            <InfoRow label="예정 시작" value={event.scheduledStartAt ? new Date(event.scheduledStartAt).toLocaleString('ko-KR') : '-'} />
+            <InfoRow label="예정 종료" value={event.scheduledEndAt ? new Date(event.scheduledEndAt).toLocaleString('ko-KR') : '-'} />
+            <InfoRow label="실제 시작" value={event.actualStartAt ? new Date(event.actualStartAt).toLocaleString('ko-KR') : '-'} />
+            <InfoRow label="실제 종료" value={event.actualEndAt ? new Date(event.actualEndAt).toLocaleString('ko-KR') : '-'} />
+            <InfoRow icon={<KeyRound size={11} />} label="접속 키" value={event.accessKey} mono />
+          </div>
+
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
@@ -490,6 +634,56 @@ export const UserCeremonyEventControl: FC = () => {
               </ul>
             )}
           </div>
+
+          {event.status === 'STARTED' && (
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
+                <RotateCcw size={16} className="text-indigo-500" />
+                재서명 요청
+              </div>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                서명자가 이 하위 행사에서 진행한 서명을 전부 초기화하고 다시 서명하게 합니다. 완료 여부와 무관하게
+                가능하며, 되돌릴 수 없습니다.
+              </p>
+              {signers.length === 0 ? (
+                <p className="text-xs text-gray-400">등록된 서명자가 없습니다.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {signers.map((signer) => (
+                    <li key={signer.id} className="flex items-center justify-between py-2">
+                      <span className="text-xs font-bold text-gray-900">{signer.name}</span>
+                      {confirmingReplaceSignerId === signer.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleReplaceSignature(signer.id)}
+                            disabled={processingReplaceSignerId === signer.id}
+                            className="px-2 py-1 rounded-md bg-red-600 text-white text-[10px] font-bold hover:bg-red-700 disabled:opacity-50"
+                          >
+                            확인
+                          </button>
+                          <button
+                            onClick={() => setConfirmingReplaceSignerId(null)}
+                            disabled={processingReplaceSignerId === signer.id}
+                            className="px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[10px] font-bold hover:border-gray-400 disabled:opacity-50"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingReplaceSignerId(signer.id)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[10px] font-bold hover:border-gray-400"
+                        >
+                          <RotateCcw size={10} />
+                          재서명 요청
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="col-span-12 lg:col-span-9 flex flex-col gap-4">
@@ -523,6 +717,35 @@ export const UserCeremonyEventControl: FC = () => {
           />
         </div>
       </div>
+
+      <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <History size={14} />
+          감사 로그
+        </h2>
+        <ListContainer isLoading={isLogsLoading} isEmpty={logs.length === 0} emptyMessage="아직 기록된 로그가 없습니다.">
+          <table className="w-full text-sm">
+            <thead className="text-gray-500 text-xs">
+              <tr>
+                <th className="text-left font-medium px-4 py-2">시각</th>
+                <th className="text-left font-medium px-4 py-2">행위 주체</th>
+                <th className="text-left font-medium px-4 py-2">행위</th>
+                <th className="text-left font-medium px-4 py-2">비고</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-4 py-2 text-gray-500">{new Date(log.createdAt).toLocaleString('ko-KR')}</td>
+                  <td className="px-4 py-2 text-gray-700">{log.actorType === 'ADMIN' ? '관리자' : '서명자'} #{log.actorId}</td>
+                  <td className="px-4 py-2 text-gray-950">{EVENT_ACTION_LABEL[log.eventAction] ?? log.eventAction}</td>
+                  <td className="px-4 py-2 text-gray-500">{log.message ?? '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListContainer>
+      </section>
 
       {isQrModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -580,3 +803,13 @@ export const UserCeremonyEventControl: FC = () => {
     </div>
   );
 };
+
+const InfoRow: FC<{ icon?: ReactNode; label: string; value: string; mono?: boolean }> = ({ icon, label, value, mono }) => (
+  <div className="flex items-center gap-2 text-xs">
+    <span className="w-16 shrink-0 flex items-center gap-1 font-medium text-gray-500">
+      {icon}
+      {label}
+    </span>
+    <span className={`text-gray-950 truncate ${mono ? 'font-mono text-[10px]' : ''}`}>{value}</span>
+  </div>
+);

@@ -170,7 +170,7 @@ export const UserCeremonyEventMapping: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '문서매핑 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate(`${basePath}/events/${eventId}`, { replace: true });
+          navigate(basePath, { replace: true });
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -334,7 +334,7 @@ export const UserCeremonyEventMapping: FC = () => {
       <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm z-10">
         <div className="flex items-center gap-4 min-w-0">
           <button
-            onClick={() => navigate(`${basePath}/events/${eventId}`)}
+            onClick={() => navigate(basePath)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
           >
             <ArrowLeft size={20} />
