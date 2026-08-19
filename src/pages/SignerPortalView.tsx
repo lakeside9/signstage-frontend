@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import { AlertCircle, CircleCheckBig, FileText, Info, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, FileText, Info, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -52,21 +52,28 @@ const toPointPairs = (flatPoints: number[]): [number, number][] => {
  * 뜨고, 거기서 그린 뒤 "확인"을 누르면 저장된다. 문서 확대/축소(75~200%), 여러 페이지 이동,
  * 실시간으로 다른 서명자의 서명도 함께 보여주는 것까지 legacy와 같다.
  *
+ * legacy `SignerView.tsx`처럼 이벤트가 STARTED인 동안은 이미 서명을 마친 서명란도 몇 번이든
+ * 다시 클릭해 새로 그릴 수 있다 — legacy 백엔드(`SignerPortalController#replaceAndCompleteEventSignature`)
+ * 가 완료 여부를 아예 검사하지 않고 매번 무조건 교체+재완료 로그를 남기는 것과 같다. 이
+ * 화면은 별도의 "완료" 종료 화면으로 전환하지 않는다 — 완료돼도 문서 화면에 그대로 머물고,
+ * 서명란은 그저 다 채워진 상태(노란 강조 없이 조용한 모습)로 보일 뿐이다("서명이
+ * 저장되었습니다" 토스트가 유일한 완료 신호, legacy와 같다). FINISHED로 바뀌면(행사 종료)
+ * 그때부터 문서 전체가 흐려지고 클릭이 막힌다 — 그 전까지는 언제든 다시 서명할 수 있다.
+ *
  * legacy 대비 의도적으로 다르게 둔 부분:
  * - legacy는 모달 확인 한 번으로 "CLEAR+DRAW 전체를 한 번에 교체"하는 배치 API를 쓰지만,
  *   우리 백엔드는 스트로크를 하나씩 저장하는 API만 있다(재서명이면 먼저 DELETE로 지우고
  *   순서대로 POST). 사용자 눈에 보이는 흐름(모달에서 그리고 확인 한 번)은 똑같다.
- * - legacy는 배정된 서명란에 스트로크가 하나라도 있으면 "완료"로 취급하고 별도 완료 화면이
- *   없다(이벤트 상태만으로 계속 서명란을 다시 열 수 있다). 우리 백엔드는 `/complete`를 명시
- *   호출해야 하고, 완료 후에는 자기 서명을 self-serve로 지울 수 없다(관리자의 재서명 요청만
- *   가능) — 그래서 배정된 필수 서명란을 전부 채우면 자동으로 `/complete`를 호출하고, 성공하면
- *   "서명이 완료되었습니다" 종료 화면으로 넘어간다. 관리자가 재서명 요청(SIGNATURE_REPLACED)을
- *   하면 이 종료 화면에서 다시 서명 화면으로 돌아간다.
+ * - legacy는 배정된 서명란에 스트로크가 하나라도 있으면 "완료"로 취급해 곧바로 완료 로그를
+ *   남기지만, 우리 백엔드는 `/complete`를 별도로 명시 호출해야 한다(감사 로그/행사 종료 조건
+ *   때문에 필요) — 그래서 배정된 필수 서명란을 전부 채우면 자동으로 `/complete`를 호출한다.
+ *   그 호출 자체가 실패해도(예: 동시에 다른 갱신이 껴들어 타이밍이 어긋난 경우) 스트로크
+ *   저장은 이미 끝난 뒤라 조용히 넘어간다 — 다음에 필수 서명란을 다시 채우면 재시도된다.
  * - legacy는 CONTRACT 문서만 다룬다(EXHIBITION은 프로젝터 전용) — 이 화면도 그대로 따른다.
- *   단, "완료 가능 여부" 판정은 이 이벤트에 매핑된 모든 문서의 필수 서명란(포털 컨텍스트의
- *   `requiredFields`)을 기준으로 한다 — CONTRACT 외 문서에도 이 서명자의 필수 서명란이 있는
- *   드문 구성이면 그 서명란은 이 화면에서 클릭할 수 없으니 전부 채워지지 않아 자동 완료가 안
- *   될 수 있다(legacy에 없던 케이스라 UI로 해결하지 않았다).
+ *   "완료 가능 여부" 판정은 포털 컨텍스트의 `requiredFields`를 기준으로 하는데, 이건 이제
+ *   CONTRACT 필수 서명란만 담고 있다(`SignerPortalService.collectRequiredFieldsForSigner`가
+ *   CONTRACT만 보도록 고쳤다 — 안 그러면 EXHIBITION의 마찬가지로 필수인 서명란을 이 화면이
+ *   보여주지도 못하면서 완료 조건에는 넣어버려 영원히 완료가 안 되는 버그가 있었다).
  */
 export const SignerPortalView: FC = () => {
   const { eventAccessKey, signerAccessKey } = useParams<{ eventAccessKey: string; signerAccessKey: string }>();
@@ -78,7 +85,6 @@ export const SignerPortalView: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
-  const [completed, setCompleted] = useState(false);
 
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [documentZoom, setDocumentZoom] = useState(1);
@@ -115,10 +121,6 @@ export const SignerPortalView: FC = () => {
       setMyField((prev) => prev ?? mine[0]);
       setCurrentPage((prev) => (prev === 0 ? mine[0].pageIndex : prev));
     }
-
-    const allRequiredSigned =
-      contextData.requiredFields.length > 0 && contextData.requiredFields.every((f) => f.hasStroke);
-    if (allRequiredSigned) setCompleted(true);
   };
 
   useEffect(() => {
@@ -182,7 +184,6 @@ export const SignerPortalView: FC = () => {
               const payload = event.payload as { signerId: number };
               setStrokes((prev) => removeStrokesForSigner(prev, payload.signerId));
               if (payload.signerId === context.signerId) {
-                setCompleted(false);
                 showSnackbar('관리자가 재서명을 요청했습니다. 다시 서명해주세요.', 'info');
               }
             } else if (event.type === 'EVENT_STATUS_CHANGED') {
@@ -283,16 +284,6 @@ export const SignerPortalView: FC = () => {
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-gray-950 text-white">
         <AlertCircle size={32} className="text-red-400" />
         <p className="text-sm">{loadError ?? '정보를 찾을 수 없습니다.'}</p>
-      </div>
-    );
-  }
-
-  if (completed) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-gray-950 text-center text-white">
-        <CircleCheckBig size={40} className="text-emerald-400" />
-        <p className="text-base font-bold">서명이 완료되었습니다</p>
-        <p className="text-sm text-gray-400">{context.signerName}님, 참여해주셔서 감사합니다.</p>
       </div>
     );
   }
@@ -399,8 +390,12 @@ export const SignerPortalView: FC = () => {
 
       const allRequiredSigned = context.requiredFields.every((f) => nextStrokes.some((s) => s.templateFieldId === f.templateFieldId));
       if (allRequiredSigned) {
-        await api.post(`${portalBase}/complete`);
-        setCompleted(true);
+        try {
+          await api.post(`${portalBase}/complete`);
+        } catch {
+          // 스트로크 저장 자체는 이미 끝났다 — 완료 로그만 실패한 것이라 조용히 넘어간다
+          // (다음에 필수 서명란을 다시 채우면 자동으로 재시도된다).
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '서명 저장에 실패했습니다.';
