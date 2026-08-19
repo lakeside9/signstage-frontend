@@ -109,9 +109,14 @@ const usePageImage = (
  * 다른 요구 — 여기는 서명 전 정적 미리보기라 실시간 스트로크가 필요 없다).
  *
  * legacy는 이미 매핑된 역할도 다시 선택해 통째로 교체(PUT)한다. 우리 백엔드는 그런 통째
- * 교체 엔드포인트 대신 매핑 해제(DELETE .../templates/{mappingId})를 새로 만들었다 — "교체"는
- * 저장 시점에 기존 매핑을 지우고 새로 만드는 두 단계로 처리한다(REST 자원 하나씩 다루는 이
- * 프로젝트 관례). 각 문서 패널의 "해제" 버튼은 교체 없이 매핑만 지우는 용도다.
+ * 교체 엔드포인트 대신 매핑 해제(DELETE .../templates/{mappingId})를 새로 만들었다 — "실제
+ * 저장"은 저장 시점에 기존 매핑을 지우고 새로 만드는 두 단계로 처리한다(REST 자원 하나씩
+ * 다루는 이 프로젝트 관례). 각 문서 패널의 "해제" 버튼은 교체 없이 매핑만 지우는 용도다.
+ *
+ * 다만 모달에서 문서를 고르는 즉시(저장 전에도) `loadPanel`로 그 문서의 페이지/서명란을
+ * 불러와 화면에 바로 보여준다 — "저장"은 서버에 실제로 반영하는 시점일 뿐, 미리보기는
+ * 선택하는 순간 바뀐다. 아직 저장 전이라는 사실은 문서 패널 제목 옆 "새 문서 선택됨 · 저장
+ * 대기" 배지로 알려준다.
  */
 export const UserCeremonyEventMapping: FC = () => {
   const { organizationId, ceremonyId, eventId } = useParams<{
@@ -183,30 +188,35 @@ export const UserCeremonyEventMapping: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId, eventId]);
 
+  /**
+   * 템플릿 하나의 제목/서명란/페이지 수를 불러와 패널에 채운다. 저장된 매핑을 보여줄 때뿐
+   * 아니라, 모달에서 새 문서를 고른 직후(저장 전 미리보기)에도 그대로 재사용한다 —
+   * "선택하면 바로 화면에 보인다"는 요구사항이 저장 여부와 무관하게 항상 성립해야 하므로.
+   */
+  const loadPanel = async (templateId: number, setPanel: (updater: (prev: DocumentPanelState) => DocumentPanelState) => void) => {
+    try {
+      const [templateRes, fieldsRes, infoRes] = await Promise.all([
+        api.get(`${apiBasePath}/templates/${templateId}`),
+        api.get(`${apiBasePath}/templates/${templateId}/fields`),
+        api.get(`${apiBasePath}/templates/${templateId}/info`),
+      ]);
+      setPanel((prev) => ({
+        ...prev,
+        templateId,
+        templateTitle: (templateRes.data as TemplateSummary).title,
+        fields: fieldsRes.data as TemplateFieldSummary[],
+        pageCount: (infoRes.data as { pageCount: number }).pageCount,
+        currentPage: 0,
+      }));
+    } catch {
+      showSnackbar('문서 정보를 불러오지 못했습니다.', 'error');
+    }
+  };
+
   // 매핑된 CONTRACT/EXHIBITION 각 첫 번째 템플릿의 제목/서명란/페이지 수를 불러온다.
   useEffect(() => {
     const exhibitionMapping = mappedTemplates.find((m) => m.documentRole === 'EXHIBITION');
     const contractMapping = mappedTemplates.find((m) => m.documentRole === 'CONTRACT');
-
-    const loadPanel = async (templateId: number, setPanel: (updater: (prev: DocumentPanelState) => DocumentPanelState) => void) => {
-      try {
-        const [templateRes, fieldsRes, infoRes] = await Promise.all([
-          api.get(`${apiBasePath}/templates/${templateId}`),
-          api.get(`${apiBasePath}/templates/${templateId}/fields`),
-          api.get(`${apiBasePath}/templates/${templateId}/info`),
-        ]);
-        setPanel((prev) => ({
-          ...prev,
-          templateId,
-          templateTitle: (templateRes.data as TemplateSummary).title,
-          fields: fieldsRes.data as TemplateFieldSummary[],
-          pageCount: (infoRes.data as { pageCount: number }).pageCount,
-          currentPage: 0,
-        }));
-      } catch {
-        showSnackbar('문서 정보를 불러오지 못했습니다.', 'error');
-      }
-    };
 
     if (exhibitionMapping) loadPanel(exhibitionMapping.templateId, setExhibition);
     if (contractMapping) loadPanel(contractMapping.templateId, setContract);
@@ -236,8 +246,13 @@ export const UserCeremonyEventMapping: FC = () => {
 
   const confirmTemplateSelection = () => {
     if (!modalSelectedId || !modalRole) return;
-    if (modalRole === 'EXHIBITION') setPendingExhibitionId(modalSelectedId);
-    else setPendingContractId(modalSelectedId);
+    if (modalRole === 'EXHIBITION') {
+      setPendingExhibitionId(modalSelectedId);
+      loadPanel(modalSelectedId, setExhibition);
+    } else {
+      setPendingContractId(modalSelectedId);
+      loadPanel(modalSelectedId, setContract);
+    }
     setIsModalOpen(false);
     setModalRole(null);
   };
