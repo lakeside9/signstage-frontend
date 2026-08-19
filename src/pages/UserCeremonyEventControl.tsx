@@ -32,6 +32,7 @@ import type {
   CeremonyResultType,
   CeremonyTemplateSummary,
   RealtimeEventMessage,
+  SignerCompletionStatus,
   SignerSummary,
   StrokeSummary,
   TemplateFieldSummary,
@@ -91,16 +92,14 @@ const PortalQrCode: FC<{ value: string }> = ({ value }) => {
  * 옮겨왔다가 화면이 번잡하다는 피드백으로 다시 뺐다 — 재서명은
  * `POST .../events/{eventId}/signers/{signerId}/replace-signature`로 직접 호출할 수 있다.
  *
- * "매핑된 서명자"는 legacy처럼 별도 매핑 테이블이 없어(4절 참고) CONTRACT 매핑된 템플릿의
- * 필수 서명란이 참조하는 signerId 집합으로 도출한다. EXHIBITION의 필수 서명란은 보지
- * 않는다 — EXHIBITION도 같은 서명자를 필수로 요구하도록 매핑돼 있지만(READY 전이 조건) 그건
- * 전시용 화면에 이 서명자 자리를 만들기 위한 것이지 그 서명란에 직접 서명해야 한다는 뜻이
- * 아니다(서명자 포털은 CONTRACT에만 서명을 받는다). 완료 여부도 별도 컬럼이 없어(레거시와
- * 같은 한계) "그 서명자의 CONTRACT 필수 서명란 전부에 스트로크가 있는가"로 판정한다 —
- * 서명자 포털의 `SignerPortalService.collectRequiredFieldsForSigner`(`completeSignature`
- * 검증이 쓰는 기준)와 같은 조건이다. 예전엔 EXHIBITION 필수 서명란까지 같이 봤는데, 포털이
- * 거기엔 서명을 제출할 방법을 안 주니 영원히 미완료로 남아 "서명했는데도 행사 종료 버튼이
- * 안 켜지는" 버그였다.
+ * "매핑된 서명자"/완료 여부는 `GET .../events/{eventId}/signature-status`로 조회한다 —
+ * `POST .../finish`가 실제로 검사하는 것과 정확히 같은 기준(감사 로그의 최신
+ * SIGNATURE_COMPLETE 여부, `CeremonyEventService.isSignerSignatureComplete`)이다. 예전엔
+ * 이 화면이 "서명란에 스트로크가 있는가"로 자체 근사 판정을 했는데, 서명자 포털의 자동
+ * `/complete` 호출이 실패해도 스트로크는 이미 저장된 뒤라 화면엔 '완료'로 보이는 반면
+ * 실제 종료 조건은 감사 로그 기준이라 어긋나는 경우가 있었다 — "서명이 완료되었으나 행사
+ * 종료 시 완료되지 않은 서명자가 있다는 메시지가 뜨는" 버그였다. 이 화면과 백엔드 종료
+ * 판정이 같은 데이터를 보게 해서 근본적으로 없앴다.
  *
  * 실시간 펜 궤적은 `/topic/events/{eventId}/state`의 `SIGNATURE_STROKE_SUBMITTED` 메시지를
  * 누적해서 그린다(백엔드가 "확정 이벤트만 전파"하던 정책을 뒤집었다). 화면 진입 시
@@ -127,6 +126,7 @@ export const UserCeremonyEventControl: FC = () => {
   const [exhibitionPageCount, setExhibitionPageCount] = useState(0);
 
   const [strokes, setStrokes] = useState<StrokeSummary[]>([]);
+  const [signatureStatuses, setSignatureStatuses] = useState<SignerCompletionStatus[]>([]);
 
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
 
@@ -143,22 +143,29 @@ export const UserCeremonyEventControl: FC = () => {
     return response.data as CeremonyEventSummary;
   };
 
+  const fetchSignatureStatus = async () => {
+    const response = await api.get(`${apiBasePath}/signature-status`);
+    return response.data as SignerCompletionStatus[];
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const [eventData, mappedRes, signersRes, strokesRes] = await Promise.all([
+        const [eventData, mappedRes, signersRes, strokesRes, signatureStatusData] = await Promise.all([
           fetchEvent(),
           api.get(`${apiBasePath}/templates`),
           api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/signers`),
           api.get(`${apiBasePath}/strokes`),
+          fetchSignatureStatus(),
         ]);
         if (cancelled) return;
 
         setEvent(eventData);
         setSigners(signersRes.data as SignerSummary[]);
         setStrokes(strokesRes.data as StrokeSummary[]);
+        setSignatureStatuses(signatureStatusData);
         const mapped = mappedRes.data as CeremonyTemplateSummary[];
         setMappedTemplates(mapped);
 
@@ -284,6 +291,20 @@ export const UserCeremonyEventControl: FC = () => {
                   // 실시간 알림은 왔는데 재조회만 실패한 것 — 새로고침하면 되므로 무시한다.
                 });
             }
+
+            // 완료 상태에 영향을 줄 수 있는 이벤트가 오면 행사 종료 판정과 같은 기준으로
+            // 다시 조회한다 — 스트로크 존재만으로 자체 근사하지 않는다(문서 상단 주석 참고).
+            if (
+              realtimeEvent.type === 'SIGNATURE_COMPLETED' ||
+              realtimeEvent.type === 'SIGNATURE_CLEARED' ||
+              realtimeEvent.type === 'SIGNATURE_REPLACED'
+            ) {
+              fetchSignatureStatus()
+                .then(setSignatureStatuses)
+                .catch(() => {
+                  // 위와 같은 이유로 무시한다.
+                });
+            }
           },
           { eventAccessKey: event.accessKey },
         );
@@ -377,23 +398,12 @@ export const UserCeremonyEventControl: FC = () => {
     );
   }
 
-  // 매핑된 필수 서명란이 참조하는 signerId 집합 — legacy처럼 별도 매핑 테이블이 없어 필드에서
-  // 직접 도출한다(4절 결정). CONTRACT만 본다 — EXHIBITION도 같은 서명자를 필수로 요구하도록
-  // 매핑돼 있지만(READY 전이 조건, checkSignerMappingConsistency) 그건 전시용 화면에 이
-  // 서명자 자리를 만들기 위한 것이지 그 서명란에 직접 서명해야 한다는 뜻이 아니다 — 서명자
-  // 포털은 CONTRACT에만 서명을 받는다(SignerPortalService.collectRequiredFieldsForSigner와
-  // 같은 기준). EXHIBITION 쪽까지 요구하면 포털이 애초에 서명을 제출할 방법을 안 주는
-  // 서명란이 영원히 미완료로 남아 "서명했는데도 행사 종료 버튼이 안 켜지는" 버그가 된다.
-  const mappedSignerIds = new Set(
-    contractFields.filter((f) => f.isRequired && f.signerId != null).map((f) => f.signerId as number),
-  );
+  // "매핑된 서명자"/완료 여부는 signature-status 응답(POST .../finish와 같은 기준)을 그대로
+  // 쓴다 — 문서 상단 주석 참고. 스트로크 존재로 자체 근사하지 않는다.
+  const mappedSignerIds = new Set(signatureStatuses.map((s) => s.signerId));
   const mappedSigners = signers.filter((s) => mappedSignerIds.has(s.id));
-  const strokedFieldIds = new Set(strokes.map((s) => s.templateFieldId));
-  const isSignerComplete = (signerId: number) =>
-    contractFields
-      .filter((f) => f.isRequired && f.signerId === signerId)
-      .every((f) => strokedFieldIds.has(f.id));
-  const completedCount = mappedSigners.filter((s) => isSignerComplete(s.id)).length;
+  const isSignerComplete = (signerId: number) => signatureStatuses.find((s) => s.signerId === signerId)?.completed ?? false;
+  const completedCount = signatureStatuses.filter((s) => s.completed).length;
 
   return (
     <div className="flex flex-col gap-4">

@@ -579,6 +579,19 @@ export interface CeremonyTemplateSummary {
 }
 
 /**
+ * GET .../events/{eventId}/signature-status 응답(CeremonyEventDto.Response.SignerCompletionStatus)과
+ * 맞춘다. `POST .../finish`가 실제로 검사하는 것과 같은 기준(감사 로그의 최신
+ * SIGNATURE_COMPLETE 여부)이다 — 행사제어 화면은 "서명란에 스트로크가 있는가"로 자체 근사
+ * 판정하지 않고 이 값을 그대로 써야 한다(안 그러면 스트로크는 있지만 `/complete` 호출이
+ * 실패해 감사 로그엔 안 남은 경우를 놓쳐 "화면엔 완료로 보이는데 행사 종료가 거부되는"
+ * 불일치가 생긴다).
+ */
+export interface SignerCompletionStatus {
+  signerId: number;
+  completed: boolean;
+}
+
+/**
  * GET/POST /api/organizations/{organizationId}/ceremonies/{ceremonyId}/events(/{id}) 응답
  * (CeremonyEventDto.Response.CeremonyEventSummary)과 맞춘다. accessKey는 서명자 포털/WebSocket
  * 구독 인가에 쓰인다(4라운드 이후에 의미가 생긴다).
