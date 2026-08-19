@@ -236,7 +236,10 @@ export const UserCeremonyEventMapping: FC = () => {
     try {
       const response = await api.get(`${apiBasePath}/templates`);
       const all = response.data as TemplateSummary[];
-      setAvailableTemplates(all.filter((t) => t.documentRole === role));
+      // 설정 완료(COMPLETED) 문서만 매핑 후보로 보여준다 — 서명란 배치가 덜 끝난 DRAFT 문서를
+      // 매핑하면 매핑 이후에도 서명란이 계속 바뀔 수 있어(백엔드도 같은 이유로 매핑 시점에
+      // 이 상태를 검사한다, CeremonyErrorCode.TEMPLATE_NOT_COMPLETED) 미리 걸러낸다.
+      setAvailableTemplates(all.filter((t) => t.documentRole === role && t.status === 'COMPLETED'));
     } catch {
       showSnackbar('문서 양식 목록을 불러오지 못했습니다.', 'error');
     } finally {
@@ -453,7 +456,7 @@ export const UserCeremonyEventMapping: FC = () => {
                 <h3 className="text-lg font-bold text-gray-900">
                   {modalRole === 'EXHIBITION' ? '전시용 문서 선택' : '서명용 문서 선택'}
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">해당 역할의 문서 양식을 선택해주세요.</p>
+                <p className="text-xs text-gray-500 mt-0.5">설정 완료된 문서 양식만 선택할 수 있습니다.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <X size={20} className="text-gray-400" />
@@ -500,8 +503,8 @@ export const UserCeremonyEventMapping: FC = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <FileText size={48} className="text-gray-100 mb-4" />
-                  <p className="text-gray-500 font-medium">검색된 문서 양식이 없습니다.</p>
-                  <p className="text-xs text-gray-400 mt-1">해당 역할로 등록된 문서가 있는지 확인해주세요.</p>
+                  <p className="text-gray-500 font-medium">설정 완료된 문서 양식이 없습니다.</p>
+                  <p className="text-xs text-gray-400 mt-1">문서 양식 화면에서 서명란 배치를 마치고 "설정 완료"를 눌러주세요.</p>
                 </div>
               )}
             </div>
