@@ -769,7 +769,24 @@ export interface PortalContext {
   eventStatus: CeremonyEventStatus;
   signerId: number;
   signerName: string;
+  signerPosition: string | null;
+  signerAffiliation: string | null;
   requiredFields: PortalRequiredFieldStatus[];
+}
+
+/**
+ * GET .../contract 응답(SignerPortalDto.Response.PortalContractDocument)과 맞춘다. 서명용
+ * (CONTRACT) 문서를 통째로 배경에 깔고 그 위에 서명란을 오버레이로 그리기 위한 정보다 —
+ * `fields`는 이 서명자 본인 것만이 아니라 문서에 배치된 전체 서명란이다(legacy
+ * `SignerView.tsx`처럼 남의 서명란도 흐리게 함께 보여준다). CONTRACT 매핑이 없으면 `null`.
+ */
+export interface PortalContractDocument {
+  templateId: number;
+  title: string;
+  pageCount: number;
+  width: number | null;
+  height: number | null;
+  fields: TemplateFieldSummary[];
 }
 
 /** POST .../strokes 요청(SignerPortalDto.Request.SubmitStroke)과 맞춘다. */
