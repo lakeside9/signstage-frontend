@@ -149,22 +149,27 @@ export const UserCeremonyEventControl: FC = () => {
     return response.data as SignerCompletionStatus[];
   };
 
+  const fetchSigners = async () => {
+    const response = await api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/signers`);
+    return response.data as SignerSummary[];
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const [eventData, mappedRes, signersRes, strokesRes, signatureStatusData] = await Promise.all([
+        const [eventData, mappedRes, signersData, strokesRes, signatureStatusData] = await Promise.all([
           fetchEvent(),
           api.get(`${apiBasePath}/templates`),
-          api.get(`/organizations/${organizationId}/ceremonies/${ceremonyId}/signers`),
+          fetchSigners(),
           api.get(`${apiBasePath}/strokes`),
           fetchSignatureStatus(),
         ]);
         if (cancelled) return;
 
         setEvent(eventData);
-        setSigners(signersRes.data as SignerSummary[]);
+        setSigners(signersData);
         setStrokes(strokesRes.data as StrokeSummary[]);
         setSignatureStatuses(signatureStatusData);
         const mapped = mappedRes.data as CeremonyTemplateSummary[];
@@ -302,6 +307,14 @@ export const UserCeremonyEventControl: FC = () => {
             ) {
               fetchSignatureStatus()
                 .then(setSignatureStatuses)
+                .catch(() => {
+                  // 위와 같은 이유로 무시한다.
+                });
+              // signers는 마운트 시 한 번만 불러온 스냅샷이라, 화면을 연 뒤 새로 등록된
+              // 서명자가 있으면 여기서도 갱신해야 서명자 모니터링 목록/QR 목록에 나타난다
+              // (완료 판정 자체는 signatureStatuses만으로 정확하니 버튼 활성화에는 영향 없다).
+              fetchSigners()
+                .then(setSigners)
                 .catch(() => {
                   // 위와 같은 이유로 무시한다.
                 });
@@ -461,18 +474,18 @@ export const UserCeremonyEventControl: FC = () => {
                 <div className="flex items-center gap-2">
                   <span
                     className={`rounded-full px-2 py-1 text-[10px] font-black ${
-                      completedCount === mappedSigners.length ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      completedCount === signatureStatuses.length ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                     }`}
                   >
-                    서명 {completedCount}/{mappedSigners.length}
+                    서명 {completedCount}/{signatureStatuses.length}
                   </span>
                   <button
                     onClick={() => handleTransition('finish')}
-                    disabled={isTransitioning || completedCount !== mappedSigners.length}
+                    disabled={isTransitioning || completedCount !== signatureStatuses.length}
                     title={
-                      completedCount === mappedSigners.length
+                      completedCount === signatureStatuses.length
                         ? '행사 종료'
-                        : `서명 완료 ${completedCount}/${mappedSigners.length} - 모든 서명자가 서명해야 종료할 수 있습니다.`
+                        : `서명 완료 ${completedCount}/${signatureStatuses.length} - 모든 서명자가 서명해야 종료할 수 있습니다.`
                     }
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                   >
@@ -521,7 +534,7 @@ export const UserCeremonyEventControl: FC = () => {
                 서명자 모니터링
               </div>
               <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
-                {completedCount} / {mappedSigners.length}
+                {completedCount} / {signatureStatuses.length}
               </span>
             </div>
             <div className="p-2 space-y-1 max-h-80 overflow-y-auto">
