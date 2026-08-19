@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   Copy,
   ExternalLink,
   FileSignature,
@@ -99,9 +101,11 @@ export const UserCeremonyDetail: FC = () => {
 
   const [events, setEvents] = useState<CeremonyEventSummary[]>([]);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [isEventsSectionOpen, setIsEventsSectionOpen] = useState(true);
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [isSignersLoading, setIsSignersLoading] = useState(true);
+  const [isSignersSectionOpen, setIsSignersSectionOpen] = useState(true);
   const [isSignerFormOpen, setIsSignerFormOpen] = useState(false);
   const [signerName, setSignerName] = useState('');
   const [signerPosition, setSignerPosition] = useState('');
@@ -119,6 +123,7 @@ export const UserCeremonyDetail: FC = () => {
 
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
+  const [isTemplatesSectionOpen, setIsTemplatesSectionOpen] = useState(true);
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
   const [templateTitle, setTemplateTitle] = useState('');
   const [templateDocumentRole, setTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
@@ -610,14 +615,26 @@ export const UserCeremonyDetail: FC = () => {
       {/* 서명자 관리 */}
       <section className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-              <Users size={14} />
-              서명자
-            </h2>
-            <p className="mt-1 text-xs text-gray-400">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
-          </div>
-          {!isSignerFormOpen && !isCompleted && (
+          <button
+            type="button"
+            onClick={() => setIsSignersSectionOpen((v) => !v)}
+            className="flex items-center gap-2 text-left"
+          >
+            {isSignersSectionOpen ? (
+              <ChevronUp size={16} className="shrink-0 text-gray-400" />
+            ) : (
+              <ChevronDown size={16} className="shrink-0 text-gray-400" />
+            )}
+            <div>
+              <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+                <Users size={14} />
+                서명자
+                <span className="font-normal text-gray-400">({signers.length})</span>
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
+            </div>
+          </button>
+          {isSignersSectionOpen && !isSignerFormOpen && !isCompleted && (
             <button
               onClick={() => setIsSignerFormOpen(true)}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
@@ -628,6 +645,8 @@ export const UserCeremonyDetail: FC = () => {
           )}
         </div>
 
+        {isSignersSectionOpen && (
+        <>
         {isSignerFormOpen && (
           <form
             onSubmit={handleAddSigner}
@@ -737,6 +756,8 @@ export const UserCeremonyDetail: FC = () => {
             </tbody>
           </table>
         </ListContainer>
+        </>
+        )}
       </section>
 
       <Modal open={editingSignerId !== null} onClose={() => setEditingSignerId(null)} title="서명자 수정">
@@ -813,14 +834,26 @@ export const UserCeremonyDetail: FC = () => {
       {/* 문서 양식 관리 */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-              <FileText size={14} />
-              문서 양식
-            </h2>
-            <p className="mt-1 text-xs text-gray-400">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
-          </div>
-          {!isTemplateFormOpen && !isCompleted && (
+          <button
+            type="button"
+            onClick={() => setIsTemplatesSectionOpen((v) => !v)}
+            className="flex items-center gap-2 text-left"
+          >
+            {isTemplatesSectionOpen ? (
+              <ChevronUp size={16} className="shrink-0 text-gray-400" />
+            ) : (
+              <ChevronDown size={16} className="shrink-0 text-gray-400" />
+            )}
+            <div>
+              <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+                <FileText size={14} />
+                문서 양식
+                <span className="font-normal text-gray-400">({templates.length})</span>
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
+            </div>
+          </button>
+          {isTemplatesSectionOpen && !isTemplateFormOpen && !isCompleted && (
             <button
               onClick={() => setIsTemplateFormOpen(true)}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
@@ -830,6 +863,9 @@ export const UserCeremonyDetail: FC = () => {
             </button>
           )}
         </div>
+
+        {isTemplatesSectionOpen && (
+        <>
 
         {isTemplateFormOpen && (
           <form
@@ -961,6 +997,8 @@ export const UserCeremonyDetail: FC = () => {
             </tbody>
           </table>
         </ListContainer>
+        </>
+        )}
       </section>
 
       <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정">
@@ -1018,11 +1056,23 @@ export const UserCeremonyDetail: FC = () => {
       {/* 하위 행사 목록 */}
       <section className="mt-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-            <CalendarClock size={14} />
-            하위 행사
-          </h2>
-          {!isCompleted && (
+          <button
+            type="button"
+            onClick={() => setIsEventsSectionOpen((v) => !v)}
+            className="flex items-center gap-2 text-left"
+          >
+            {isEventsSectionOpen ? (
+              <ChevronUp size={16} className="shrink-0 text-gray-400" />
+            ) : (
+              <ChevronDown size={16} className="shrink-0 text-gray-400" />
+            )}
+            <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+              <CalendarClock size={14} />
+              하위 행사
+              <span className="font-normal text-gray-400">({events.length})</span>
+            </h2>
+          </button>
+          {isEventsSectionOpen && !isCompleted && (
             <Link
               to={`${detailPath}/events/new`}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
@@ -1033,6 +1083,7 @@ export const UserCeremonyDetail: FC = () => {
           )}
         </div>
 
+        {isEventsSectionOpen && (
         <ListContainer isLoading={isEventsLoading} isEmpty={events.length === 0} emptyMessage="아직 등록된 하위 행사가 없습니다.">
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
@@ -1103,6 +1154,7 @@ export const UserCeremonyDetail: FC = () => {
             </tbody>
           </table>
         </ListContainer>
+        )}
       </section>
 
       <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-lg">
