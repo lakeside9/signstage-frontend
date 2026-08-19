@@ -18,7 +18,6 @@ import {
   Play,
   QrCode,
   Radio,
-  RotateCcw,
   Square,
   Users,
   X,
@@ -86,16 +85,22 @@ const PortalQrCode: FC<{ value: string }> = ({ value }) => {
  * 이전에는 별도 `UserCeremonyEventDetail.tsx`("설정" 화면)가 상태전이/문서매핑/적용옵션/
  * 재서명/로그를 담당했지만, 문서매핑은 전용 화면(`UserCeremonyEventMapping.tsx`)으로,
  * 적용옵션은 등록/수정 화면으로 이미 옮겨가 그 화면의 존재 이유가 사라졌다 — Detail 화면
- * 자체를 지우고 남은 상태전이(READY→START/START→FINISH)·재서명을 이 화면으로 옮겼다
- * (DRAFT→READY 전이는 문서매핑 화면의 "행사 제어" 버튼이 이미 처리한다 — legacy도
- * 문서매핑을 마쳐야 이 화면에 들어오는 흐름과 같다). 행사 기본 정보/감사로그 섹션은 한 차례
- * 옮겨왔다가 화면이 번잡하다는 피드백으로 다시 뺐다 — 필요하면 각각 API로 직접 조회한다
- * (`GET .../events/{eventId}`, `GET .../events/{eventId}/logs`).
+ * 자체를 지우고 남은 상태전이(READY→START/START→FINISH)를 이 화면으로 옮겼다(DRAFT→READY
+ * 전이는 문서매핑 화면의 "행사 제어" 버튼이 이미 처리한다 — legacy도 문서매핑을 마쳐야 이
+ * 화면에 들어오는 흐름과 같다). 행사 기본 정보/감사로그 섹션, 재서명 요청 섹션은 한 차례
+ * 옮겨왔다가 화면이 번잡하다는 피드백으로 다시 뺐다 — 재서명은
+ * `POST .../events/{eventId}/signers/{signerId}/replace-signature`로 직접 호출할 수 있다.
  *
- * "매핑된 서명자"는 legacy처럼 별도 매핑 테이블이 없어(4절 참고) CONTRACT/EXHIBITION 매핑된
- * 템플릿의 필수 서명란이 참조하는 signerId 집합으로 도출한다. 완료 여부도 별도 컬럼이
- * 없어(레거시와 같은 한계) "그 서명자의 필수 서명란 전부에 스트로크가 있는가"로 판정한다 —
- * 서명자 포털의 `completeSignature` 검증과 같은 조건이다.
+ * "매핑된 서명자"는 legacy처럼 별도 매핑 테이블이 없어(4절 참고) CONTRACT 매핑된 템플릿의
+ * 필수 서명란이 참조하는 signerId 집합으로 도출한다. EXHIBITION의 필수 서명란은 보지
+ * 않는다 — EXHIBITION도 같은 서명자를 필수로 요구하도록 매핑돼 있지만(READY 전이 조건) 그건
+ * 전시용 화면에 이 서명자 자리를 만들기 위한 것이지 그 서명란에 직접 서명해야 한다는 뜻이
+ * 아니다(서명자 포털은 CONTRACT에만 서명을 받는다). 완료 여부도 별도 컬럼이 없어(레거시와
+ * 같은 한계) "그 서명자의 CONTRACT 필수 서명란 전부에 스트로크가 있는가"로 판정한다 —
+ * 서명자 포털의 `SignerPortalService.collectRequiredFieldsForSigner`(`completeSignature`
+ * 검증이 쓰는 기준)와 같은 조건이다. 예전엔 EXHIBITION 필수 서명란까지 같이 봤는데, 포털이
+ * 거기엔 서명을 제출할 방법을 안 주니 영원히 미완료로 남아 "서명했는데도 행사 종료 버튼이
+ * 안 켜지는" 버그였다.
  *
  * 실시간 펜 궤적은 `/topic/events/{eventId}/state`의 `SIGNATURE_STROKE_SUBMITTED` 메시지를
  * 누적해서 그린다(백엔드가 "확정 이벤트만 전파"하던 정책을 뒤집었다). 화면 진입 시
@@ -113,9 +118,6 @@ export const UserCeremonyEventControl: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const [confirmingReplaceSignerId, setConfirmingReplaceSignerId] = useState<number | null>(null);
-  const [processingReplaceSignerId, setProcessingReplaceSignerId] = useState<number | null>(null);
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [mappedTemplates, setMappedTemplates] = useState<CeremonyTemplateSummary[]>([]);
@@ -328,20 +330,6 @@ export const UserCeremonyEventControl: FC = () => {
     }
   };
 
-  const handleReplaceSignature = async (signerId: number) => {
-    setProcessingReplaceSignerId(signerId);
-    try {
-      await api.post(`${apiBasePath}/signers/${signerId}/replace-signature`);
-      showSnackbar('재서명을 요청했습니다. 서명자가 다시 서명해야 완료 처리됩니다.', 'success');
-      setConfirmingReplaceSignerId(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '재서명 요청에 실패했습니다.';
-      showSnackbar(message, 'error');
-    } finally {
-      setProcessingReplaceSignerId(null);
-    }
-  };
-
   const handleGenerateResults = async () => {
     setIsGeneratingResults(true);
     try {
@@ -389,16 +377,20 @@ export const UserCeremonyEventControl: FC = () => {
     );
   }
 
-  // 매핑된 CONTRACT/EXHIBITION 필수 서명란이 참조하는 signerId 집합 — legacy처럼 별도
-  // 매핑 테이블이 없어 필드에서 직접 도출한다(4절 결정).
-  const allMappedFields = [...contractFields, ...exhibitionFields];
+  // 매핑된 필수 서명란이 참조하는 signerId 집합 — legacy처럼 별도 매핑 테이블이 없어 필드에서
+  // 직접 도출한다(4절 결정). CONTRACT만 본다 — EXHIBITION도 같은 서명자를 필수로 요구하도록
+  // 매핑돼 있지만(READY 전이 조건, checkSignerMappingConsistency) 그건 전시용 화면에 이
+  // 서명자 자리를 만들기 위한 것이지 그 서명란에 직접 서명해야 한다는 뜻이 아니다 — 서명자
+  // 포털은 CONTRACT에만 서명을 받는다(SignerPortalService.collectRequiredFieldsForSigner와
+  // 같은 기준). EXHIBITION 쪽까지 요구하면 포털이 애초에 서명을 제출할 방법을 안 주는
+  // 서명란이 영원히 미완료로 남아 "서명했는데도 행사 종료 버튼이 안 켜지는" 버그가 된다.
   const mappedSignerIds = new Set(
-    allMappedFields.filter((f) => f.isRequired && f.signerId != null).map((f) => f.signerId as number),
+    contractFields.filter((f) => f.isRequired && f.signerId != null).map((f) => f.signerId as number),
   );
   const mappedSigners = signers.filter((s) => mappedSignerIds.has(s.id));
   const strokedFieldIds = new Set(strokes.map((s) => s.templateFieldId));
   const isSignerComplete = (signerId: number) =>
-    allMappedFields
+    contractFields
       .filter((f) => f.isRequired && f.signerId === signerId)
       .every((f) => strokedFieldIds.has(f.id));
   const completedCount = mappedSigners.filter((s) => isSignerComplete(s.id)).length;
@@ -571,55 +563,6 @@ export const UserCeremonyEventControl: FC = () => {
             )}
           </div>
 
-          {event.status === 'STARTED' && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
-                <RotateCcw size={16} className="text-indigo-500" />
-                재서명 요청
-              </div>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                서명자가 이 하위 행사에서 진행한 서명을 전부 초기화하고 다시 서명하게 합니다. 완료 여부와 무관하게
-                가능하며, 되돌릴 수 없습니다.
-              </p>
-              {signers.length === 0 ? (
-                <p className="text-xs text-gray-400">등록된 서명자가 없습니다.</p>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {signers.map((signer) => (
-                    <li key={signer.id} className="flex items-center justify-between py-2">
-                      <span className="text-xs font-bold text-gray-900">{signer.name}</span>
-                      {confirmingReplaceSignerId === signer.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleReplaceSignature(signer.id)}
-                            disabled={processingReplaceSignerId === signer.id}
-                            className="px-2 py-1 rounded-md bg-red-600 text-white text-[10px] font-bold hover:bg-red-700 disabled:opacity-50"
-                          >
-                            확인
-                          </button>
-                          <button
-                            onClick={() => setConfirmingReplaceSignerId(null)}
-                            disabled={processingReplaceSignerId === signer.id}
-                            className="px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[10px] font-bold hover:border-gray-400 disabled:opacity-50"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmingReplaceSignerId(signer.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[10px] font-bold hover:border-gray-400"
-                        >
-                          <RotateCcw size={10} />
-                          재서명 요청
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="col-span-12 lg:col-span-9 flex flex-col gap-4">
