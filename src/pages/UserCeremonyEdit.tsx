@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, FileSignature, History, Info, Loader2, Package, RefreshCw, Settings, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileSignature,
+  History,
+  Info,
+  Loader2,
+  Package,
+  Receipt,
+  RefreshCw,
+  Settings,
+  Sparkles,
+} from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -12,6 +24,7 @@ import type {
   CeremonyPlanHistorySummary,
   CeremonyStatus,
   CeremonySummary,
+  EstimatedTotal,
   OptionalFeaturePurchaseSummary,
   OptionalFeatureSummary,
   PurchaseStatus,
@@ -93,6 +106,9 @@ export const UserCeremonyEdit: FC = () => {
   const [planHistory, setPlanHistory] = useState<CeremonyPlanHistorySummary[]>([]);
   const [isPlanHistoryLoading, setIsPlanHistoryLoading] = useState(true);
   const [isPlanHistoryModalOpen, setIsPlanHistoryModalOpen] = useState(false);
+
+  const [estimatedTotal, setEstimatedTotal] = useState<EstimatedTotal | null>(null);
+  const [isEstimatedTotalLoading, setIsEstimatedTotalLoading] = useState(true);
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -208,6 +224,38 @@ export const UserCeremonyEdit: FC = () => {
       } finally {
         if (!cancelled) {
           setIsPlanHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
+  const fetchEstimatedTotal = async () => {
+    const response = await api.get(`${basePath}/estimated-total`);
+    return response.data as EstimatedTotal;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchEstimatedTotal();
+        if (!cancelled) {
+          setEstimatedTotal(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '예상 청구 금액을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsEstimatedTotalLoading(false);
         }
       }
     })();
@@ -378,6 +426,7 @@ export const UserCeremonyEdit: FC = () => {
       setSelectedNewPlanId(null);
       showSnackbar('플랜을 변경했습니다.', 'success');
       setPlanHistory(await fetchPlanHistory());
+      setEstimatedTotal(await fetchEstimatedTotal());
     } catch (err) {
       const message = err instanceof Error ? err.message : '플랜 변경에 실패했습니다.';
       showSnackbar(message, 'error');
@@ -737,6 +786,56 @@ export const UserCeremonyEdit: FC = () => {
 
         <p className="mt-3 text-xs text-gray-400">
           {isDraft ? '플랜 확정 전까지는 자유롭게 바꿀 수 있습니다.' : '플랜이 확정되어 더 이상 바꿀 수 없습니다.'}
+        </p>
+      </section>
+
+      {/* 예상 청구 금액 — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차 차감(견적용, 실제 결제 기능은 아직 없음) */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <Receipt size={14} />
+          예상 청구 금액
+        </h2>
+        {isEstimatedTotalLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : !estimatedTotal ? (
+          <p className="text-sm text-gray-500">예상 청구 금액을 계산할 수 없습니다.</p>
+        ) : (
+          <div className="divide-y divide-gray-100 text-sm">
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">플랜</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.planAppliedPrice)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">용량 추가구매(승인분)</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.capacityPurchasesTotal)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">선택옵션 추가구매(승인분)</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.optionalFeaturePurchasesTotal)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">소계</span>
+              <span className="text-gray-950 font-medium">{formatPrice(estimatedTotal.subtotal)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">행사 건별 할인</span>
+              <span className="text-gray-950">
+                {estimatedTotal.finalDiscountValue > 0
+                  ? `- ${formatDiscount(estimatedTotal.finalDiscountType, estimatedTotal.finalDiscountValue)}`
+                  : '없음'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-gray-950 font-bold">최종 금액</span>
+              <span className="text-gray-950 font-bold">{formatPrice(estimatedTotal.finalTotal)}</span>
+            </div>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-gray-400">
+          승인된 구매 건만 반영한 견적입니다. 행사 건별 할인은 플랫폼 관리자만 설정할 수 있고, 실제 결제/청구서 발행
+          기능은 아직 없습니다.
         </p>
       </section>
 

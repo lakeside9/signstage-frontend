@@ -483,8 +483,34 @@ export interface CeremonySummary {
   contactTitle: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  /** 품목 할인과 별개로 이 행사 건에만 매기는 관리자 재량 할인. 기본값은 "할인 없음"이다. */
+  finalDiscountType: DiscountType;
+  finalDiscountValue: number;
   createdBy: number;
   createdAt: string;
+}
+
+/**
+ * PUT .../final-discount 요청(CeremonyDto.Request.ApplyFinalDiscount)과 맞춘다. 플랫폼
+ * 관리자(PLATFORM_OPS 이상) 전용이고, 플랜이 확정된(IN_PROGRESS) 행사에만 적용할 수 있다.
+ */
+export interface ApplyFinalDiscountRequest {
+  discountType: DiscountType;
+  discountValue: number;
+}
+
+/**
+ * GET .../estimated-total 응답(CeremonyDto.Response.EstimatedTotal)과 맞춘다. 품목 할인 →
+ * subtotal → 행사 건별 할인의 2단 순차 차감 결과다. 실제 결제/청구서 발행 기능은 아직 없다.
+ */
+export interface EstimatedTotal {
+  planAppliedPrice: number;
+  capacityPurchasesTotal: number;
+  optionalFeaturePurchasesTotal: number;
+  subtotal: number;
+  finalDiscountType: DiscountType;
+  finalDiscountValue: number;
+  finalTotal: number;
 }
 
 /**
