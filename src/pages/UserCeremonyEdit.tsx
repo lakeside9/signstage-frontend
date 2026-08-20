@@ -464,7 +464,24 @@ export const UserCeremonyEdit: FC = () => {
 
   const isCompleted = ceremony.status === 'COMPLETED';
   const isDraft = ceremony.status === 'DRAFT';
-  const plan = plans.find((p) => p.id === ceremony.billingPlanId) ?? null;
+  // "선택한 플랜" 표시는 라이브 카탈로그가 아니라 확정 시점(또는 가장 최근 변경 시점) 스냅샷을
+  // 쓴다 — 카탈로그 관리자가 나중에 값을 고쳐도 표시가 안 바뀐다(9장). planHistory는 최신순
+  // 정렬이라 [0]이 그 스냅샷이다. 이력이 없는 경우(이 기능 배포 전 기존 행사)만 라이브 값으로
+  // 대체한다 — 백엔드 계산 로직과 같은 폴백 원칙.
+  const planSnapshot = planHistory[0];
+  const plan = planSnapshot
+    ? {
+        name: planSnapshot.planName,
+        supplyPrice: planSnapshot.planSupplyPrice,
+        salePrice: planSnapshot.planSalePrice,
+        discountType: planSnapshot.planDiscountType,
+        discountValue: planSnapshot.planDiscountValue,
+        maxSigners: planSnapshot.planMaxSigners,
+        maxTemplates: planSnapshot.planMaxTemplates,
+        maxTestEvents: planSnapshot.planMaxTestEvents,
+        maxMainEvents: planSnapshot.planMaxMainEvents,
+      }
+    : (plans.find((p) => p.id === ceremony.billingPlanId) ?? null);
 
   return (
     <div>
@@ -646,7 +663,7 @@ export const UserCeremonyEdit: FC = () => {
           </div>
         )}
 
-        {isPlansLoading ? (
+        {isPlansLoading || isPlanHistoryLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
@@ -885,11 +902,11 @@ export const UserCeremonyEdit: FC = () => {
         ) : (
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {featurePurchases.map((purchase) => {
-              const feature = optionalFeatures.find((item) => item.id === purchase.optionalFeatureId);
               return (
                 <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm text-gray-950">{feature?.name ?? `#${purchase.optionalFeatureId}`}</p>
+                    {/* 구매 시점 이름 스냅샷을 쓴다 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */}
+                    <p className="text-sm text-gray-950">{purchase.purchasedName}</p>
                     <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
                     {purchase.status === 'REJECTED' && purchase.rejectionReason && (
                       <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>

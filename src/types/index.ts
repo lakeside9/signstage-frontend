@@ -268,6 +268,8 @@ export interface BillingPlanSummary {
   maxMainEvents: number;
   /** 사용여부. false면 새 행사 생성/플랜 변경 대상에서 제외된다. */
   active: boolean;
+  /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
+  usageCount: number;
   optionalFeatureIds: number[];
   createdAt: string;
 }
@@ -325,6 +327,8 @@ export interface UpdateBillingPlanRequest {
   maxTestEvents: number;
   maxMainEvents: number;
   active: boolean;
+  /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
+  optionalFeatureIds: number[];
 }
 
 /** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
@@ -341,6 +345,8 @@ export interface OptionalFeatureSummary {
   discountValue: number;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
+  /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
+  usageCount: number;
   createdAt: string;
 }
 
@@ -398,6 +404,8 @@ export interface CapacityAddOnSummary {
   discountValue: number;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
+  /** 이 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
+  usageCount: number;
   createdAt: string;
 }
 
@@ -543,6 +551,8 @@ export interface CapacityPurchaseSummary {
   ceremonyId: number;
   capacityAddOnId: number;
   quantity: number;
+  /** 구매 시점 단가 스냅샷 — 카탈로그 단가가 나중에 바뀌어도 안 바뀐다(9장). */
+  purchasedUnitAmount: number;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
@@ -577,6 +587,8 @@ export interface OptionalFeaturePurchaseSummary {
   id: number;
   ceremonyId: number;
   optionalFeatureId: number;
+  /** 구매 시점 이름 스냅샷 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */
+  purchasedName: string;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
