@@ -31,7 +31,7 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = ['SIGNER_FIELD_ZOOM', 'ALL_SIGNED_FIREWORKS'];
 
 const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
-  SIGNER_FIELD_ZOOM: '서명 확대',
+  SIGNER_FIELD_ZOOM: '서명 하이라이트',
   ALL_SIGNED_FIREWORKS: '폭죽 효과',
 };
 
@@ -69,7 +69,7 @@ export const AdminBillingCatalog: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
           <Package size={20} className="text-gray-400" />
@@ -222,7 +222,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   };
 
   return (
-    <section>
+    <section className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950">과금 플랜</h2>
         {canManage && !isCreateFormOpen && (
@@ -654,7 +654,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   };
 
   return (
-    <section>
+    <section className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
           <Sparkles size={14} />
@@ -980,7 +980,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
   };
 
   return (
-    <section>
+    <section className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950">용량 추가구매 상품</h2>
         {canManage && !isCreateFormOpen && (
