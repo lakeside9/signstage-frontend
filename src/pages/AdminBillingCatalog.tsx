@@ -66,6 +66,19 @@ const ActiveBadge: FC<{ active: boolean }> = ({ active }) => (
   </span>
 );
 
+/**
+ * 세 섹션의 수정 폼이 공유하는 "사용 중" 경고 — signstage-docs
+ * business/ceremony-billing-options-review.md 9장. 값을 바꿔도 이미 확정/구매한 건은
+ * 스냅샷 고정이라 영향받지 않지만, 관리자가 몇 건에 영향을 주는지는 알 수 있게 보여준다.
+ */
+const UsageWarning: FC<{ count: number; itemLabel: string }> = ({ count, itemLabel }) =>
+  count === 0 ? null : (
+    <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+      이 {itemLabel}을(를) 이미 확정/구매해서 쓰고 있는 건이 {count}건 있습니다. 값을 바꿔도 그 건들은 확정/구매 시점 기준으로
+      고정돼 있어 영향받지 않습니다.
+    </p>
+  );
+
 /** 세 섹션이 공유하는 사용여부 편집 필드 — 수정 폼 안에서 체크박스 하나로 토글한다. */
 const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: boolean) => void }> = ({
   active,
@@ -85,11 +98,13 @@ const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: b
  * 조회는 PLATFORM_SUPPORT 이상 누구나, 등록/수정은 PLATFORM_OPS 이상만 할 수 있다
  * (최종 판단은 항상 백엔드가 하고, 여기서는 버튼을 안 보여주는 용도로만 `canManagePlatform`을 쓴다).
  *
- * - 수정 가능 필드는 가격/할인/이름(플랜은 한도 4종, 용량 추가구매는 unitAmount)뿐이다.
- *   `OptionalFeature.code`/`CapacityAddOn.capacityType`은 종류를 규정하는 값이라 생성 후 불변이라
- *   수정 폼에 없다(읽기 전용으로만 보여준다).
- * - `BillingPlan`에 묶인 선택옵션 구성(optionalFeatureIds)도 생성 시점에만 정하고 이후 불변이라
- *   수정 폼에 없다.
+ * - 수정 가능 필드는 가격/할인/이름/사용여부(플랜은 한도 4종·포함 선택옵션 구성, 용량
+ *   추가구매는 unitAmount)다. `OptionalFeature.code`/`CapacityAddOn.capacityType`은 종류를
+ *   규정하는 값이라 생성 후 불변이라 수정 폼에 없다(읽기 전용으로만 보여준다).
+ * - `BillingPlan`에 묶인 선택옵션 구성(optionalFeatureIds)은 원래 생성 시점에만 정하고 불변이었으나,
+ *   해제할 방법이 없다는 문제로 수정 폼에서도 통째로 교체할 수 있게 열었다(signstage-docs
+ *   business/ceremony-billing-options-review.md 9장 후속). 이미 확정/진행 중인 행사는
+ *   `CeremonyPlanHistoryOptionalFeature` 스냅샷으로 보호되어 이 변경에 영향받지 않는다.
  * - VIDEO_ATTENDANCE는 이 화면에서 다루지 않는다(위 MANAGEABLE_OPTIONAL_FEATURE_CODES 참고).
  */
 export const AdminBillingCatalog: FC = () => {
@@ -232,6 +247,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       maxTestEvents: plan.maxTestEvents,
       maxMainEvents: plan.maxMainEvents,
       active: plan.active,
+      optionalFeatureIds: plan.optionalFeatureIds,
     });
   };
 
@@ -551,9 +567,39 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mb-3">
-                      포함 선택옵션(읽기 전용, 생성 후 불변): {plan.optionalFeatureIds.map(featureName).join(', ') || '없음'}
-                    </p>
+                    <div className="mb-3">
+                      <span className="block text-xs font-medium text-gray-500 mb-1">포함 선택옵션</span>
+                      {features.length === 0 ? (
+                        <p className="text-xs text-gray-400">등록된 선택옵션이 없습니다.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-3">
+                          {features.map((feature) => (
+                            <label key={feature.id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={editDraft.optionalFeatureIds.includes(feature.id)}
+                                disabled={isSavingEdit}
+                                onChange={(e) =>
+                                  setEditDraft((prev) =>
+                                    prev && {
+                                      ...prev,
+                                      optionalFeatureIds: e.target.checked
+                                        ? [...prev.optionalFeatureIds, feature.id]
+                                        : prev.optionalFeatureIds.filter((id) => id !== feature.id),
+                                    }
+                                  )
+                                }
+                              />
+                              {feature.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <p className="mt-1 text-xs text-gray-400">
+                        이미 확정/구매해서 쓰고 있는 행사는 변경 시점 스냅샷 기준이라 영향받지 않습니다.
+                      </p>
+                    </div>
+                    <UsageWarning count={plan.usageCount} itemLabel="플랜" />
                     <FormActions
                       isSaving={isSavingEdit}
                       savingLabel="저장 중..."
@@ -579,6 +625,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
                   <td className="py-2">
                     <ActiveBadge active={plan.active} />
+                    <span className="ml-1.5 text-xs text-gray-400">사용 {plan.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
@@ -962,6 +1009,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
                       />
                     </div>
+                    <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
                     <FormActions
                       isSaving={isSavingEdit}
                       savingLabel="저장 중..."
@@ -984,6 +1032,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <td className="py-2">{formatDiscount(feature.discountType, feature.discountValue)}</td>
                   <td className="py-2">
                     <ActiveBadge active={feature.active} />
+                    <span className="ml-1.5 text-xs text-gray-400">사용 {feature.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
@@ -1350,6 +1399,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
                       />
                     </div>
+                    <UsageWarning count={addOn.usageCount} itemLabel="용량 추가구매 상품" />
                     <FormActions
                       isSaving={isSavingEdit}
                       savingLabel="저장 중..."
@@ -1372,6 +1422,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                   <td className="py-2">{formatDiscount(addOn.discountType, addOn.discountValue)}</td>
                   <td className="py-2">
                     <ActiveBadge active={addOn.active} />
+                    <span className="ml-1.5 text-xs text-gray-400">사용 {addOn.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
