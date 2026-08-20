@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Download,
   ExternalLink,
   FileSignature,
   FileText,
@@ -33,6 +34,7 @@ import type {
   CeremonyStatus,
   CeremonySummary,
   OptionalFeatureSummary,
+  SignerExcelUploadResult,
   SignerSummary,
   TemplateDocumentRole,
   TemplateStatus,
@@ -123,6 +125,9 @@ export const UserCeremonyDetail: FC = () => {
   const [signerPosition, setSignerPosition] = useState('');
   const [signerAffiliation, setSignerAffiliation] = useState('');
   const [isAddingSigner, setIsAddingSigner] = useState(false);
+  const [isDownloadingSignerTemplate, setIsDownloadingSignerTemplate] = useState(false);
+  const [isUploadingSignerExcel, setIsUploadingSignerExcel] = useState(false);
+  const signerExcelInputRef = useRef<HTMLInputElement>(null);
 
   const [processingSignerId, setProcessingSignerId] = useState<number | null>(null);
   const [viewingSignerId, setViewingSignerId] = useState<number | null>(null);
@@ -442,6 +447,55 @@ export const UserCeremonyDetail: FC = () => {
     }
   };
 
+  const handleDownloadSignerExcelTemplate = async () => {
+    setIsDownloadingSignerTemplate(true);
+    try {
+      const blob = await api.getBlob(`${basePath}/signers/excel-template`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '서명자_업로드_양식.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '엑셀 양식을 내려받지 못했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsDownloadingSignerTemplate(false);
+    }
+  };
+
+  /** 열 순서(이름/소속/직위)는 handleDownloadSignerExcelTemplate로 받은 양식과 같다. */
+  const handleUploadSignerExcel = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingSignerExcel(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post(`${basePath}/signers/excel-upload`, formData);
+      const result = response.data as SignerExcelUploadResult;
+
+      if (result.skippedRows.length === 0) {
+        showSnackbar(`서명자 ${result.createdSigners.length}명을 등록했습니다.`, 'success');
+      } else {
+        const skippedSummary = result.skippedRows.map((row) => `${row.rowNumber}행(${row.reason})`).join(', ');
+        showSnackbar(
+          `서명자 ${result.createdSigners.length}명을 등록했습니다. 건너뜀: ${skippedSummary}`,
+          result.createdSigners.length > 0 ? 'success' : 'error',
+        );
+      }
+      setSigners(await fetchSigners());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '엑셀 업로드에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsUploadingSignerExcel(false);
+      if (signerExcelInputRef.current) signerExcelInputRef.current.value = '';
+    }
+  };
+
   const startEditSigner = (signer: SignerSummary) => {
     setViewingSignerId(null);
     setDeletingSignerId(null);
@@ -712,15 +766,41 @@ export const UserCeremonyDetail: FC = () => {
             </div>
           </button>
           {isSignersSectionOpen && !isSignerFormOpen && (
-            <button
-              onClick={() => setIsSignerFormOpen(true)}
-              disabled={Boolean(registerDisabledReason)}
-              title={registerDisabledReason}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
-            >
-              <Plus size={12} />
-              서명자 등록
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadSignerExcelTemplate}
+                disabled={isDownloadingSignerTemplate}
+                className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                <Download size={12} />
+                엑셀 양식
+              </button>
+              <input
+                ref={signerExcelInputRef}
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                onChange={handleUploadSignerExcel}
+              />
+              <button
+                onClick={() => signerExcelInputRef.current?.click()}
+                disabled={Boolean(registerDisabledReason) || isUploadingSignerExcel}
+                title={registerDisabledReason}
+                className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                <Upload size={12} />
+                {isUploadingSignerExcel ? '업로드 중...' : '엑셀 업로드'}
+              </button>
+              <button
+                onClick={() => setIsSignerFormOpen(true)}
+                disabled={Boolean(registerDisabledReason)}
+                title={registerDisabledReason}
+                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
+              >
+                <Plus size={12} />
+                서명자 등록
+              </button>
+            </div>
           )}
         </div>
 
