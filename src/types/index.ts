@@ -850,6 +850,22 @@ export interface SignerSummary {
   createdAt: string;
 }
 
+/**
+ * POST(multipart) .../signers/excel-upload 응답(SignerDto.Response.ExcelUploadResult)과
+ * 맞춘다. 이름이 빈 행은 등록되지 않고 skippedRows로 알려준다. 엑셀 양식 다운로드
+ * (GET .../signers/excel-template)는 별도 요청/응답 타입이 없다 — blob으로 그대로 받는다.
+ */
+export interface SignerExcelUploadResult {
+  createdSigners: SignerSummary[];
+  skippedRows: SkippedSignerRow[];
+}
+
+export interface SkippedSignerRow {
+  /** 엑셀의 실제 행 번호(1행=헤더, 2행부터 데이터). */
+  rowNumber: number;
+  reason: string;
+}
+
 /** feature.ceremony.entity.TemplateDocumentRole 값과 맞춘다. */
 export type TemplateDocumentRole = 'CONTRACT' | 'EXHIBITION';
 
