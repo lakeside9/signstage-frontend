@@ -40,7 +40,7 @@ const POLL_INTERVAL_MS = 5000;
 // 짧게 잡아 "잠깐 실패했다가 스스로 복구"되는 게 보이게 한다.
 const PAGE_IMAGE_RETRY_DELAY_MS = 3000;
 
-// 서명확대(SIGNER_FIELD_ZOOM) 하이라이트 연출 — 총 노출 시간과, 꺼지기 직전 페이드아웃 구간.
+// 서명 하이라이트(SIGNER_FIELD_ZOOM) 연출 — 총 노출 시간과, 꺼지기 직전 페이드아웃 구간.
 const HIGHLIGHT_DURATION_MS = 4000;
 const HIGHLIGHT_FADE_MS = 500;
 // 펄스 애니메이션 재계산 주기 — 느린 "숨쉬듯" 빛나는 효과라 60fps까지는 필요 없다.
@@ -139,7 +139,7 @@ const removeStrokesForSigner = (list: StrokeSummary[], signerId: number) => list
 const mergeStrokes = (current: StrokeSummary[], incoming: StrokeSummary[]) => incoming.reduce(upsertStroke, current);
 
 /**
- * 서명확대(SIGNER_FIELD_ZOOM) 하이라이트 연출 상태 — 필드 id → 시작 시각(ms). `Map`을 새로
+ * 서명 하이라이트(SIGNER_FIELD_ZOOM) 연출 상태 — 필드 id → 시작 시각(ms). `Map`을 새로
  * 만들지 않고 값만 바꾸면 React가 변경을 못 알아채므로, 갱신할 때는 항상 새 Map을 만든다.
  */
 type FieldHighlights = Map<number, number>;
@@ -327,7 +327,7 @@ const ProjectorPageLayer = ({
  * - `SIGNATURE_REPLACED`(재서명 요청) 처리를 legacy에는 없던 이벤트까지 반영해 추가했다 —
  *   우리 백엔드가 재서명 요청 시 서명자의 스트로크를 전부 지우므로, 그 사실을 프로젝터도 알아야
  *   화면이 낡은 서명을 계속 보여주지 않는다.
- * - 선택옵션 연출 효과(서명확대 등)는 `./projectorEffects.ts`의 레지스트리가 실시간 이벤트를
+ * - 선택옵션 연출 효과(서명 하이라이트 등)는 `./projectorEffects.ts`의 레지스트리가 실시간 이벤트를
  *   `{ kind, ... }` 액션으로 바꿔주고, 이 컴포넌트는 그 액션을 상태에 반영하기만 한다 — 새 옵션의
  *   효과가 추가돼도 여기 WebSocket 구독/디스패치 코드는 그대로 두고 그 파일에만 항목을 늘리면
  *   된다. `MappedDocumentPreview`(행사 제어 화면이 씀)에는 이 효과 코드를 절대 넣지 않는다 —
@@ -344,7 +344,7 @@ export const ProjectorView: FC = () => {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [showStartedNotice, setShowStartedNotice] = useState(false);
   const [settingsSaveMessage, setSettingsSaveMessage] = useState('');
-  // 서명확대(SIGNER_FIELD_ZOOM) 하이라이트 — 필드 id → 시작 시각. 다른 옵션 효과가 추가되면
+  // 서명 하이라이트(SIGNER_FIELD_ZOOM) — 필드 id → 시작 시각. 다른 옵션 효과가 추가되면
   // 여기 상태도 그 효과 전용으로 하나씩 늘어난다(projectorEffects.ts의 kind별로 매핑).
   const [highlightedFields, setHighlightedFields] = useState<FieldHighlights>(new Map());
   // 폭죽(ALL_SIGNED_FIREWORKS) — null이면 꺼진 상태, 값이 있으면 그 시각에 생성된 조각들을
@@ -668,7 +668,7 @@ export const ProjectorView: FC = () => {
               setContext((prev) => (prev ? { ...prev, eventStatus: payload.newStatus } : prev));
             }
 
-            // 선택옵션 연출 효과(서명확대 등) — 위 스트로크/상태 처리와 독립적으로, 이 하위
+            // 선택옵션 연출 효과(서명 하이라이트 등) — 위 스트로크/상태 처리와 독립적으로, 이 하위
             // 행사에 적용된 옵션이 이 이벤트 타입에 반응하도록 등록돼 있으면 액션을 낸다.
             // projectorEffects.ts 문서 참고.
             const latestContext = contextRef.current;

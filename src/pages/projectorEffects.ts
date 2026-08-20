@@ -34,7 +34,7 @@ type ProjectorEffectHandler = (
 type ProjectorEffectHandlers = Partial<Record<RealtimeEventMessage['type'], ProjectorEffectHandler>>;
 
 /**
- * 서명확대(SIGNER_FIELD_ZOOM) — "주목시키기"가 목적이라 실제 배율 확대 대신 테두리 하이라이트로
+ * 서명 하이라이트(SIGNER_FIELD_ZOOM) — "주목시키기"가 목적이라 실제 배율 확대 대신 테두리 하이라이트로
  * 구현한다(signstage-docs business/ceremony-feature-migration-review.md 참고). 스트로크
  * 단위(`SIGNATURE_STROKE_SUBMITTED`)가 아니라 그 서명자가 자기 몫을 전부 완료한 순간
  * (`SIGNATURE_COMPLETED`) 1회만 반응한다 — 트리거가 명확한 1회성 이벤트라 "언제 꺼야 하는지"

@@ -918,7 +918,7 @@ export interface ProjectorContext {
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
-  /** 이 하위 행사에 적용된 선택옵션 코드 — 서명확대/폭죽 같은 프로젝터 전용 연출 효과의 on/off 판단에 쓴다. */
+  /** 이 하위 행사에 적용된 선택옵션 코드 — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출 효과의 on/off 판단에 쓴다. */
   appliedOptionalFeatureCodes: OptionalFeatureCode[];
 }
 
