@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileSignature, Info, Loader2, Package, Settings, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileSignature, History, Info, Loader2, Package, Settings, Sparkles } from 'lucide-react';
+import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type {
@@ -99,6 +100,7 @@ export const UserCeremonyEdit: FC = () => {
   const [processingFeatureId, setProcessingFeatureId] = useState<number | null>(null);
   const [featurePurchases, setFeaturePurchases] = useState<OptionalFeaturePurchaseSummary[]>([]);
   const [isFeatureHistoryLoading, setIsFeatureHistoryLoading] = useState(true);
+  const [isFeatureHistoryModalOpen, setIsFeatureHistoryModalOpen] = useState(false);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
@@ -664,12 +666,24 @@ export const UserCeremonyEdit: FC = () => {
 
       {/* 선택옵션 추가구매 */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <Sparkles size={14} />
-          선택옵션 추가구매
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+            <Sparkles size={14} />
+            선택옵션 추가구매
+          </h2>
+          {!isFeatureHistoryLoading && featurePurchases.length > 0 && (
+            <button
+              onClick={() => setIsFeatureHistoryModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+            >
+              <History size={12} />
+              이력 보기 ({featurePurchases.length})
+            </button>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mb-3">
-          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 하위 행사에 적용할 수 있습니다.
+          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 하위 행사에 적용할 수 있습니다. 이미 요청했거나
+          승인된 옵션은 아래 목록에 상태 뱃지로 표시되고, 지난 요청 이력은 "이력 보기"에서 따로 확인할 수 있습니다.
         </p>
         {isFeaturesLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
@@ -707,13 +721,18 @@ export const UserCeremonyEdit: FC = () => {
             ))}
           </ul>
         )}
+      </section>
 
-        {isFeatureHistoryLoading ? (
-          <div className="flex items-center justify-center py-6 text-gray-400">
-            <Loader2 size={18} className="animate-spin" />
-          </div>
-        ) : featurePurchases.length > 0 ? (
-          <ul className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
+      <Modal
+        open={isFeatureHistoryModalOpen}
+        onClose={() => setIsFeatureHistoryModalOpen(false)}
+        title="선택옵션 추가구매 이력"
+        widthClassName="max-w-lg"
+      >
+        {featurePurchases.length === 0 ? (
+          <p className="text-sm text-gray-400">아직 요청한 선택옵션 추가구매가 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {featurePurchases.map((purchase) => {
               const feature = optionalFeatures.find((item) => item.id === purchase.optionalFeatureId);
               return (
@@ -730,10 +749,8 @@ export const UserCeremonyEdit: FC = () => {
               );
             })}
           </ul>
-        ) : (
-          <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">아직 요청한 선택옵션 추가구매가 없습니다.</p>
         )}
-      </section>
+      </Modal>
     </div>
   );
 };
