@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileSignature, History, Info, Loader2, Package, Settings, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileSignature, History, Info, Loader2, Package, RefreshCw, Settings, Sparkles } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -9,6 +9,7 @@ import type {
   BillingPlanSummary,
   CapacityAddOnSummary,
   CapacityPurchaseSummary,
+  CeremonyPlanHistorySummary,
   CeremonyStatus,
   CeremonySummary,
   OptionalFeaturePurchaseSummary,
@@ -24,8 +25,13 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
 };
 
 /** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
-const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = { IN_PROGRESS: '진행중', COMPLETED: '완료' };
+const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
+  DRAFT: '플랜 확정 대기',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+};
 const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
+  DRAFT: 'bg-amber-50 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
@@ -59,8 +65,12 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 행사(Ceremony) 수정(`/org/ceremonies/:organizationId/:ceremonyId/edit`). 용량/선택옵션
  * 추가구매를 행사 상세(`UserCeremonyDetail`)에서 분리해 여기로 옮겼다 — 상세 화면은 조회
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
- * 추가구매)은 별도 수정 화면에 모은다. 선택한 플랜은 생성 시점에 고정이라(4.10절) 여기서
- * 바꿀 수 없고, 상세정보만 읽기 전용으로 보여준다.
+ * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
+ *
+ * 플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
+ * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
+ * 서명자/문서/하위 행사는 플랜 확정 후에만 등록할 수 있다. 플랜 변경 이력은 그 시점의
+ * 이름/가격/한도 스냅샷까지 남는다.
  *
  * 추가구매는 요청 즉시 반영되지 않는다 — 플랫폼 관리자가 승인해야 유효 한도/구매한 선택옵션에
  * 반영된다(signstage-docs business/ceremony-billing-options-review.md). 요청자 본인 이력
@@ -74,8 +84,15 @@ export const UserCeremonyEdit: FC = () => {
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
-  const [isPlanLoading, setIsPlanLoading] = useState(true);
+  const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
+  const [isPlansLoading, setIsPlansLoading] = useState(true);
+  const [selectedNewPlanId, setSelectedNewPlanId] = useState<number | null>(null);
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [isConfirmingPlan, setIsConfirmingPlan] = useState(false);
+
+  const [planHistory, setPlanHistory] = useState<CeremonyPlanHistorySummary[]>([]);
+  const [isPlanHistoryLoading, setIsPlanHistoryLoading] = useState(true);
+  const [isPlanHistoryModalOpen, setIsPlanHistoryModalOpen] = useState(false);
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
@@ -143,15 +160,13 @@ export const UserCeremonyEdit: FC = () => {
   }, [organizationId, ceremonyId]);
 
   useEffect(() => {
-    if (!ceremony) return;
     let cancelled = false;
 
     (async () => {
       try {
         const response = await api.get('/billing-plans');
         if (!cancelled) {
-          const found = (response.data as BillingPlanSummary[]).find((p) => p.id === ceremony.billingPlanId);
-          setPlan(found ?? null);
+          setPlans(response.data as BillingPlanSummary[]);
         }
       } catch (err) {
         if (!cancelled) {
@@ -160,7 +175,7 @@ export const UserCeremonyEdit: FC = () => {
         }
       } finally {
         if (!cancelled) {
-          setIsPlanLoading(false);
+          setIsPlansLoading(false);
         }
       }
     })();
@@ -169,7 +184,39 @@ export const UserCeremonyEdit: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ceremony]);
+  }, []);
+
+  const fetchPlanHistory = async () => {
+    const response = await api.get(`${basePath}/plan/history`);
+    return response.data as CeremonyPlanHistorySummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchPlanHistory();
+        if (!cancelled) {
+          setPlanHistory(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '플랜 변경 이력을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPlanHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -318,6 +365,41 @@ export const UserCeremonyEdit: FC = () => {
     }
   };
 
+  const handleChangePlan = async () => {
+    if (!selectedNewPlanId) {
+      showSnackbar('변경할 플랜을 선택해주세요.', 'error');
+      return;
+    }
+
+    setIsChangingPlan(true);
+    try {
+      const response = await api.put(`${basePath}/plan`, { billingPlanId: selectedNewPlanId });
+      setCeremony(response.data as CeremonySummary);
+      setSelectedNewPlanId(null);
+      showSnackbar('플랜을 변경했습니다.', 'success');
+      setPlanHistory(await fetchPlanHistory());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '플랜 변경에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsChangingPlan(false);
+    }
+  };
+
+  const handleConfirmPlan = async () => {
+    setIsConfirmingPlan(true);
+    try {
+      const response = await api.post(`${basePath}/plan/confirm`);
+      setCeremony(response.data as CeremonySummary);
+      showSnackbar('플랜을 확정했습니다. 이제 서명자/문서/하위 행사를 등록할 수 있습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '플랜 확정에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsConfirmingPlan(false);
+    }
+  };
+
   const handlePurchaseCapacity = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedAddOnId) {
@@ -381,6 +463,8 @@ export const UserCeremonyEdit: FC = () => {
   }
 
   const isCompleted = ceremony.status === 'COMPLETED';
+  const isDraft = ceremony.status === 'DRAFT';
+  const plan = plans.find((p) => p.id === ceremony.billingPlanId) ?? null;
 
   return (
     <div>
@@ -528,13 +612,41 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </section>
 
-      {/* 선택한 플랜 상세정보(읽기 전용 — 플랜은 생성 시점에 고정되어 여기서 바꿀 수 없다) */}
+      {/* 선택한 플랜 — 확정 전(DRAFT)에만 바꿀 수 있고, 확정 후엔 읽기 전용이다 */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <Info size={14} />
-          선택한 플랜
-        </h2>
-        {isPlanLoading ? (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
+            <Info size={14} />
+            선택한 플랜
+          </h2>
+          {!isPlanHistoryLoading && planHistory.length > 0 && (
+            <button
+              onClick={() => setIsPlanHistoryModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+            >
+              <History size={12} />
+              변경 이력 ({planHistory.length})
+            </button>
+          )}
+        </div>
+
+        {isDraft && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-700">
+              아직 플랜 확정 전입니다. 확정해야 서명자/문서/하위 행사를 등록할 수 있습니다.
+            </p>
+            <button
+              onClick={handleConfirmPlan}
+              disabled={isConfirmingPlan}
+              className="flex shrink-0 items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              <CheckCircle2 size={13} />
+              {isConfirmingPlan ? '확정 중...' : '플랜 확정'}
+            </button>
+          </div>
+        )}
+
+        {isPlansLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
@@ -574,7 +686,41 @@ export const UserCeremonyEdit: FC = () => {
             </div>
           </div>
         )}
-        <p className="mt-3 text-xs text-gray-400">플랜은 행사 생성 시점에 정해지며, 이후 바꿀 수 없습니다.</p>
+
+        {isDraft && !isPlansLoading && (
+          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-end gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">다른 플랜으로 변경</label>
+              <select
+                value={selectedNewPlanId ?? ''}
+                onChange={(e) => setSelectedNewPlanId(e.target.value ? Number(e.target.value) : null)}
+                disabled={isChangingPlan}
+                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+              >
+                <option value="">선택</option>
+                {plans
+                  .filter((candidate) => candidate.id !== ceremony.billingPlanId && candidate.active)
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} — {formatPrice(candidate.salePrice)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <button
+              onClick={handleChangePlan}
+              disabled={isChangingPlan || !selectedNewPlanId}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              <RefreshCw size={13} />
+              {isChangingPlan ? '변경 중...' : '플랜 변경'}
+            </button>
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-gray-400">
+          {isDraft ? '플랜 확정 전까지는 자유롭게 바꿀 수 있습니다.' : '플랜이 확정되어 더 이상 바꿀 수 없습니다.'}
+        </p>
       </section>
 
       {/* 용량 추가구매 */}
@@ -605,12 +751,14 @@ export const UserCeremonyEdit: FC = () => {
                 className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
               >
                 <option value="">선택</option>
-                {capacityAddOns.map((addOn) => (
-                  <option key={addOn.id} value={addOn.id}>
-                    {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount} —{' '}
-                    {formatPrice(addOn.salePrice)}
-                  </option>
-                ))}
+                {capacityAddOns
+                  .filter((addOn) => addOn.active)
+                  .map((addOn) => (
+                    <option key={addOn.id} value={addOn.id}>
+                      {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount} —{' '}
+                      {formatPrice(addOn.salePrice)}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
@@ -691,11 +839,14 @@ export const UserCeremonyEdit: FC = () => {
           </div>
         ) : isCompleted ? (
           <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
-        ) : optionalFeatures.length === 0 ? (
+        ) : optionalFeatures.filter((feature) => feature.active || hasActiveFeaturePurchase(feature.id)).length === 0 ? (
           <p className="text-sm text-gray-500">구매 가능한 선택옵션이 없습니다.</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {optionalFeatures.map((feature) => (
+            {/* 사용 중지된 옵션은 이미 구매(요청)한 게 있을 때만 상태 확인용으로 계속 보여준다. */}
+            {optionalFeatures
+              .filter((feature) => feature.active || hasActiveFeaturePurchase(feature.id))
+              .map((feature) => (
               <li key={feature.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm text-gray-950">{feature.name}</p>
@@ -748,6 +899,31 @@ export const UserCeremonyEdit: FC = () => {
                 </li>
               );
             })}
+          </ul>
+        )}
+      </Modal>
+
+      <Modal
+        open={isPlanHistoryModalOpen}
+        onClose={() => setIsPlanHistoryModalOpen(false)}
+        title="플랜 변경 이력"
+        widthClassName="max-w-lg"
+      >
+        {planHistory.length === 0 ? (
+          <p className="text-sm text-gray-400">플랜 변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {planHistory.map((history) => (
+              <li key={history.id} className="py-2">
+                <p className="text-sm text-gray-950 font-medium">{history.planName}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formatPrice(history.planSalePrice)} · 서명자 {history.planMaxSigners}명 · 템플릿{' '}
+                  {history.planMaxTemplates}건 · 테스트 {history.planMaxTestEvents}건 · 본행사{' '}
+                  {history.planMaxMainEvents}건
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+              </li>
+            ))}
           </ul>
         )}
       </Modal>
