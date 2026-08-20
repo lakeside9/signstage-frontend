@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
-import { Loader2, Package, Pencil, Plus, Sparkles, X } from 'lucide-react';
+import { History, Loader2, Package, Pencil, Plus, Sparkles, X } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
+import { Modal } from '../components/Modal';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { canManagePlatform } from '../utils/permissions';
 import type {
+  BillingPlanHistorySummary,
   BillingPlanSummary,
+  CapacityAddOnHistorySummary,
   CapacityAddOnSummary,
   CapacityType,
   CreateBillingPlanRequest,
@@ -15,6 +18,7 @@ import type {
   CreateOptionalFeatureRequest,
   DiscountType,
   OptionalFeatureCode,
+  OptionalFeatureHistorySummary,
   OptionalFeatureSummary,
   UpdateBillingPlanRequest,
   UpdateCapacityAddOnRequest,
@@ -50,6 +54,31 @@ const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
+
+/** 세 섹션(플랜/선택옵션/용량 추가구매) 목록·수정 폼이 공유하는 사용여부 배지. */
+const ActiveBadge: FC<{ active: boolean }> = ({ active }) => (
+  <span
+    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
+      active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-500 border-gray-200'
+    }`}
+  >
+    {active ? '사용' : '미사용'}
+  </span>
+);
+
+/** 세 섹션이 공유하는 사용여부 편집 필드 — 수정 폼 안에서 체크박스 하나로 토글한다. */
+const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: boolean) => void }> = ({
+  active,
+  disabled,
+  onChange,
+}) => (
+  <Field label="사용여부">
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
+      <input type="checkbox" checked={active} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      {active ? '사용' : '미사용(신규 선택/구매 대상에서 제외)'}
+    </label>
+  </Field>
+);
 
 /**
  * 플랫폼 관리자용 행사 과금 카탈로그(플랜/선택옵션/용량 추가구매 상품) 관리 화면.
@@ -117,6 +146,10 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateBillingPlanRequest | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const [historyPlanId, setHistoryPlanId] = useState<number | null>(null);
+  const [planHistory, setPlanHistory] = useState<BillingPlanHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const fetchAll = async () => {
     const [plansResponse, featuresResponse] = await Promise.all([
@@ -198,7 +231,21 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       maxTemplates: plan.maxTemplates,
       maxTestEvents: plan.maxTestEvents,
       maxMainEvents: plan.maxMainEvents,
+      active: plan.active,
     });
+  };
+
+  const openHistory = async (planId: number) => {
+    setHistoryPlanId(planId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/billing-plans/${planId}/history`);
+      setPlanHistory(response.data as BillingPlanHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
+    }
   };
 
   const handleSaveEdit = async (planId: number) => {
@@ -390,6 +437,8 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <th className="text-left font-medium py-2">할인</th>
               <th className="text-left font-medium py-2">한도(서명자/템플릿/테스트/본행사)</th>
               <th className="text-left font-medium py-2">포함 선택옵션</th>
+              <th className="text-left font-medium py-2">상태</th>
+              <th className="text-right font-medium py-2 px-4">이력</th>
               {canManage && <th className="text-right font-medium py-2 px-4">처리</th>}
             </tr>
           </thead>
@@ -397,7 +446,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
             {plans.map((plan) =>
               editingId === plan.id && editDraft ? (
                 <tr key={plan.id} className="bg-gray-50">
-                  <td colSpan={canManage ? 6 : 5} className="p-4">
+                  <td colSpan={canManage ? 8 : 7} className="p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="이름">
                         <input
@@ -496,6 +545,11 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                           className={inputClass}
                         />
                       </Field>
+                      <ActiveField
+                        active={editDraft.active}
+                        disabled={isSavingEdit}
+                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
+                      />
                     </div>
                     <p className="text-xs text-gray-400 mb-3">
                       포함 선택옵션(읽기 전용, 생성 후 불변): {plan.optionalFeatureIds.map(featureName).join(', ') || '없음'}
@@ -523,6 +577,18 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                     {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxMainEvents}
                   </td>
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
+                  <td className="py-2">
+                    <ActiveBadge active={plan.active} />
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <button
+                      onClick={() => openHistory(plan.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      <History size={12} />
+                      이력
+                    </button>
+                  </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
                       <button
@@ -541,6 +607,37 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
           </tbody>
         </table>
       </ListContainer>
+
+      <Modal
+        open={historyPlanId !== null}
+        onClose={() => setHistoryPlanId(null)}
+        title="과금 플랜 변경 이력"
+        widthClassName="max-w-lg"
+      >
+        {isHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : planHistory.length === 0 ? (
+          <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {planHistory.map((history) => (
+              <li key={history.id} className="py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-950 font-medium">{history.name}</p>
+                  <ActiveBadge active={history.active} />
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formatPrice(history.salePrice)} · 서명자 {history.maxSigners}명 · 템플릿 {history.maxTemplates}건 ·
+                  테스트 {history.maxTestEvents}건 · 본행사 {history.maxMainEvents}건
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </section>
   );
 };
@@ -565,6 +662,10 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateOptionalFeatureRequest | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const [historyFeatureId, setHistoryFeatureId] = useState<number | null>(null);
+  const [featureHistory, setFeatureHistory] = useState<OptionalFeatureHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const fetchFeatures = async () => {
     const response = await api.get('/optional-features');
@@ -630,7 +731,21 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
       salePrice: feature.salePrice,
       discountType: feature.discountType,
       discountValue: feature.discountValue,
+      active: feature.active,
     });
+  };
+
+  const openHistory = async (featureId: number) => {
+    setHistoryFeatureId(featureId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/optional-features/${featureId}/history`);
+      setFeatureHistory(response.data as OptionalFeatureHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
+    }
   };
 
   const handleSaveEdit = async (featureId: number) => {
@@ -767,6 +882,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <th className="text-left font-medium py-2">이름</th>
               <th className="text-left font-medium py-2">공급가/판매가</th>
               <th className="text-left font-medium py-2">할인</th>
+              <th className="text-left font-medium py-2">상태</th>
+              <th className="text-right font-medium py-2 px-4">이력</th>
               {canManage && <th className="text-right font-medium py-2 px-4">처리</th>}
             </tr>
           </thead>
@@ -774,7 +891,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
             {features.map((feature) =>
               editingId === feature.id && editDraft ? (
                 <tr key={feature.id} className="bg-gray-50">
-                  <td colSpan={canManage ? 5 : 4} className="p-4">
+                  <td colSpan={canManage ? 7 : 6} className="p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="코드(읽기 전용)">
                         <input
@@ -839,6 +956,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           className={inputClass}
                         />
                       </Field>
+                      <ActiveField
+                        active={editDraft.active}
+                        disabled={isSavingEdit}
+                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
+                      />
                     </div>
                     <FormActions
                       isSaving={isSavingEdit}
@@ -860,6 +982,18 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                     {formatPrice(feature.supplyPrice)} / {formatPrice(feature.salePrice)}
                   </td>
                   <td className="py-2">{formatDiscount(feature.discountType, feature.discountValue)}</td>
+                  <td className="py-2">
+                    <ActiveBadge active={feature.active} />
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <button
+                      onClick={() => openHistory(feature.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      <History size={12} />
+                      이력
+                    </button>
+                  </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
                       <button
@@ -878,6 +1012,37 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           </tbody>
         </table>
       </ListContainer>
+
+      <Modal
+        open={historyFeatureId !== null}
+        onClose={() => setHistoryFeatureId(null)}
+        title="선택옵션 변경 이력"
+        widthClassName="max-w-lg"
+      >
+        {isHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : featureHistory.length === 0 ? (
+          <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {featureHistory.map((history) => (
+              <li key={history.id} className="py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-950 font-medium">{history.name}</p>
+                  <ActiveBadge active={history.active} />
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {formatPrice(history.salePrice)} ·{' '}
+                  할인 {formatDiscount(history.discountType, history.discountValue)}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </section>
   );
 };
@@ -902,6 +1067,10 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateCapacityAddOnRequest | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const [historyAddOnId, setHistoryAddOnId] = useState<number | null>(null);
+  const [addOnHistory, setAddOnHistory] = useState<CapacityAddOnHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const fetchAddOns = async () => {
     const response = await api.get('/capacity-addons');
@@ -956,7 +1125,21 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
       salePrice: addOn.salePrice,
       discountType: addOn.discountType,
       discountValue: addOn.discountValue,
+      active: addOn.active,
     });
+  };
+
+  const openHistory = async (addOnId: number) => {
+    setHistoryAddOnId(addOnId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/capacity-addons/${addOnId}/history`);
+      setAddOnHistory(response.data as CapacityAddOnHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
+    }
   };
 
   const handleSaveEdit = async (addOnId: number) => {
@@ -1086,6 +1269,8 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <th className="text-left font-medium py-2">단위 수량</th>
               <th className="text-left font-medium py-2">공급가/판매가</th>
               <th className="text-left font-medium py-2">할인</th>
+              <th className="text-left font-medium py-2">상태</th>
+              <th className="text-right font-medium py-2 px-4">이력</th>
               {canManage && <th className="text-right font-medium py-2 px-4">처리</th>}
             </tr>
           </thead>
@@ -1093,7 +1278,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
             {addOns.map((addOn) =>
               editingId === addOn.id && editDraft ? (
                 <tr key={addOn.id} className="bg-gray-50">
-                  <td colSpan={canManage ? 5 : 4} className="p-4">
+                  <td colSpan={canManage ? 7 : 6} className="p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="종류(읽기 전용)">
                         <input
@@ -1159,6 +1344,11 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                           className={inputClass}
                         />
                       </Field>
+                      <ActiveField
+                        active={editDraft.active}
+                        disabled={isSavingEdit}
+                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
+                      />
                     </div>
                     <FormActions
                       isSaving={isSavingEdit}
@@ -1180,6 +1370,18 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                     {formatPrice(addOn.supplyPrice)} / {formatPrice(addOn.salePrice)}
                   </td>
                   <td className="py-2">{formatDiscount(addOn.discountType, addOn.discountValue)}</td>
+                  <td className="py-2">
+                    <ActiveBadge active={addOn.active} />
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <button
+                      onClick={() => openHistory(addOn.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      <History size={12} />
+                      이력
+                    </button>
+                  </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
                       <button
@@ -1198,6 +1400,38 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
           </tbody>
         </table>
       </ListContainer>
+
+      <Modal
+        open={historyAddOnId !== null}
+        onClose={() => setHistoryAddOnId(null)}
+        title="용량 추가구매 상품 변경 이력"
+        widthClassName="max-w-lg"
+      >
+        {isHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : addOnHistory.length === 0 ? (
+          <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {addOnHistory.map((history) => (
+              <li key={history.id} className="py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-950 font-medium">
+                    {CAPACITY_TYPE_LABEL[history.capacityType] ?? history.capacityType} +{history.unitAmount}
+                  </p>
+                  <ActiveBadge active={history.active} />
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formatPrice(history.salePrice)} · 할인 {formatDiscount(history.discountType, history.discountValue)}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </section>
   );
 };

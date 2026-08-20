@@ -39,8 +39,13 @@ import type {
   TemplateSummary,
 } from '../types';
 
-const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = { IN_PROGRESS: '진행중', COMPLETED: '완료' };
+const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
+  DRAFT: '플랜 확정 대기',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+};
 const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
+  DRAFT: 'bg-amber-50 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
@@ -620,6 +625,12 @@ export const UserCeremonyDetail: FC = () => {
   }
 
   const isCompleted = ceremony.status === 'COMPLETED';
+  const isDraft = ceremony.status === 'DRAFT';
+  const registerDisabledReason = isCompleted
+    ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+    : isDraft
+      ? '플랜을 확정해야 등록할 수 있습니다. 행사 수정 화면에서 플랜을 확정해주세요.'
+      : undefined;
   const viewingSigner = signers.find((s) => s.id === viewingSignerId) ?? null;
   const viewingTemplate = templates.find((t) => t.id === viewingTemplateId) ?? null;
   const viewingEvent = events.find((e) => e.id === viewingEventId) ?? null;
@@ -659,6 +670,20 @@ export const UserCeremonyDetail: FC = () => {
         </Link>
       </div>
 
+      {isDraft && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-700">
+            아직 플랜 확정 전입니다. 서명자/문서/하위 행사를 등록하려면 먼저 플랜을 확정해주세요.
+          </p>
+          <Link
+            to={`${detailPath}/edit`}
+            className="shrink-0 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+          >
+            플랜 확정하러 가기
+          </Link>
+        </div>
+      )}
+
       {/* 서명자 관리 */}
       <section className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
@@ -689,8 +714,8 @@ export const UserCeremonyDetail: FC = () => {
           {isSignersSectionOpen && !isSignerFormOpen && (
             <button
               onClick={() => setIsSignerFormOpen(true)}
-              disabled={isCompleted}
-              title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+              disabled={Boolean(registerDisabledReason)}
+              title={registerDisabledReason}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
             >
               <Plus size={12} />
@@ -955,8 +980,8 @@ export const UserCeremonyDetail: FC = () => {
           {isTemplatesSectionOpen && !isTemplateFormOpen && (
             <button
               onClick={() => setIsTemplateFormOpen(true)}
-              disabled={isCompleted}
-              title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+              disabled={Boolean(registerDisabledReason)}
+              title={registerDisabledReason}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
             >
               <Plus size={12} />
@@ -1064,8 +1089,8 @@ export const UserCeremonyDetail: FC = () => {
                     <div className="flex justify-end gap-1">
                       <button
                         onClick={() => handleDuplicateTemplate(template.id)}
-                        disabled={processingTemplateId === template.id || isCompleted}
-                        title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : undefined}
+                        disabled={processingTemplateId === template.id || Boolean(registerDisabledReason)}
+                        title={registerDisabledReason}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Copy size={12} />
@@ -1242,11 +1267,11 @@ export const UserCeremonyDetail: FC = () => {
             </div>
           </button>
           {isEventsSectionOpen && (
-            isCompleted ? (
+            registerDisabledReason ? (
               <button
                 type="button"
                 disabled
-                title="완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다."
+                title={registerDisabledReason}
                 className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium opacity-40"
               >
                 <Plus size={12} />

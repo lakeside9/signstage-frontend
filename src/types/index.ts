@@ -266,7 +266,30 @@ export interface BillingPlanSummary {
   maxTemplates: number;
   maxTestEvents: number;
   maxMainEvents: number;
+  /** 사용여부. false면 새 행사 생성/플랜 변경 대상에서 제외된다. */
+  active: boolean;
   optionalFeatureIds: number[];
+  createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/billing-plans/{id}/history 응답
+ * (BillingPlanDto.Response.BillingPlanHistorySummary)과 맞춘다. 최신순이며, 각 행은 그 변경
+ * 시점의 전체 상태 스냅샷이다.
+ */
+export interface BillingPlanHistorySummary {
+  id: number;
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  maxSigners: number;
+  maxTemplates: number;
+  maxTestEvents: number;
+  maxMainEvents: number;
+  active: boolean;
+  createdBy: number;
   createdAt: string;
 }
 
@@ -301,6 +324,7 @@ export interface UpdateBillingPlanRequest {
   maxTemplates: number;
   maxTestEvents: number;
   maxMainEvents: number;
+  active: boolean;
 }
 
 /** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
@@ -315,6 +339,25 @@ export interface OptionalFeatureSummary {
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
+  active: boolean;
+  createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/optional-features/{id}/history 응답
+ * (OptionalFeatureDto.Response.OptionalFeatureHistorySummary)과 맞춘다.
+ */
+export interface OptionalFeatureHistorySummary {
+  id: number;
+  code: OptionalFeatureCode;
+  name: string;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  active: boolean;
+  createdBy: number;
   createdAt: string;
 }
 
@@ -338,6 +381,7 @@ export interface UpdateOptionalFeatureRequest {
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  active: boolean;
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
@@ -352,6 +396,25 @@ export interface CapacityAddOnSummary {
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
+  active: boolean;
+  createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/capacity-addons/{id}/history 응답
+ * (CapacityAddOnDto.Response.CapacityAddOnHistorySummary)과 맞춘다.
+ */
+export interface CapacityAddOnHistorySummary {
+  id: number;
+  capacityType: CapacityType;
+  unitAmount: number;
+  supplyPrice: number;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  active: boolean;
+  createdBy: number;
   createdAt: string;
 }
 
@@ -375,6 +438,7 @@ export interface UpdateCapacityAddOnRequest {
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  active: boolean;
 }
 
 /** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */
@@ -391,8 +455,12 @@ export interface CreateCeremonyRequest {
  * feature.ceremony.entity.CeremonyStatus 값과 맞춘다. 하위 행사(CeremonyEvent)의 상태와는
  * 별개다 — 이 Ceremony 아래 본행사(MAIN)가 전부 끝나고 결과 PDF까지 생성되면 COMPLETED로
  * 자동 전이하고, 그 뒤로는 하위 데이터가 조회만 가능해진다.
+ *
+ * DRAFT는 플랜 확정 전 상태다(signstage-docs business/ceremony-plan-confirmation-review.md) —
+ * 새로 만든 행사는 이 상태로 시작하고, 이 상태에서만 플랜을 바꿀 수 있다. "플랜 확정"으로
+ * DRAFT → IN_PROGRESS로 단방향 전이하면 그때부터 서명자/문서/하위 행사를 등록할 수 있다.
  */
-export type CeremonyStatus = 'IN_PROGRESS' | 'COMPLETED';
+export type CeremonyStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
 
 export interface CeremonySummary {
   id: number;
@@ -424,6 +492,34 @@ export interface UpdateCeremonyRequest {
   contactTitle: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+}
+
+/**
+ * PUT .../plan 요청(CeremonyDto.Request.ChangePlan)과 맞춘다. 플랜 확정 전(DRAFT)에만
+ * 허용된다.
+ */
+export interface ChangeCeremonyPlanRequest {
+  billingPlanId: number;
+}
+
+/**
+ * GET .../plan/history 응답(CeremonyDto.Response.PlanHistorySummary)과 맞춘다. 최신순이며,
+ * 각 행은 그 변경 시점 플랜의 이름/가격/한도 스냅샷이다 — 카탈로그가 나중에 바뀌어도 안 바뀐다.
+ */
+export interface CeremonyPlanHistorySummary {
+  id: number;
+  billingPlanId: number;
+  planName: string;
+  planSupplyPrice: number;
+  planSalePrice: number;
+  planDiscountType: DiscountType;
+  planDiscountValue: number;
+  planMaxSigners: number;
+  planMaxTemplates: number;
+  planMaxTestEvents: number;
+  planMaxMainEvents: number;
+  createdBy: number;
+  createdAt: string;
 }
 
 /** POST .../capacity-purchases 요청(CeremonyDto.Request.PurchaseCapacity)과 맞춘다. */

@@ -33,7 +33,8 @@ export const UserCeremonyCreate: FC = () => {
       try {
         const response = await api.get('/billing-plans');
         if (!cancelled) {
-          setPlans(response.data as BillingPlanSummary[]);
+          // 사용 중지(active=false)된 플랜은 신규 선택 대상에서 제외한다.
+          setPlans((response.data as BillingPlanSummary[]).filter((plan) => plan.active));
         }
       } catch (err) {
         if (!cancelled) {
@@ -93,7 +94,9 @@ export const UserCeremonyCreate: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">행사 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">플랜은 나중에 바꿀 수 없습니다. 용량/선택옵션은 등록 후 추가구매할 수 있습니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          등록 직후엔 플랜을 자유롭게 바꿀 수 있습니다. 플랜을 확정해야 서명자/문서/하위 행사를 등록할 수 있습니다.
+        </p>
       </div>
 
       {created ? (
@@ -106,14 +109,17 @@ export const UserCeremonyCreate: FC = () => {
             <p className="text-sm text-gray-500 mt-1">
               플랜: {plans.find((plan) => plan.id === created.billingPlanId)?.name ?? `#${created.billingPlanId}`}
             </p>
+            <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              아직 플랜 확정 전입니다. 서명자/문서/하위 행사를 등록하려면 행사 수정 화면에서 플랜을 확정해주세요.
+            </p>
           </div>
 
           <div className="flex gap-2">
             <Link
-              to={`/org/ceremonies/${organizationId}/${created.id}`}
+              to={`/org/ceremonies/${organizationId}/${created.id}/edit`}
               className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
             >
-              상세로 이동
+              플랜 확정하러 가기
             </Link>
             <button
               type="button"
