@@ -64,10 +64,23 @@ export const UserCeremonyEventCreate: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
 
+  /**
+   * exclusivityGroup이 있는 옵션을 고르면, 같은 그룹의 다른 선택은 자동으로 해제한다(라디오
+   * 버튼처럼) — 백엔드(`CeremonyEventService#applyOptionalFeatures`)가 어차피 같은 그룹
+   * 중복 적용을 거부하므로, 저장 시점에야 에러로 아는 대신 애초에 잘못된 조합을 못 만들게
+   * 한다. 그룹이 없는(null) 옵션은 지금처럼 독립적으로 자유 선택된다.
+   */
   const toggleFeature = (featureId: number) => {
-    setSelectedFeatureIds((prev) =>
-      prev.includes(featureId) ? prev.filter((id) => id !== featureId) : [...prev, featureId],
-    );
+    setSelectedFeatureIds((prev) => {
+      if (prev.includes(featureId)) {
+        return prev.filter((id) => id !== featureId);
+      }
+      const group = availableFeatures.find((f) => f.id === featureId)?.exclusivityGroup ?? null;
+      const withoutGroupSiblings = group
+        ? prev.filter((id) => availableFeatures.find((f) => f.id === id)?.exclusivityGroup !== group)
+        : prev;
+      return [...withoutGroupSiblings, featureId];
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -213,6 +226,11 @@ export const UserCeremonyEventCreate: FC = () => {
                     />
                   </button>
                   <span className="text-sm text-gray-950">{feature.name}</span>
+                  {feature.exclusivityGroup && (
+                    <span className="text-[11px] text-gray-400">
+                      ({feature.exclusivityGroup} 중 하나만 선택)
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

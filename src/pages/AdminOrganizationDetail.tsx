@@ -3,6 +3,8 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Globe, Loader2, Plus, UserMinus, Users, UserPlus } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
+import { OrganizationDiscountPanel } from '../components/OrganizationDiscountPanel';
+import { CeremonyFinalDiscountPanel } from '../components/CeremonyFinalDiscountPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -569,6 +571,13 @@ export const AdminOrganizationDetail: FC = () => {
           <p className="mt-2 text-xs text-gray-400">멤버 추가/역할 강제 변경/제거는 PLATFORM_OPS 이상만 가능합니다.</p>
         )}
       </div>
+
+      {organizationId && (
+        <>
+          <CeremonyFinalDiscountPanel organizationId={organizationId} canManage={canManage} showSnackbar={showSnackbar} />
+          <OrganizationDiscountPanel organizationId={organizationId} canManage={canManage} showSnackbar={showSnackbar} />
+        </>
+      )}
     </div>
   );
 };

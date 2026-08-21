@@ -300,10 +300,21 @@ export const UserCeremonyDetail: FC = () => {
     setEditEventFeatureIds(event.optionalFeatureIds);
   };
 
+  /**
+   * exclusivityGroup이 있는 옵션을 고르면 같은 그룹의 다른 선택을 자동 해제한다 — 라디오
+   * 버튼처럼. `UserCeremonyEventCreate.tsx`의 toggleFeature와 같은 이유·같은 로직이다.
+   */
   const toggleEditEventFeature = (featureId: number) => {
-    setEditEventFeatureIds((prev) =>
-      prev.includes(featureId) ? prev.filter((id) => id !== featureId) : [...prev, featureId],
-    );
+    setEditEventFeatureIds((prev) => {
+      if (prev.includes(featureId)) {
+        return prev.filter((id) => id !== featureId);
+      }
+      const group = availableEventFeatures.find((f) => f.id === featureId)?.exclusivityGroup ?? null;
+      const withoutGroupSiblings = group
+        ? prev.filter((id) => availableEventFeatures.find((f) => f.id === id)?.exclusivityGroup !== group)
+        : prev;
+      return [...withoutGroupSiblings, featureId];
+    });
   };
 
   const handleSaveEventEdit = async (eventId: number) => {
@@ -1596,6 +1607,11 @@ export const UserCeremonyDetail: FC = () => {
                       />
                     </button>
                     <span className="text-sm text-gray-950">{feature.name}</span>
+                    {feature.exclusivityGroup && (
+                      <span className="text-[11px] text-gray-400">
+                        ({feature.exclusivityGroup} 중 하나만 선택)
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

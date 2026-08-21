@@ -3,14 +3,11 @@ import type { FC } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import QRCode from 'qrcode';
 import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Copy,
   Download,
-  ExternalLink,
   Eye,
   FilePlus,
   Loader2,
@@ -21,7 +18,6 @@ import {
   Radio,
   Square,
   Users,
-  X,
 } from 'lucide-react';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -54,29 +50,6 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 };
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
-
-const PortalQrCode: FC<{ value: string }> = ({ value }) => {
-  const [dataUrl, setDataUrl] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(value, { width: 176, margin: 1, errorCorrectionLevel: 'M' })
-      .then((url) => {
-        if (!cancelled) setDataUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setDataUrl('');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [value]);
-
-  if (!dataUrl) {
-    return <div className="w-36 h-36 bg-gray-100 rounded-lg animate-pulse" />;
-  }
-  return <img src={dataUrl} alt="서명자 입장 QR 코드" className="w-36 h-36" />;
-};
 
 /**
  * 행사제어(현장 실시간 운영 콘솔). legacy(~/Works/eform/source/signstage/signstage-frontend)
@@ -130,8 +103,6 @@ export const UserCeremonyEventControl: FC = () => {
   const [signatureStatuses, setSignatureStatuses] = useState<SignerCompletionStatus[]>([]);
 
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
-
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const [results, setResults] = useState<CeremonyResultSummary[]>([]);
   const [isGeneratingResults, setIsGeneratingResults] = useState(false);
@@ -413,15 +384,6 @@ export const UserCeremonyEventControl: FC = () => {
     }
   };
 
-  const copyPortalUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      showSnackbar('링크를 복사했습니다.', 'success');
-    } catch {
-      showSnackbar('링크 복사에 실패했습니다.', 'error');
-    }
-  };
-
   if (isLoading || !event) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-gray-400">
@@ -508,7 +470,7 @@ export const UserCeremonyEventControl: FC = () => {
             전시용 화면
           </button>
           <button
-            onClick={() => setIsQrModalOpen(true)}
+            onClick={() => window.open(`${basePath}/events/${eventId}/signer-portal-qrs`, '_blank')}
             className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-emerald-500 text-gray-700 hover:text-emerald-600 rounded-lg font-bold text-xs"
           >
             <QrCode size={14} />
@@ -649,59 +611,6 @@ export const UserCeremonyEventControl: FC = () => {
         </div>
       </div>
 
-      {isQrModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">서명자 입장 포탈 — {event.name}</h2>
-                <p className="text-xs text-gray-500 mt-1">QR 코드를 스캔하면 서명자 포털로 바로 이동합니다.</p>
-              </div>
-              <button onClick={() => setIsQrModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-full">
-                <X size={22} className="text-gray-500" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {mappedSigners.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-12">매핑된 서명자가 없습니다.</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
-                  {mappedSigners.map((signer) => {
-                    const portalUrl = `${window.location.origin}/portal/${event.accessKey}/${signer.accessKey}`;
-                    return (
-                      <div
-                        key={signer.id}
-                        className="flex flex-col items-center p-4 border border-gray-100 rounded-xl hover:shadow-md"
-                      >
-                        <div className="mb-3 p-2 bg-gray-50 rounded-lg">
-                          <PortalQrCode value={portalUrl} />
-                        </div>
-                        <div className="text-sm font-bold text-gray-900">{signer.name}</div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            onClick={() => copyPortalUrl(portalUrl)}
-                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 rounded"
-                          >
-                            <Copy size={11} />
-                            링크 복사
-                          </button>
-                          <button
-                            onClick={() => window.open(portalUrl, '_blank')}
-                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded"
-                          >
-                            <ExternalLink size={11} />
-                            열기
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
