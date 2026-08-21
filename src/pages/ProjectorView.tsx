@@ -28,6 +28,7 @@ const DEFAULT_PAGE_SIZE = { width: 1280, height: 720 };
 const PAGE_RENDER_SCALE = 2;
 const CONTROL_HEIGHT = 88;
 const PAGE_GAP = 12;
+const JOINED_PAGE_GAP = 6;
 const HORIZONTAL_MARGIN = 48;
 const VERTICAL_MARGIN = 12;
 const MIN_ZOOM = 0.5;
@@ -52,6 +53,7 @@ const FIREWORKS_DURATION_MS = 5000;
 const FIREWORKS_COLORS = ['#f43f5e', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#facc15', '#ffffff'];
 
 type VisiblePageCount = 1 | 2 | 3;
+type PageSpacingMode = 'SPACED' | 'JOINED';
 
 interface PageFrame {
   pageIndex: number;
@@ -64,6 +66,7 @@ interface PageFrame {
 interface ProjectorViewSettings {
   currentPage: number;
   visiblePageCount: VisiblePageCount;
+  pageSpacingMode: PageSpacingMode;
   zoom: number;
   scrollLeft: number;
   scrollTop: number;
@@ -72,6 +75,8 @@ interface ProjectorViewSettings {
 }
 
 const toVisiblePageCount = (value: unknown): VisiblePageCount | null => (value === 1 || value === 2 || value === 3 ? value : null);
+
+const toPageSpacingMode = (value: unknown): PageSpacingMode => (value === 'JOINED' ? 'JOINED' : 'SPACED');
 
 const clampZoom = (value: unknown) => {
   const next = Number(value);
@@ -102,6 +107,7 @@ const readSettings = (eventAccessKey?: string): ProjectorViewSettings | null => 
     return {
       currentPage: Math.max(0, Number(parsed.currentPage) || 0),
       visiblePageCount,
+      pageSpacingMode: toPageSpacingMode(parsed.pageSpacingMode),
       zoom: clampZoom(parsed.zoom),
       scrollLeft: Math.max(0, Number(parsed.scrollLeft) || 0),
       scrollTop: Math.max(0, Number(parsed.scrollTop) || 0),
@@ -358,6 +364,7 @@ export const ProjectorView: FC = () => {
     return pages === 2 || pages === 3 ? pages : 1;
   });
   const [zoom, setZoom] = useState(() => initialSettings?.zoom ?? 1);
+  const [pageSpacingMode, setPageSpacingMode] = useState<PageSpacingMode>(() => initialSettings?.pageSpacingMode ?? 'SPACED');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isToolbarVisible, setIsToolbarVisible] = useState(() => initialSettings?.isToolbarVisible ?? true);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -455,6 +462,34 @@ export const ProjectorView: FC = () => {
     const viewportY = VERTICAL_MARGIN;
     const isLandscapeViewport = availableWidth >= availableHeight;
     const layoutDirection = isLandscapeViewport ? 'row' : 'column';
+
+    // 붙임(JOINED) 모드는 슬롯을 나누지 않고 페이지 묶음 전체를 하나의 그룹으로 다뤄, 페이지
+    // 사이에 6px 간격만 남기고 뷰포트 중앙에 배치한다 — 여백(SPACED) 모드처럼 페이지별 슬롯
+    // 중앙 정렬을 하면 줌 배율에 따라 페이지 사이 간격이 늘어나 버린다.
+    if (pageSpacingMode === 'JOINED') {
+      const joinedGapTotal = JOINED_PAGE_GAP * Math.max(0, visiblePages.length - 1);
+      const scaleAvailableWidth = layoutDirection === 'row' ? Math.max(1, availableWidth - joinedGapTotal) : availableWidth;
+      const scaleAvailableHeight = layoutDirection === 'column' ? Math.max(1, availableHeight - joinedGapTotal) : availableHeight;
+      const groupBaseWidth = layoutDirection === 'row' ? exhibitionInfo.width * visiblePages.length : exhibitionInfo.width;
+      const groupBaseHeight = layoutDirection === 'column' ? exhibitionInfo.height * visiblePages.length : exhibitionInfo.height;
+      const joinedBaseScale = Math.min(scaleAvailableWidth / groupBaseWidth, scaleAvailableHeight / groupBaseHeight);
+      const joinedScale = joinedBaseScale * zoom;
+      const joinedPageWidth = exhibitionInfo.width * joinedScale;
+      const joinedPageHeight = exhibitionInfo.height * joinedScale;
+      const groupWidth = layoutDirection === 'row' ? joinedPageWidth * visiblePages.length + joinedGapTotal : joinedPageWidth;
+      const groupHeight = layoutDirection === 'column' ? joinedPageHeight * visiblePages.length + joinedGapTotal : joinedPageHeight;
+      const groupX = viewportX + (availableWidth - groupWidth) / 2;
+      const groupY = viewportY + (availableHeight - groupHeight) / 2;
+
+      return visiblePages.map((pageIndex, index) => ({
+        pageIndex,
+        x: groupX + (layoutDirection === 'row' ? index * (joinedPageWidth + JOINED_PAGE_GAP) : 0),
+        y: groupY + (layoutDirection === 'column' ? index * (joinedPageHeight + JOINED_PAGE_GAP) : 0),
+        width: joinedPageWidth,
+        height: joinedPageHeight,
+      }));
+    }
+
     const gapTotal = PAGE_GAP * Math.max(0, visiblePages.length - 1);
     const slotWidth = layoutDirection === 'row' ? Math.max(1, (availableWidth - gapTotal) / visiblePages.length) : availableWidth;
     const slotHeight = layoutDirection === 'column' ? Math.max(1, (availableHeight - gapTotal) / visiblePages.length) : availableHeight;
@@ -483,7 +518,7 @@ export const ProjectorView: FC = () => {
         height: pageHeight,
       };
     });
-  }, [dimensions.height, dimensions.width, exhibitionInfo.height, exhibitionInfo.width, visiblePages, zoom]);
+  }, [dimensions.height, dimensions.width, exhibitionInfo.height, exhibitionInfo.width, pageSpacingMode, visiblePages, zoom]);
 
   const stageLayout = useMemo(() => {
     if (zoom < 1 || pageFrames.length === 0) {
@@ -514,13 +549,14 @@ export const ProjectorView: FC = () => {
       writeSettings(eventAccessKey, {
         currentPage,
         visiblePageCount,
+        pageSpacingMode,
         zoom,
         scrollLeft: scrollLeft ?? container?.scrollLeft ?? 0,
         scrollTop: scrollTop ?? container?.scrollTop ?? 0,
         isToolbarVisible,
       });
     },
-    [currentPage, eventAccessKey, isToolbarVisible, visiblePageCount, zoom],
+    [currentPage, eventAccessKey, isToolbarVisible, pageSpacingMode, visiblePageCount, zoom],
   );
 
   const handleScroll = useCallback(() => {
@@ -942,6 +978,27 @@ export const ProjectorView: FC = () => {
                 }`}
               >
                 {count}장
+              </button>
+            ))}
+          </div>
+
+          <div className="h-6 w-px shrink-0 bg-white/15" />
+
+          <div className="flex shrink-0 items-center gap-1 rounded-lg bg-white/10 p-1">
+            {([
+              ['SPACED', '여백'],
+              ['JOINED', '붙임'],
+            ] as [PageSpacingMode, string][]).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setPageSpacingMode(mode)}
+                className={`rounded-md px-3 py-1.5 text-xs font-black transition-colors ${
+                  pageSpacingMode === mode ? 'bg-white text-gray-950' : 'text-white/75 hover:bg-white/10 hover:text-white'
+                }`}
+                title={mode === 'SPACED' ? '페이지 사이에 여백을 두고 표시' : '페이지 사이 여백 없이 붙여 표시'}
+              >
+                {label}
               </button>
             ))}
           </div>

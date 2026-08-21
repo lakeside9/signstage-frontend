@@ -94,6 +94,23 @@ const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: b
 );
 
 /**
+ * 선택옵션 전용 필드 — "이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지" 표시.
+ * 분류 정보일 뿐 실제 동작은 프런트 projectorEffects.ts에 코드별로 구현돼 있어야 한다.
+ */
+const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }> = ({
+  checked,
+  disabled,
+  onChange,
+}) => (
+  <Field label="프로젝터 효과">
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      {checked ? '프로젝터 화면에 효과를 냄' : '프로젝터와 무관'}
+    </label>
+  </Field>
+);
+
+/**
  * 플랫폼 관리자용 행사 과금 카탈로그(플랜/선택옵션/용량 추가구매 상품) 관리 화면.
  * 조회는 PLATFORM_SUPPORT 이상 누구나, 등록/수정은 PLATFORM_OPS 이상만 할 수 있다
  * (최종 판단은 항상 백엔드가 하고, 여기서는 버튼을 안 보여주는 용도로만 `canManagePlatform`을 쓴다).
@@ -696,6 +713,14 @@ const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
+  projectorEffect: true,
+  exclusivityGroup: '',
+};
+
+/** 빈 문자열 입력을 "그룹 없음"(null)으로 정규화한다 — 폼 입력값은 항상 문자열로 다루는 게 controlled input에 편해서다. */
+const normalizeExclusivityGroup = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 };
 
 const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
@@ -758,7 +783,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     }
     setIsCreating(true);
     try {
-      await api.post('/platform-admin/optional-features', { ...createDraft, name: createDraft.name.trim() });
+      await api.post('/platform-admin/optional-features', {
+        ...createDraft,
+        name: createDraft.name.trim(),
+        exclusivityGroup: normalizeExclusivityGroup(createDraft.exclusivityGroup),
+      });
       showSnackbar('선택옵션을 등록했습니다.', 'success');
       setIsCreateFormOpen(false);
       setCreateDraft(EMPTY_FEATURE_DRAFT);
@@ -779,6 +808,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
       discountType: feature.discountType,
       discountValue: feature.discountValue,
       active: feature.active,
+      projectorEffect: feature.projectorEffect,
+      exclusivityGroup: feature.exclusivityGroup ?? '',
     });
   };
 
@@ -803,7 +834,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     }
     setIsSavingEdit(true);
     try {
-      await api.put(`/platform-admin/optional-features/${featureId}`, { ...editDraft, name: editDraft.name.trim() });
+      await api.put(`/platform-admin/optional-features/${featureId}`, {
+        ...editDraft,
+        name: editDraft.name.trim(),
+        exclusivityGroup: normalizeExclusivityGroup(editDraft.exclusivityGroup),
+      });
       showSnackbar('선택옵션을 저장했습니다.', 'success');
       setEditingId(null);
       setEditDraft(null);
@@ -908,7 +943,26 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 className={inputClass}
               />
             </Field>
+            <ProjectorEffectField
+              checked={createDraft.projectorEffect ?? true}
+              disabled={isCreating}
+              onChange={(projectorEffect) => setCreateDraft((prev) => ({ ...prev, projectorEffect }))}
+            />
+            <Field label="배타 그룹">
+              <input
+                type="text"
+                value={createDraft.exclusivityGroup ?? ''}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, exclusivityGroup: e.target.value }))}
+                disabled={isCreating}
+                placeholder="예: SIGNER_HIGHLIGHT_COLOR"
+                className={inputClass}
+              />
+            </Field>
           </div>
+          <p className="text-xs text-gray-400">
+            배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예:
+            서명 하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
+          </p>
           <FormActions
             isSaving={isCreating}
             savingLabel="등록 중..."
@@ -930,6 +984,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <th className="text-left font-medium py-2">공급가/판매가</th>
               <th className="text-left font-medium py-2">할인</th>
               <th className="text-left font-medium py-2">상태</th>
+              <th className="text-left font-medium py-2">분류</th>
               <th className="text-right font-medium py-2 px-4">이력</th>
               {canManage && <th className="text-right font-medium py-2 px-4">처리</th>}
             </tr>
@@ -938,7 +993,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
             {features.map((feature) =>
               editingId === feature.id && editDraft ? (
                 <tr key={feature.id} className="bg-gray-50">
-                  <td colSpan={canManage ? 7 : 6} className="p-4">
+                  <td colSpan={canManage ? 8 : 7} className="p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="코드(읽기 전용)">
                         <input
@@ -1008,6 +1063,21 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         disabled={isSavingEdit}
                         onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
                       />
+                      <ProjectorEffectField
+                        checked={editDraft.projectorEffect}
+                        disabled={isSavingEdit}
+                        onChange={(projectorEffect) => setEditDraft((prev) => prev && { ...prev, projectorEffect })}
+                      />
+                      <Field label="배타 그룹">
+                        <input
+                          type="text"
+                          value={editDraft.exclusivityGroup ?? ''}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, exclusivityGroup: e.target.value })}
+                          disabled={isSavingEdit}
+                          placeholder="예: SIGNER_HIGHLIGHT_COLOR"
+                          className={inputClass}
+                        />
+                      </Field>
                     </div>
                     <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
                     <FormActions
@@ -1033,6 +1103,12 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <td className="py-2">
                     <ActiveBadge active={feature.active} />
                     <span className="ml-1.5 text-xs text-gray-400">사용 {feature.usageCount}건</span>
+                  </td>
+                  <td className="py-2 text-xs">
+                    <div className="text-gray-600">{feature.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}</div>
+                    {feature.exclusivityGroup && (
+                      <div className="mt-0.5 text-gray-400">배타 그룹: {feature.exclusivityGroup}</div>
+                    )}
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
@@ -1085,6 +1161,10 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 <p className="text-xs text-gray-500 mt-0.5">
                   {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {formatPrice(history.salePrice)} ·{' '}
                   할인 {formatDiscount(history.discountType, history.discountValue)}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {history.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
+                  {history.exclusivityGroup && ` · 배타 그룹: ${history.exclusivityGroup}`}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
               </li>

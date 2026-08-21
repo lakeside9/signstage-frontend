@@ -27,6 +27,7 @@ import { UserCeremonyEdit } from './pages/UserCeremonyEdit';
 import { UserCeremonyEventCreate } from './pages/UserCeremonyEventCreate';
 import { UserCeremonyEventControl } from './pages/UserCeremonyEventControl';
 import { UserCeremonyEventMapping } from './pages/UserCeremonyEventMapping';
+import { UserSignerPortalQrWindow } from './pages/UserSignerPortalQrWindow';
 import { UserTemplateDetail } from './pages/UserTemplateDetail';
 import { SignerPortalView } from './pages/SignerPortalView';
 import { DocumentVerificationView } from './pages/DocumentVerificationView';
@@ -45,6 +46,14 @@ function App() {
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
         <Route path="/verify" element={<DocumentVerificationView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
+        <Route
+          path="/org/ceremonies/:organizationId/:ceremonyId/events/:eventId/signer-portal-qrs"
+          element={
+            <ProtectedRoute>
+              <UserSignerPortalQrWindow />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/org"

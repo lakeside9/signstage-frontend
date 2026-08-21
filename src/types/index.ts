@@ -345,6 +345,10 @@ export interface OptionalFeatureSummary {
   discountValue: number;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
+  /** 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제 동작은 projectorEffects.ts에 코드별로 구현돼 있어야 한다. */
+  projectorEffect: boolean;
+  /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
+  exclusivityGroup: string | null;
   /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   createdAt: string;
@@ -363,6 +367,8 @@ export interface OptionalFeatureHistorySummary {
   discountType: DiscountType;
   discountValue: number;
   active: boolean;
+  projectorEffect: boolean;
+  exclusivityGroup: string | null;
   createdBy: number;
   createdAt: string;
 }
@@ -375,6 +381,9 @@ export interface CreateOptionalFeatureRequest {
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  /** 생략하면(undefined) 백엔드 기본값 true. */
+  projectorEffect?: boolean;
+  exclusivityGroup?: string | null;
 }
 
 /**
@@ -388,6 +397,8 @@ export interface UpdateOptionalFeatureRequest {
   discountType: DiscountType;
   discountValue: number;
   active: boolean;
+  projectorEffect: boolean;
+  exclusivityGroup: string | null;
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
@@ -447,6 +458,61 @@ export interface UpdateCapacityAddOnRequest {
   discountType: DiscountType;
   discountValue: number;
   active: boolean;
+}
+
+// 조직×품목 세밀 할인 오버라이드(OrganizationDiscountDto) — signstage-docs
+// business/organization-event-discount-pricing-review.md 4.1절(2026-08-21 재검토) 참고.
+// 오버라이드 행이 없으면(조직별 할인 화면에 안 나타나면) 카탈로그 자체 할인값을 그대로 쓴다.
+
+/** PUT .../billing-discounts/{plans|optional-features|capacity-addons}/{id} 요청과 맞춘다. */
+export interface SetOrganizationDiscountRequest {
+  discountType: DiscountType;
+  discountValue: number;
+}
+
+/** GET .../billing-discounts 응답 중 플랜 오버라이드 한 건(OrganizationDiscountDto.Response.BillingPlanDiscountSummary)과 맞춘다. */
+export interface OrganizationBillingPlanDiscountSummary {
+  id: number;
+  organizationId: number;
+  billingPlanId: number;
+  billingPlanName: string;
+  discountType: DiscountType;
+  discountValue: number;
+  createdAt: string;
+}
+
+/** 선택옵션 오버라이드 한 건(OrganizationDiscountDto.Response.OptionalFeatureDiscountSummary)과 맞춘다. */
+export interface OrganizationOptionalFeatureDiscountSummary {
+  id: number;
+  organizationId: number;
+  optionalFeatureId: number;
+  optionalFeatureName: string;
+  discountType: DiscountType;
+  discountValue: number;
+  createdAt: string;
+}
+
+/** 용량 추가구매 오버라이드 한 건(OrganizationDiscountDto.Response.CapacityAddOnDiscountSummary)과 맞춘다. */
+export interface OrganizationCapacityAddOnDiscountSummary {
+  id: number;
+  organizationId: number;
+  capacityAddOnId: number;
+  capacityType: CapacityType;
+  unitAmount: number;
+  discountType: DiscountType;
+  discountValue: number;
+  createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/organizations/{organizationId}/billing-discounts 응답
+ * (OrganizationDiscountDto.Response.OrganizationDiscountOverview)과 맞춘다. 세 카탈로그 종류의
+ * 오버라이드를 한 번에 받는다.
+ */
+export interface OrganizationDiscountOverview {
+  billingPlanDiscounts: OrganizationBillingPlanDiscountSummary[];
+  optionalFeatureDiscounts: OrganizationOptionalFeatureDiscountSummary[];
+  capacityAddOnDiscounts: OrganizationCapacityAddOnDiscountSummary[];
 }
 
 /** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */
