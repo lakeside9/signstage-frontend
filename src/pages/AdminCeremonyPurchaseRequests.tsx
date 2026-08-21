@@ -38,6 +38,7 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   TEMPLATES: '템플릿',
   TEST_EVENTS: '테스트 행사',
   MAIN_EVENTS: '본행사',
+  TABLETS: '태블릿',
 };
 
 /** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
@@ -94,7 +95,9 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
   const addOnLabel = (id: number) => {
     const addOn = addOns.find((a) => a.id === id);
     if (!addOn) return `#${id}`;
-    return `${CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +${addOn.unitAmount}`;
+    const primary = `${CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +${addOn.unitAmount}`;
+    if (!addOn.secondaryCapacityType) return primary;
+    return `${primary} · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`;
   };
 
   const fetchRequests = async () => {

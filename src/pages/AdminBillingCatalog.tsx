@@ -32,11 +32,25 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 
 // VIDEO_ATTENDANCE(화상 참석)는 실제 효과 로직이 아직 없어(별도 트랙에서 검토 중) 이 화면에서는
 // 다루지 않는다 — signstage-docs business/ceremony-billing-options-review.md 참고.
-const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = ['SIGNER_FIELD_ZOOM', 'ALL_SIGNED_FIREWORKS'];
+// TABLET_RENTAL(태블릿 대여)은 프로젝터 효과가 없는 순수 안내/표시용 옵션이다 — 실제 수량은
+// CapacityType.TABLETS 용량 추가구매로 관리한다(2026-08-21 추가).
+const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = [
+  'SIGNER_FIELD_ZOOM',
+  'ALL_SIGNED_FIREWORKS',
+  'TABLET_RENTAL',
+];
 
 const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
   SIGNER_FIELD_ZOOM: '서명 하이라이트',
   ALL_SIGNED_FIREWORKS: '폭죽 효과',
+  TABLET_RENTAL: '태블릿 대여',
+};
+
+/** 코드별 기본 프로젝터 효과값 — 새로 만들기 폼에서 코드를 고를 때 자동으로 맞춰준다(그래도 수동으로 바꿀 수 있다). */
+const DEFAULT_PROJECTOR_EFFECT_BY_CODE: Record<string, boolean> = {
+  SIGNER_FIELD_ZOOM: true,
+  ALL_SIGNED_FIREWORKS: true,
+  TABLET_RENTAL: false,
 };
 
 const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
@@ -44,6 +58,7 @@ const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
   { value: 'TEMPLATES', label: '템플릿' },
   { value: 'TEST_EVENTS', label: '테스트 행사' },
   { value: 'MAIN_EVENTS', label: '본행사' },
+  { value: 'TABLETS', label: '태블릿' },
 ];
 
 const CAPACITY_TYPE_LABEL: Record<string, string> = Object.fromEntries(
@@ -771,7 +786,12 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   );
 
   const handleOpenCreateForm = () => {
-    setCreateDraft({ ...EMPTY_FEATURE_DRAFT, code: availableCodes[0] });
+    const code = availableCodes[0];
+    setCreateDraft({
+      ...EMPTY_FEATURE_DRAFT,
+      code,
+      projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? true,
+    });
     setIsCreateFormOpen(true);
   };
 
@@ -879,7 +899,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
             <Field label="코드">
               <select
                 value={createDraft.code}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, code: e.target.value as OptionalFeatureCode }))}
+                onChange={(e) => {
+                  const code = e.target.value as OptionalFeatureCode;
+                  setCreateDraft((prev) => ({
+                    ...prev,
+                    code,
+                    projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? prev.projectorEffect,
+                  }));
+                }}
                 disabled={isCreating}
                 className={inputClass}
               >
@@ -1179,6 +1206,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
 const EMPTY_ADDON_DRAFT: CreateCapacityAddOnRequest = {
   capacityType: 'SIGNERS',
   unitAmount: 1,
+  secondaryCapacityType: null,
+  secondaryUnitAmount: null,
   supplyPrice: 0,
   salePrice: 0,
   discountType: 'PERCENT',
@@ -1232,6 +1261,10 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
       showSnackbar('단위 수량은 1 이상이어야 합니다.', 'error');
       return;
     }
+    if (createDraft.secondaryCapacityType && (!createDraft.secondaryUnitAmount || createDraft.secondaryUnitAmount < 1)) {
+      showSnackbar('보조 단위 수량은 1 이상이어야 합니다.', 'error');
+      return;
+    }
     setIsCreating(true);
     try {
       await api.post('/platform-admin/capacity-addons', createDraft);
@@ -1250,6 +1283,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
     setEditingId(addOn.id);
     setEditDraft({
       unitAmount: addOn.unitAmount,
+      secondaryUnitAmount: addOn.secondaryUnitAmount,
       supplyPrice: addOn.supplyPrice,
       salePrice: addOn.salePrice,
       discountType: addOn.discountType,
@@ -1275,6 +1309,11 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
     if (!editDraft) return;
     if (editDraft.unitAmount < 1) {
       showSnackbar('단위 수량은 1 이상이어야 합니다.', 'error');
+      return;
+    }
+    const addOn = addOns.find((a) => a.id === addOnId);
+    if (addOn?.secondaryCapacityType && (!editDraft.secondaryUnitAmount || editDraft.secondaryUnitAmount < 1)) {
+      showSnackbar('보조 단위 수량은 1 이상이어야 합니다.', 'error');
       return;
     }
     setIsSavingEdit(true);
@@ -1312,7 +1351,16 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
             <Field label="종류">
               <select
                 value={createDraft.capacityType}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, capacityType: e.target.value as CapacityType }))}
+                onChange={(e) => {
+                  const capacityType = e.target.value as CapacityType;
+                  setCreateDraft((prev) => ({
+                    ...prev,
+                    capacityType,
+                    // 주 용량을 보조 용량과 같은 값으로 바꾸면 묶음 설정을 초기화한다.
+                    secondaryCapacityType: prev.secondaryCapacityType === capacityType ? null : prev.secondaryCapacityType,
+                    secondaryUnitAmount: prev.secondaryCapacityType === capacityType ? null : prev.secondaryUnitAmount,
+                  }));
+                }}
                 disabled={isCreating}
                 className={inputClass}
               >
@@ -1333,6 +1381,40 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                 className={inputClass}
               />
             </Field>
+            <Field label="보조 용량(묶음 상품, 선택)">
+              <select
+                value={createDraft.secondaryCapacityType ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value as CapacityType | '';
+                  setCreateDraft((prev) => ({
+                    ...prev,
+                    secondaryCapacityType: value === '' ? null : value,
+                    secondaryUnitAmount: value === '' ? null : prev.secondaryUnitAmount || 1,
+                  }));
+                }}
+                disabled={isCreating}
+                className={inputClass}
+              >
+                <option value="">없음(단일 상품)</option>
+                {CAPACITY_TYPE_OPTIONS.filter((option) => option.value !== createDraft.capacityType).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {createDraft.secondaryCapacityType && (
+              <Field label="보조 단위 수량">
+                <input
+                  type="number"
+                  min={1}
+                  value={createDraft.secondaryUnitAmount ? createDraft.secondaryUnitAmount : ''}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, secondaryUnitAmount: Number(e.target.value) }))}
+                  disabled={isCreating}
+                  className={inputClass}
+                />
+              </Field>
+            )}
             <Field label="공급가">
               <input
                 type="number"
@@ -1378,6 +1460,10 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               />
             </Field>
           </div>
+          <p className="text-xs text-gray-400">
+            보조 용량을 지정하면 이 상품 1건 구매로 두 용량이 함께 늘어나는 묶음 상품이 됩니다(예: "서명자+태블릿" =
+            주 용량 서명자, 보조 용량 태블릿). 묶음 여부와 보조 용량 종류는 등록 후 바꿀 수 없습니다.
+          </p>
           <FormActions
             isSaving={isCreating}
             savingLabel="등록 중..."
@@ -1427,6 +1513,30 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                           className={inputClass}
                         />
                       </Field>
+                      {addOn.secondaryCapacityType && (
+                        <>
+                          <Field label="보조 용량(읽기 전용)">
+                            <input
+                              type="text"
+                              value={`${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} (묶음 상품)`}
+                              disabled
+                              className={`${inputClass} bg-gray-100 text-gray-400`}
+                            />
+                          </Field>
+                          <Field label="보조 단위 수량">
+                            <input
+                              type="number"
+                              min={1}
+                              value={editDraft.secondaryUnitAmount ? editDraft.secondaryUnitAmount : ''}
+                              onChange={(e) =>
+                                setEditDraft((prev) => prev && { ...prev, secondaryUnitAmount: Number(e.target.value) })
+                              }
+                              disabled={isSavingEdit}
+                              className={inputClass}
+                            />
+                          </Field>
+                        </>
+                      )}
                       <Field label="공급가">
                         <input
                           type="number"
@@ -1494,8 +1604,15 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                 </tr>
               ) : (
                 <tr key={addOn.id}>
-                  <td className="py-2 px-4 text-gray-600">{CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType}</td>
-                  <td className="py-2 text-gray-950 font-medium">+{addOn.unitAmount}</td>
+                  <td className="py-2 px-4 text-gray-600">
+                    {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType}
+                    {addOn.secondaryCapacityType &&
+                      ` + ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType}`}
+                  </td>
+                  <td className="py-2 text-gray-950 font-medium">
+                    +{addOn.unitAmount}
+                    {addOn.secondaryCapacityType && addOn.secondaryUnitAmount != null && ` / +${addOn.secondaryUnitAmount}`}
+                  </td>
                   <td className="py-2">
                     {formatPrice(addOn.supplyPrice)} / {formatPrice(addOn.salePrice)}
                   </td>
@@ -1551,6 +1668,8 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-gray-950 font-medium">
                     {CAPACITY_TYPE_LABEL[history.capacityType] ?? history.capacityType} +{history.unitAmount}
+                    {history.secondaryCapacityType &&
+                      ` · ${CAPACITY_TYPE_LABEL[history.secondaryCapacityType] ?? history.secondaryCapacityType} +${history.secondaryUnitAmount}`}
                   </p>
                   <ActiveBadge active={history.active} />
                 </div>

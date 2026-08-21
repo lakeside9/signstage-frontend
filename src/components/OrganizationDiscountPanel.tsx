@@ -28,6 +28,7 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   TEMPLATES: '템플릿',
   TEST_EVENTS: '테스트 행사',
   MAIN_EVENTS: '본행사',
+  TABLETS: '태블릿',
 };
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
@@ -472,7 +473,11 @@ const CapacityAddOnDiscountSection: FC<
   const [isSaving, setIsSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
-  const addOnLabel = (addOn: CapacityAddOnSummary) => `${CAPACITY_TYPE_LABEL[addOn.capacityType]} +${addOn.unitAmount}`;
+  const addOnLabel = (addOn: CapacityAddOnSummary) => {
+    const primary = `${CAPACITY_TYPE_LABEL[addOn.capacityType]} +${addOn.unitAmount}`;
+    if (!addOn.secondaryCapacityType) return primary;
+    return `${primary} · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType]} +${addOn.secondaryUnitAmount}`;
+  };
 
   const [historyAddOnId, setHistoryAddOnId] = useState<number | null>(null);
   const [historyEntries, setHistoryEntries] = useState<OrganizationCapacityAddOnDiscountHistorySummary[]>([]);

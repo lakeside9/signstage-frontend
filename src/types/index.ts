@@ -347,7 +347,11 @@ export interface UpdateBillingPlanRequest {
 }
 
 /** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
-export type OptionalFeatureCode = 'SIGNER_FIELD_ZOOM' | 'ALL_SIGNED_FIREWORKS' | 'VIDEO_ATTENDANCE';
+export type OptionalFeatureCode =
+  | 'SIGNER_FIELD_ZOOM'
+  | 'ALL_SIGNED_FIREWORKS'
+  | 'VIDEO_ATTENDANCE'
+  | 'TABLET_RENTAL';
 
 /** GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다. */
 export interface OptionalFeatureSummary {
@@ -417,13 +421,19 @@ export interface UpdateOptionalFeatureRequest {
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
-export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'MAIN_EVENTS';
+export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'MAIN_EVENTS' | 'TABLETS';
 
-/** GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다. */
+/**
+ * GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다.
+ * secondaryCapacityType이 있으면 묶음 상품이다(예: "서명자+태블릿" — capacityType=SIGNERS,
+ * secondaryCapacityType=TABLETS). 구매 1건으로 두 용량이 함께 늘어난다.
+ */
 export interface CapacityAddOnSummary {
   id: number;
   capacityType: CapacityType;
   unitAmount: number;
+  secondaryCapacityType: CapacityType | null;
+  secondaryUnitAmount: number | null;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
@@ -443,6 +453,8 @@ export interface CapacityAddOnHistorySummary {
   id: number;
   capacityType: CapacityType;
   unitAmount: number;
+  secondaryCapacityType: CapacityType | null;
+  secondaryUnitAmount: number | null;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
@@ -456,6 +468,9 @@ export interface CapacityAddOnHistorySummary {
 export interface CreateCapacityAddOnRequest {
   capacityType: CapacityType;
   unitAmount: number;
+  /** 묶음 상품일 때만 지정한다(예: "서명자+태블릿"). 없으면 단일 상품. */
+  secondaryCapacityType?: CapacityType | null;
+  secondaryUnitAmount?: number | null;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
@@ -464,10 +479,12 @@ export interface CreateCapacityAddOnRequest {
 
 /**
  * PUT /api/platform-admin/capacity-addons/{id} 요청(CapacityAddOnDto.Request.UpdateCapacityAddOn)과
- * 맞춘다. capacityType은 생성 후 불변이라 CreateCapacityAddOnRequest와 달리 여기엔 없다.
+ * 맞춘다. capacityType/secondaryCapacityType은 생성 후 불변이라 여기엔 없다 — 묶음 여부를
+ * 바꾸려면 새 상품을 등록해야 한다. 원래 묶음 상품이었다면 secondaryUnitAmount는 필수다.
  */
 export interface UpdateCapacityAddOnRequest {
   unitAmount: number;
+  secondaryUnitAmount?: number | null;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
@@ -702,6 +719,8 @@ export interface CapacityPurchaseSummary {
   quantity: number;
   /** 구매 시점 단가 스냅샷 — 카탈로그 단가가 나중에 바뀌어도 안 바뀐다(9장). */
   purchasedUnitAmount: number;
+  /** 묶음 상품(예: "서명자+태블릿")이었을 때만 값이 있다 — 구매 시점 보조 용량 단가 스냅샷. */
+  purchasedSecondaryUnitAmount: number | null;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
