@@ -24,6 +24,21 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   FORCE_WITHDRAW_USER: '회원 강제 탈퇴',
   UPDATE_ACCOUNT_ROLE: '관리자 등급 변경',
   REJECT_ORGANIZATION_REQUEST: '조직 생성 요청 반려',
+  CREATE_BILLING_PLAN: '과금 플랜 등록',
+  UPDATE_BILLING_PLAN: '과금 플랜 수정',
+  CREATE_OPTIONAL_FEATURE: '선택옵션 등록',
+  UPDATE_OPTIONAL_FEATURE: '선택옵션 수정',
+  CREATE_CAPACITY_ADDON: '용량 추가구매 상품 등록',
+  UPDATE_CAPACITY_ADDON: '용량 추가구매 상품 수정',
+  UPDATE_CEREMONY_STATUS: '행사 상태 강제 변경',
+  UPDATE_CEREMONY_FINAL_DISCOUNT: '행사 건별 재량 할인 설정',
+  UPDATE_ORGANIZATION_BILLING_PLAN_DISCOUNT: '조직×플랜 할인 오버라이드 변경',
+  UPDATE_ORGANIZATION_OPTIONAL_FEATURE_DISCOUNT: '조직×선택옵션 할인 오버라이드 변경',
+  UPDATE_ORGANIZATION_CAPACITY_ADDON_DISCOUNT: '조직×용량추가구매 할인 오버라이드 변경',
+  APPROVE_CAPACITY_PURCHASE: '용량 추가구매 승인',
+  REJECT_CAPACITY_PURCHASE: '용량 추가구매 반려',
+  APPROVE_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 승인',
+  REJECT_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 반려',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [
