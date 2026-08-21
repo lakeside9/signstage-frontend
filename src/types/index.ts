@@ -530,6 +530,48 @@ export interface OrganizationDiscountOverview {
   capacityAddOnDiscounts: OrganizationCapacityAddOnDiscountSummary[];
 }
 
+// 조직×품목 할인 오버라이드 변경 이력 — 카탈로그(BillingPlanHistorySummary 등)처럼 구조화된
+// 이력 테이블이다. 설정(생성/수정) 시점마다, 그리고 제거 시점에(removed=true, 그 직전 값) 한
+// 건씩 쌓인다. GET .../billing-discounts/{plans|optional-features|capacity-addons}/{id}/history
+// 응답과 맞춘다.
+
+export interface OrganizationBillingPlanDiscountHistorySummary {
+  id: number;
+  organizationId: number;
+  billingPlanId: number;
+  billingPlanName: string;
+  discountType: DiscountType;
+  discountValue: number;
+  removed: boolean;
+  createdBy: number;
+  createdAt: string;
+}
+
+export interface OrganizationOptionalFeatureDiscountHistorySummary {
+  id: number;
+  organizationId: number;
+  optionalFeatureId: number;
+  optionalFeatureName: string;
+  discountType: DiscountType;
+  discountValue: number;
+  removed: boolean;
+  createdBy: number;
+  createdAt: string;
+}
+
+export interface OrganizationCapacityAddOnDiscountHistorySummary {
+  id: number;
+  organizationId: number;
+  capacityAddOnId: number;
+  capacityType: CapacityType;
+  unitAmount: number;
+  discountType: DiscountType;
+  discountValue: number;
+  removed: boolean;
+  createdBy: number;
+  createdAt: string;
+}
+
 /** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */
 export interface CreateCeremonyRequest {
   billingPlanId: number;

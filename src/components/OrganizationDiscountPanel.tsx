@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
-import { Loader2, Percent, Plus, X } from 'lucide-react';
+import { History, Loader2, Percent, Plus, X } from 'lucide-react';
+import { Modal } from './Modal';
 import { api } from '../utils/api';
 import type {
   BillingPlanSummary,
@@ -8,9 +9,12 @@ import type {
   CapacityType,
   DiscountType,
   OptionalFeatureSummary,
+  OrganizationBillingPlanDiscountHistorySummary,
   OrganizationBillingPlanDiscountSummary,
+  OrganizationCapacityAddOnDiscountHistorySummary,
   OrganizationCapacityAddOnDiscountSummary,
   OrganizationDiscountOverview,
+  OrganizationOptionalFeatureDiscountHistorySummary,
   OrganizationOptionalFeatureDiscountSummary,
 } from '../types';
 
@@ -152,6 +156,10 @@ const BillingPlanDiscountSection: FC<
   const [isSaving, setIsSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
+  const [historyPlanId, setHistoryPlanId] = useState<number | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<OrganizationBillingPlanDiscountHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
   const openAddForm = async () => {
     setIsAddFormOpen(true);
     try {
@@ -159,6 +167,19 @@ const BillingPlanDiscountSection: FC<
       setPlans(response.data as BillingPlanSummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '과금 플랜 목록을 불러오지 못했습니다.', 'error');
+    }
+  };
+
+  const openHistory = async (planId: number) => {
+    setHistoryPlanId(planId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/organizations/${organizationId}/billing-discounts/plans/${planId}/history`);
+      setHistoryEntries(response.data as OrganizationBillingPlanDiscountHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -207,63 +228,74 @@ const BillingPlanDiscountSection: FC<
   };
 
   return (
-    <DiscountSubsection
-      title="과금 플랜"
-      canManage={canManage}
-      isAddFormOpen={isAddFormOpen}
-      onOpenAddForm={openAddForm}
-      addForm={
-        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
-          <Field label="플랜">
-            <select
-              value={selectedPlanId}
-              onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : '')}
-              disabled={isSaving}
-              className={inputClass}
-            >
-              <option value="">선택</option>
-              {plans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
-          <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
-        </form>
-      }
-      isEmpty={discounts.length === 0}
-      emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
-    >
-      {discounts.map((discount) =>
-        editingPlanId === discount.billingPlanId ? (
-          <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
-            <span className="text-sm font-medium text-gray-950 min-w-[100px]">{discount.billingPlanName}</span>
-            <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
-            <FormActions
-              isSaving={isSaving}
-              onSave={() => handleSaveEdit(discount.billingPlanId)}
-              onCancel={() => setEditingPlanId(null)}
+    <>
+      <DiscountSubsection
+        title="과금 플랜"
+        canManage={canManage}
+        isAddFormOpen={isAddFormOpen}
+        onOpenAddForm={openAddForm}
+        addForm={
+          <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+            <Field label="플랜">
+              <select
+                value={selectedPlanId}
+                onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : '')}
+                disabled={isSaving}
+                className={inputClass}
+              >
+                <option value="">선택</option>
+                {plans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
+            <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
+          </form>
+        }
+        isEmpty={discounts.length === 0}
+        emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
+      >
+        {discounts.map((discount) =>
+          editingPlanId === discount.billingPlanId ? (
+            <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
+              <span className="text-sm font-medium text-gray-950 min-w-[100px]">{discount.billingPlanName}</span>
+              <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
+              <FormActions
+                isSaving={isSaving}
+                onSave={() => handleSaveEdit(discount.billingPlanId)}
+                onCancel={() => setEditingPlanId(null)}
+              />
+            </li>
+          ) : (
+            <DiscountRow
+              key={discount.id}
+              label={discount.billingPlanName}
+              discountType={discount.discountType}
+              discountValue={discount.discountValue}
+              canManage={canManage}
+              isRemoving={removingId === discount.billingPlanId}
+              onEdit={() => {
+                setEditingPlanId(discount.billingPlanId);
+                setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
+              }}
+              onRemove={() => handleRemove(discount.billingPlanId)}
+              onHistory={() => openHistory(discount.billingPlanId)}
             />
-          </li>
-        ) : (
-          <DiscountRow
-            key={discount.id}
-            label={discount.billingPlanName}
-            discountType={discount.discountType}
-            discountValue={discount.discountValue}
-            canManage={canManage}
-            isRemoving={removingId === discount.billingPlanId}
-            onEdit={() => {
-              setEditingPlanId(discount.billingPlanId);
-              setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
-            }}
-            onRemove={() => handleRemove(discount.billingPlanId)}
-          />
-        ),
-      )}
-    </DiscountSubsection>
+          ),
+        )}
+      </DiscountSubsection>
+
+      <DiscountHistoryModal
+        open={historyPlanId !== null}
+        onClose={() => setHistoryPlanId(null)}
+        title="과금 플랜 할인 오버라이드 이력"
+        isLoading={isHistoryLoading}
+        entries={historyEntries}
+      />
+    </>
   );
 };
 
@@ -281,6 +313,10 @@ const OptionalFeatureDiscountSection: FC<
   const [isSaving, setIsSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
+  const [historyFeatureId, setHistoryFeatureId] = useState<number | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<OrganizationOptionalFeatureDiscountHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
   const openAddForm = async () => {
     setIsAddFormOpen(true);
     try {
@@ -288,6 +324,21 @@ const OptionalFeatureDiscountSection: FC<
       setFeatures(response.data as OptionalFeatureSummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '선택옵션 목록을 불러오지 못했습니다.', 'error');
+    }
+  };
+
+  const openHistory = async (featureId: number) => {
+    setHistoryFeatureId(featureId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(
+        `/platform-admin/organizations/${organizationId}/billing-discounts/optional-features/${featureId}/history`,
+      );
+      setHistoryEntries(response.data as OrganizationOptionalFeatureDiscountHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -336,63 +387,74 @@ const OptionalFeatureDiscountSection: FC<
   };
 
   return (
-    <DiscountSubsection
-      title="선택옵션"
-      canManage={canManage}
-      isAddFormOpen={isAddFormOpen}
-      onOpenAddForm={openAddForm}
-      addForm={
-        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
-          <Field label="선택옵션">
-            <select
-              value={selectedFeatureId}
-              onChange={(e) => setSelectedFeatureId(e.target.value ? Number(e.target.value) : '')}
-              disabled={isSaving}
-              className={inputClass}
-            >
-              <option value="">선택</option>
-              {features.map((feature) => (
-                <option key={feature.id} value={feature.id}>
-                  {feature.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
-          <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
-        </form>
-      }
-      isEmpty={discounts.length === 0}
-      emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
-    >
-      {discounts.map((discount) =>
-        editingFeatureId === discount.optionalFeatureId ? (
-          <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
-            <span className="text-sm font-medium text-gray-950 min-w-[100px]">{discount.optionalFeatureName}</span>
-            <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
-            <FormActions
-              isSaving={isSaving}
-              onSave={() => handleSaveEdit(discount.optionalFeatureId)}
-              onCancel={() => setEditingFeatureId(null)}
+    <>
+      <DiscountSubsection
+        title="선택옵션"
+        canManage={canManage}
+        isAddFormOpen={isAddFormOpen}
+        onOpenAddForm={openAddForm}
+        addForm={
+          <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+            <Field label="선택옵션">
+              <select
+                value={selectedFeatureId}
+                onChange={(e) => setSelectedFeatureId(e.target.value ? Number(e.target.value) : '')}
+                disabled={isSaving}
+                className={inputClass}
+              >
+                <option value="">선택</option>
+                {features.map((feature) => (
+                  <option key={feature.id} value={feature.id}>
+                    {feature.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
+            <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
+          </form>
+        }
+        isEmpty={discounts.length === 0}
+        emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
+      >
+        {discounts.map((discount) =>
+          editingFeatureId === discount.optionalFeatureId ? (
+            <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
+              <span className="text-sm font-medium text-gray-950 min-w-[100px]">{discount.optionalFeatureName}</span>
+              <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
+              <FormActions
+                isSaving={isSaving}
+                onSave={() => handleSaveEdit(discount.optionalFeatureId)}
+                onCancel={() => setEditingFeatureId(null)}
+              />
+            </li>
+          ) : (
+            <DiscountRow
+              key={discount.id}
+              label={discount.optionalFeatureName}
+              discountType={discount.discountType}
+              discountValue={discount.discountValue}
+              canManage={canManage}
+              isRemoving={removingId === discount.optionalFeatureId}
+              onEdit={() => {
+                setEditingFeatureId(discount.optionalFeatureId);
+                setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
+              }}
+              onRemove={() => handleRemove(discount.optionalFeatureId)}
+              onHistory={() => openHistory(discount.optionalFeatureId)}
             />
-          </li>
-        ) : (
-          <DiscountRow
-            key={discount.id}
-            label={discount.optionalFeatureName}
-            discountType={discount.discountType}
-            discountValue={discount.discountValue}
-            canManage={canManage}
-            isRemoving={removingId === discount.optionalFeatureId}
-            onEdit={() => {
-              setEditingFeatureId(discount.optionalFeatureId);
-              setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
-            }}
-            onRemove={() => handleRemove(discount.optionalFeatureId)}
-          />
-        ),
-      )}
-    </DiscountSubsection>
+          ),
+        )}
+      </DiscountSubsection>
+
+      <DiscountHistoryModal
+        open={historyFeatureId !== null}
+        onClose={() => setHistoryFeatureId(null)}
+        title="선택옵션 할인 오버라이드 이력"
+        isLoading={isHistoryLoading}
+        entries={historyEntries}
+      />
+    </>
   );
 };
 
@@ -412,6 +474,10 @@ const CapacityAddOnDiscountSection: FC<
 
   const addOnLabel = (addOn: CapacityAddOnSummary) => `${CAPACITY_TYPE_LABEL[addOn.capacityType]} +${addOn.unitAmount}`;
 
+  const [historyAddOnId, setHistoryAddOnId] = useState<number | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<OrganizationCapacityAddOnDiscountHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
   const openAddForm = async () => {
     setIsAddFormOpen(true);
     try {
@@ -419,6 +485,21 @@ const CapacityAddOnDiscountSection: FC<
       setAddOns(response.data as CapacityAddOnSummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '용량 추가구매 상품 목록을 불러오지 못했습니다.', 'error');
+    }
+  };
+
+  const openHistory = async (addOnId: number) => {
+    setHistoryAddOnId(addOnId);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(
+        `/platform-admin/organizations/${organizationId}/billing-discounts/capacity-addons/${addOnId}/history`,
+      );
+      setHistoryEntries(response.data as OrganizationCapacityAddOnDiscountHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -467,65 +548,76 @@ const CapacityAddOnDiscountSection: FC<
   };
 
   return (
-    <DiscountSubsection
-      title="용량 추가구매"
-      canManage={canManage}
-      isAddFormOpen={isAddFormOpen}
-      onOpenAddForm={openAddForm}
-      addForm={
-        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
-          <Field label="상품">
-            <select
-              value={selectedAddOnId}
-              onChange={(e) => setSelectedAddOnId(e.target.value ? Number(e.target.value) : '')}
-              disabled={isSaving}
-              className={inputClass}
-            >
-              <option value="">선택</option>
-              {addOns.map((addOn) => (
-                <option key={addOn.id} value={addOn.id}>
-                  {addOnLabel(addOn)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
-          <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
-        </form>
-      }
-      isEmpty={discounts.length === 0}
-      emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
-    >
-      {discounts.map((discount) =>
-        editingAddOnId === discount.capacityAddOnId ? (
-          <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
-            <span className="text-sm font-medium text-gray-950 min-w-[100px]">
-              {CAPACITY_TYPE_LABEL[discount.capacityType]} +{discount.unitAmount}
-            </span>
-            <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
-            <FormActions
-              isSaving={isSaving}
-              onSave={() => handleSaveEdit(discount.capacityAddOnId)}
-              onCancel={() => setEditingAddOnId(null)}
+    <>
+      <DiscountSubsection
+        title="용량 추가구매"
+        canManage={canManage}
+        isAddFormOpen={isAddFormOpen}
+        onOpenAddForm={openAddForm}
+        addForm={
+          <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+            <Field label="상품">
+              <select
+                value={selectedAddOnId}
+                onChange={(e) => setSelectedAddOnId(e.target.value ? Number(e.target.value) : '')}
+                disabled={isSaving}
+                className={inputClass}
+              >
+                <option value="">선택</option>
+                {addOns.map((addOn) => (
+                  <option key={addOn.id} value={addOn.id}>
+                    {addOnLabel(addOn)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <DiscountFields draft={addDraft} onChange={setAddDraft} disabled={isSaving} />
+            <FormActions isSaving={isSaving} onCancel={() => setIsAddFormOpen(false)} />
+          </form>
+        }
+        isEmpty={discounts.length === 0}
+        emptyMessage="설정된 오버라이드가 없습니다. 카탈로그 할인값을 그대로 씁니다."
+      >
+        {discounts.map((discount) =>
+          editingAddOnId === discount.capacityAddOnId ? (
+            <li key={discount.id} className="py-2 flex flex-wrap items-end gap-2">
+              <span className="text-sm font-medium text-gray-950 min-w-[100px]">
+                {CAPACITY_TYPE_LABEL[discount.capacityType]} +{discount.unitAmount}
+              </span>
+              <DiscountFields draft={editDraft} onChange={setEditDraft} disabled={isSaving} />
+              <FormActions
+                isSaving={isSaving}
+                onSave={() => handleSaveEdit(discount.capacityAddOnId)}
+                onCancel={() => setEditingAddOnId(null)}
+              />
+            </li>
+          ) : (
+            <DiscountRow
+              key={discount.id}
+              label={`${CAPACITY_TYPE_LABEL[discount.capacityType]} +${discount.unitAmount}`}
+              discountType={discount.discountType}
+              discountValue={discount.discountValue}
+              canManage={canManage}
+              isRemoving={removingId === discount.capacityAddOnId}
+              onEdit={() => {
+                setEditingAddOnId(discount.capacityAddOnId);
+                setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
+              }}
+              onRemove={() => handleRemove(discount.capacityAddOnId)}
+              onHistory={() => openHistory(discount.capacityAddOnId)}
             />
-          </li>
-        ) : (
-          <DiscountRow
-            key={discount.id}
-            label={`${CAPACITY_TYPE_LABEL[discount.capacityType]} +${discount.unitAmount}`}
-            discountType={discount.discountType}
-            discountValue={discount.discountValue}
-            canManage={canManage}
-            isRemoving={removingId === discount.capacityAddOnId}
-            onEdit={() => {
-              setEditingAddOnId(discount.capacityAddOnId);
-              setEditDraft({ discountType: discount.discountType, discountValue: discount.discountValue });
-            }}
-            onRemove={() => handleRemove(discount.capacityAddOnId)}
-          />
-        ),
-      )}
-    </DiscountSubsection>
+          ),
+        )}
+      </DiscountSubsection>
+
+      <DiscountHistoryModal
+        open={historyAddOnId !== null}
+        onClose={() => setHistoryAddOnId(null)}
+        title="용량 추가구매 할인 오버라이드 이력"
+        isLoading={isHistoryLoading}
+        entries={historyEntries}
+      />
+    </>
   );
 };
 
@@ -574,28 +666,89 @@ const DiscountRow: FC<{
   isRemoving: boolean;
   onEdit: () => void;
   onRemove: () => void;
-}> = ({ label, discountType, discountValue, canManage, isRemoving, onEdit, onRemove }) => (
+  onHistory: () => void;
+}> = ({ label, discountType, discountValue, canManage, isRemoving, onEdit, onRemove, onHistory }) => (
   <li className="py-2 flex items-center justify-between gap-2">
     <div>
       <span className="text-sm font-medium text-gray-950">{label}</span>
       <span className="ml-2 text-xs text-gray-500">할인 {formatDiscount(discountType, discountValue)}</span>
     </div>
-    {canManage && (
-      <div className="flex items-center gap-1 shrink-0">
-        <button onClick={onEdit} className="px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[11px] font-medium hover:border-gray-400">
-          수정
-        </button>
-        <button
-          onClick={onRemove}
-          disabled={isRemoving}
-          className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-red-600 text-[11px] font-medium hover:border-red-300 disabled:opacity-50"
-        >
-          {isRemoving ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
-          제거
-        </button>
-      </div>
-    )}
+    <div className="flex items-center gap-1 shrink-0">
+      <button
+        onClick={onHistory}
+        className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-gray-500 text-[11px] font-medium hover:border-gray-400 hover:text-gray-950"
+      >
+        <History size={11} />
+        이력
+      </button>
+      {canManage && (
+        <>
+          <button onClick={onEdit} className="px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[11px] font-medium hover:border-gray-400">
+            수정
+          </button>
+          <button
+            onClick={onRemove}
+            disabled={isRemoving}
+            className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-red-600 text-[11px] font-medium hover:border-red-300 disabled:opacity-50"
+          >
+            {isRemoving ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+            제거
+          </button>
+        </>
+      )}
+    </div>
   </li>
+);
+
+/** 세 섹션이 공유하는 이력 팝업 — discountType/discountValue/removed/createdBy/createdAt만 있으면 어떤 항목의 이력이든 그린다. */
+interface DiscountHistoryEntry {
+  id: number;
+  discountType: DiscountType;
+  discountValue: number;
+  removed: boolean;
+  createdBy: number;
+  createdAt: string;
+}
+
+const DiscountHistoryModal: FC<{
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  isLoading: boolean;
+  entries: DiscountHistoryEntry[];
+}> = ({ open, onClose, title, isLoading, entries }) => (
+  <Modal open={open} onClose={onClose} title={title} widthClassName="max-w-lg">
+    {isLoading ? (
+      <div className="flex items-center justify-center py-8 text-gray-400">
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    ) : entries.length === 0 ? (
+      <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+    ) : (
+      <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+        {entries.map((entry) => (
+          <li key={entry.id} className="py-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-950 font-medium">
+                {entry.removed ? '오버라이드 제거' : `할인 ${formatDiscount(entry.discountType, entry.discountValue)}로 설정`}
+              </p>
+              {entry.removed && (
+                <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border bg-red-50 text-red-600 border-red-200">
+                  제거됨
+                </span>
+              )}
+            </div>
+            {entry.removed && (
+              <p className="text-xs text-gray-500 mt-0.5">제거 직전 값: {formatDiscount(entry.discountType, entry.discountValue)}</p>
+            )}
+            <p className="text-xs text-gray-400 mt-0.5">
+              관리자 #{entry.createdBy} · {new Date(entry.createdAt).toLocaleString('ko-KR')}
+            </p>
+          </li>
+        ))}
+      </ul>
+    )}
+  </Modal>
 );
 
 const DiscountFields: FC<{ draft: DiscountDraft; onChange: (draft: DiscountDraft) => void; disabled: boolean }> = ({
