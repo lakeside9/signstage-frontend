@@ -188,11 +188,11 @@ export const AdminAuditLogList: FC = () => {
                 <td className="px-4 py-3 text-gray-700">{ACTION_LABELS[entry.action]}</td>
                 <td className="px-4 py-3 text-gray-700">
                   {entry.targetUserId ? (
-                    <Link to={`/users/${entry.targetUserId}`} className="text-gray-950 hover:underline">
+                    <Link to={`/admin/users/${entry.targetUserId}`} className="text-gray-950 hover:underline">
                       회원: {entry.targetLoginId ?? `#${entry.targetUserId}`}
                     </Link>
                   ) : entry.organizationId ? (
-                    <Link to={`/organizations/${entry.organizationId}`} className="text-gray-950 hover:underline">
+                    <Link to={`/admin/organizations/${entry.organizationId}`} className="text-gray-950 hover:underline">
                       조직: {entry.organizationName ?? `#${entry.organizationId}`}
                     </Link>
                   ) : (

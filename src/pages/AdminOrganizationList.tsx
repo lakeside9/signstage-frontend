@@ -117,7 +117,7 @@ export const AdminOrganizationList: FC = () => {
         </div>
         {canManage && (
           <Link
-            to="/organizations/new"
+            to="/admin/organizations/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             <Plus size={16} />
@@ -196,7 +196,7 @@ export const AdminOrganizationList: FC = () => {
               <tr key={organization.id}>
                 <td className="px-4 py-3 font-medium">
                   <Link
-                    to={`/organizations/${organization.id}`}
+                    to={`/admin/organizations/${organization.id}`}
                     className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
                   >
                     <Building2 size={14} className="text-gray-400" />

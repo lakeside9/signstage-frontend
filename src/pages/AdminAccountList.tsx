@@ -164,7 +164,7 @@ export const AdminAccountList: FC = () => {
         </div>
         {canManageAccounts && (
           <Link
-            to="/accounts/new"
+            to="/admin/accounts/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             <UserPlus size={16} />

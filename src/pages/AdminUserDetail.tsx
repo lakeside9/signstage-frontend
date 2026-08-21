@@ -97,7 +97,7 @@ export const AdminUserDetail: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '회원 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate('/users', { replace: true });
+          navigate('/admin/users', { replace: true });
         }
       } finally {
         if (!cancelled) {
@@ -223,7 +223,7 @@ export const AdminUserDetail: FC = () => {
 
   return (
     <div>
-      <Link to="/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link to="/admin/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         회원 목록으로
       </Link>
@@ -285,7 +285,7 @@ export const AdminUserDetail: FC = () => {
                 <tr key={membership.organizationId}>
                   <td className="py-2">
                     <Link
-                      to={`/organizations/${membership.organizationId}`}
+                      to={`/admin/organizations/${membership.organizationId}`}
                       className="text-gray-950 hover:underline"
                     >
                       {membership.organizationName}

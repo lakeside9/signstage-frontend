@@ -47,7 +47,7 @@ function App() {
         <Route path="/verify" element={<DocumentVerificationView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
         <Route
-          path="/org/ceremonies/:organizationId/:ceremonyId/events/:eventId/signer-portal-qrs"
+          path="/ceremonies/:organizationId/:ceremonyId/events/:eventId/signer-portal-qrs"
           element={
             <ProtectedRoute>
               <UserSignerPortalQrWindow />
@@ -56,7 +56,7 @@ function App() {
         />
 
         <Route
-          path="/org"
+          path="/"
           element={
             <ProtectedRoute>
               <UserLayout />
@@ -89,7 +89,7 @@ function App() {
         </Route>
 
         <Route
-          path="/"
+          path="/admin"
           element={
             <ProtectedRoute requireAdmin>
               <AdminLayout />

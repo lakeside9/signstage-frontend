@@ -7,13 +7,13 @@ import { api } from '../utils/api';
 import type { OrganizationSummary } from '../types';
 
 /**
- * 사이드바 "행사 관리" 메뉴(`/org/ceremonies`)의 진입점. 행사 관리는 조직 스코프라
+ * 사이드바 "행사 관리" 메뉴(`/ceremonies`)의 진입점. 행사 관리는 조직 스코프라
  * `organizationId`가 URL에 필요한데, 1인 1조직 제한상 `GET /api/organizations`가 사실상 항상
- * 1건만 돌려주므로 그 값을 받아 바로 `/org/ceremonies/:id`로 보낸다 — "조직 관리 → 상세 →
+ * 1건만 돌려주므로 그 값을 받아 바로 `/ceremonies/:id`로 보낸다 — "조직 관리 → 상세 →
  * 행사 관리" 2-hop을 거치지 않게 하기 위한 얇은 리다이렉트 화면이다.
  *
- * `/org/organizations/:id`(조직 상세) 아래가 아니라 `/org/ceremonies/:id`라는 별도 최상위
- * 경로를 쓰는 이유: 사이드바 "조직 관리" 메뉴가 `/org/organizations` 접두어로 활성 표시를
+ * `/organizations/:id`(조직 상세) 아래가 아니라 `/ceremonies/:id`라는 별도 최상위
+ * 경로를 쓰는 이유: 사이드바 "조직 관리" 메뉴가 `/organizations` 접두어로 활성 표시를
  * 매칭하므로, 행사 화면을 그 아래 중첩시키면 행사 화면을 보는 동안 사이드바가 "조직 관리"를
  * 잘못 강조하게 된다.
  */
@@ -63,5 +63,5 @@ export const UserCeremonyEntry: FC = () => {
     );
   }
 
-  return <Navigate to={`/org/ceremonies/${organizationId}`} replace />;
+  return <Navigate to={`/ceremonies/${organizationId}`} replace />;
 };

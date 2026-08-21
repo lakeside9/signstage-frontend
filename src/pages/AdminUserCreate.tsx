@@ -68,7 +68,7 @@ export const AdminUserCreate: FC = () => {
 
   return (
     <div>
-      <Link to="/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link to="/admin/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         회원 목록으로
       </Link>
@@ -108,7 +108,7 @@ export const AdminUserCreate: FC = () => {
 
           <div className="flex gap-2">
             <Link
-              to={`/users/${created.user.id}`}
+              to={`/admin/users/${created.user.id}`}
               className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               상세로 이동

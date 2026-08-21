@@ -20,9 +20,9 @@ const STATUS_LABEL: Record<OrganizationCreationRequestStatus, string> = {
 };
 
 /**
- * 일반 사용자의 "조직 요청" 화면(`/org/organization-requests`, 사이드바 메뉴) — 조직 생성 요청
+ * 일반 사용자의 "조직 요청" 화면(`/organization-requests`, 사이드바 메뉴) — 조직 생성 요청
  * 제출과 요청 이력을 한 화면에서 다룬다. "조직 관리"(`UserOrganizationList`,
- * `/org/organizations`)가 "내가 속한 조직"을 보여주는 것과 역할이 분리돼 있다 — URL도
+ * `/organizations`)가 "내가 속한 조직"을 보여주는 것과 역할이 분리돼 있다 — URL도
  * `/organizations` 하위가 아닌 별개 경로로 둬서 사이드바 활성 표시가 서로 겹치지 않는다.
  *
  * PENDING 요청이 있으면 새로 제출할 수 없으므로(동시 PENDING 1건 제한, 3.4절) 그 동안은 제출

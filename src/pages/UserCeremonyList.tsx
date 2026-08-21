@@ -37,7 +37,7 @@ interface SearchParams {
 const EMPTY_SEARCH: SearchParams = { title: '', status: 'ALL' };
 
 /**
- * 행사(Ceremony) 목록(`/org/ceremonies/:organizationId`). signstage-docs
+ * 행사(Ceremony) 목록(`/ceremonies/:organizationId`). signstage-docs
  * frontend/list-screen-convention.md의 "검색 영역 → 목록 → 페이지네비게이션" 3단 구조를
  * 따른다(`AdminOrganizationList.tsx`와 같은 패턴) — 검색은 행사명(부분 일치)/행사 상태(정확
  * 일치)로 한다.
@@ -126,7 +126,7 @@ export const UserCeremonyList: FC = () => {
           <p className="mt-1 text-sm text-gray-500">행사 마스터(Ceremony) 목록입니다. 하나의 행사 아래 여러 하위 행사(TEST/MAIN)를 둘 수 있습니다.</p>
         </div>
         <Link
-          to={`/org/ceremonies/${organizationId}/new`}
+          to={`/ceremonies/${organizationId}/new`}
           className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
         >
           <Plus size={16} />
@@ -192,7 +192,7 @@ export const UserCeremonyList: FC = () => {
               <tr key={ceremony.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-medium">
                   <Link
-                    to={`/org/ceremonies/${organizationId}/${ceremony.id}`}
+                    to={`/ceremonies/${organizationId}/${ceremony.id}`}
                     className="flex items-center gap-1.5 text-gray-950 hover:underline"
                   >
                     <FileSignature size={14} className="text-gray-400 shrink-0" />

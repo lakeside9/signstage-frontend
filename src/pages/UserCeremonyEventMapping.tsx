@@ -149,7 +149,7 @@ export const UserCeremonyEventMapping: FC = () => {
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
   const [modalSelectedId, setModalSelectedId] = useState<number | null>(null);
 
-  const basePath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const basePath = `/ceremonies/${organizationId}/${ceremonyId}`;
   const apiBasePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
 
   const fetchMappedTemplates = async () => {

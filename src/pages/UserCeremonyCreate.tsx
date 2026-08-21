@@ -85,7 +85,7 @@ export const UserCeremonyCreate: FC = () => {
   return (
     <div>
       <Link
-        to={`/org/ceremonies/${organizationId}`}
+        to={`/ceremonies/${organizationId}`}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
@@ -116,7 +116,7 @@ export const UserCeremonyCreate: FC = () => {
 
           <div className="flex gap-2">
             <Link
-              to={`/org/ceremonies/${organizationId}/${created.id}/edit`}
+              to={`/ceremonies/${organizationId}/${created.id}/edit`}
               className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               플랜 확정하러 가기

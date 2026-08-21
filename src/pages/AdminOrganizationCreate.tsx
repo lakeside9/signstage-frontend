@@ -50,7 +50,7 @@ export const AdminOrganizationCreate: FC = () => {
   return (
     <div>
       <Link
-        to="/organizations"
+        to="/admin/organizations"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
@@ -77,7 +77,7 @@ export const AdminOrganizationCreate: FC = () => {
 
           <div className="flex gap-2">
             <Link
-              to={`/organizations/${created.id}`}
+              to={`/admin/organizations/${created.id}`}
               className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               상세로 이동

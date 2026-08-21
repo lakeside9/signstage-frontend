@@ -19,15 +19,15 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 
 const NAV_ITEMS = [
-  { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
-  { to: '/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
-  { to: '/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
-  { to: '/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
-  { to: '/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
-  { to: '/purchase-requests', end: false, icon: <ShoppingCart size={20} />, label: '추가구매 요청' },
-  { to: '/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
-  { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
+  { to: '/admin', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
+  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
+  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
+  { to: '/admin/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
+  { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
+  { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
+  { to: '/admin/purchase-requests', end: false, icon: <ShoppingCart size={20} />, label: '추가구매 요청' },
+  { to: '/admin/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
+  { to: '/admin/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 
 export const AdminLayout: FC = () => {
@@ -44,7 +44,7 @@ export const AdminLayout: FC = () => {
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/admin" className="flex items-center gap-2">
           <div className="bg-gray-950 p-1.5 rounded-lg text-white">
             <Key size={20} />
           </div>

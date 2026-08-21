@@ -151,7 +151,7 @@ export const AdminUserList: FC = () => {
         </div>
         {canManage && (
           <Link
-            to="/users/new"
+            to="/admin/users/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             <UserPlus size={16} />
@@ -238,7 +238,7 @@ export const AdminUserList: FC = () => {
               return (
                 <tr key={user.id}>
                   <td className="px-4 py-3 font-medium">
-                    <Link to={`/users/${user.id}`} className="text-gray-950 hover:underline">
+                    <Link to={`/admin/users/${user.id}`} className="text-gray-950 hover:underline">
                       {user.loginId}
                     </Link>
                     {isSelf && <span className="ml-1.5 text-xs text-gray-400 font-normal">(나)</span>}

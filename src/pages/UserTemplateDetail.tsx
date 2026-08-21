@@ -84,7 +84,7 @@ export const UserTemplateDetail: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
-  const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
   const backPath = detailPath;
 
   const [template, setTemplate] = useState<TemplateSummary | null>(null);
