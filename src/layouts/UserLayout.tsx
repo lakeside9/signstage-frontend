@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  ArrowLeftRight,
   Building2,
   ChevronLeft,
   ClipboardCheck,
@@ -25,7 +26,9 @@ const NAV_ITEMS = [
 ];
 
 /**
- * 일반 사용자(조직 소속 여부와 무관, `platformAdmin`이 없는 로그인)용 레이아웃 셸.
+ * 조직 사용자 화면군의 레이아웃 셸(루트 경로). `platformAdmin`이 없는 일반 로그인은 항상 이
+ * 레이아웃만 쓰고, `platformAdmin`이 있는 겸직 계정도 관리자 콘솔(`/admin`)에서 여기로 넘어와
+ * 조직 업무를 볼 수 있다(헤더의 "관리자 콘솔로" 전환 버튼, 7.5절 겸직 처리).
  * `AdminLayout`과 같은 header + left sidebar + content 구조를 그대로 따른다 — 두 화면군이
  * 로그인 상태를 공유하지만 진입 지점/메뉴가 다른 별개 셸이라는 점은 그대로다
  * (signstage-docs frontend/screen-composition-plan.md 2장).
@@ -38,6 +41,7 @@ export const UserLayout: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const navigate = useNavigate();
+  const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
@@ -79,6 +83,16 @@ export const UserLayout: FC = () => {
             <User size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{displayName ?? '사용자'}</span>
           </div>
+          {platformAdmin && (
+            <Link
+              to="/admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-950 transition-colors text-sm font-medium"
+              title="플랫폼 관리자 콘솔로 전환합니다"
+            >
+              <ArrowLeftRight size={14} />
+              <span className="hidden sm:block">관리자 콘솔로</span>
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
