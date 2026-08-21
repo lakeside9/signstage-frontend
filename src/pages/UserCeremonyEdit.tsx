@@ -35,6 +35,7 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   TEMPLATES: '템플릿 업로드 수',
   TEST_EVENTS: '테스트 행사 수',
   MAIN_EVENTS: '본행사 수',
+  TABLETS: '태블릿 수',
 };
 
 /** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
@@ -871,8 +872,10 @@ export const UserCeremonyEdit: FC = () => {
                   .filter((addOn) => addOn.active)
                   .map((addOn) => (
                     <option key={addOn.id} value={addOn.id}>
-                      {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount} —{' '}
-                      {formatPrice(addOn.salePrice)}
+                      {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount}
+                      {addOn.secondaryCapacityType &&
+                        ` · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`}{' '}
+                      — {formatPrice(addOn.salePrice)}
                     </option>
                   ))}
               </select>
@@ -911,7 +914,14 @@ export const UserCeremonyEdit: FC = () => {
                   <div>
                     <p className="text-sm text-gray-950">
                       {addOn ? CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType : `#${purchase.capacityAddOnId}`} +
-                      {(addOn?.unitAmount ?? 1) * purchase.quantity}
+                      {purchase.purchasedUnitAmount * purchase.quantity}
+                      {addOn?.secondaryCapacityType && purchase.purchasedSecondaryUnitAmount != null && (
+                        <>
+                          {' · '}
+                          {CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +
+                          {purchase.purchasedSecondaryUnitAmount * purchase.quantity}
+                        </>
+                      )}
                     </p>
                     <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
                     {purchase.status === 'REJECTED' && purchase.rejectionReason && (
