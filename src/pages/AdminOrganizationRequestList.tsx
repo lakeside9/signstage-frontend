@@ -239,7 +239,7 @@ export const AdminOrganizationRequestList: FC = () => {
                   <td className="px-4 py-3 text-gray-950 font-medium">
                     {request.requesterLoginId}
                     <Link
-                      to={`/users/${request.requesterId}`}
+                      to={`/admin/users/${request.requesterId}`}
                       className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
                     >
                       상세
@@ -248,7 +248,7 @@ export const AdminOrganizationRequestList: FC = () => {
                   <td className="px-4 py-3">
                     {request.organizationId ? (
                       <Link
-                        to={`/organizations/${request.organizationId}`}
+                        to={`/admin/organizations/${request.organizationId}`}
                         className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
                       >
                         <Building2 size={14} className="text-gray-400" />

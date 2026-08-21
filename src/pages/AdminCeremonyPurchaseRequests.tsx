@@ -253,7 +253,7 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
                   <td className="px-4 py-3 text-gray-950 font-medium">
                     {request.requesterLoginId}
                     <Link
-                      to={`/users/${request.requesterId}`}
+                      to={`/admin/users/${request.requesterId}`}
                       className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
                     >
                       상세
@@ -261,7 +261,7 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      to={`/organizations/${request.organizationId}`}
+                      to={`/admin/organizations/${request.organizationId}`}
                       className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
                     >
                       <Building2 size={14} className="text-gray-400" />
@@ -526,7 +526,7 @@ const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, sh
                   <td className="px-4 py-3 text-gray-950 font-medium">
                     {request.requesterLoginId}
                     <Link
-                      to={`/users/${request.requesterId}`}
+                      to={`/admin/users/${request.requesterId}`}
                       className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
                     >
                       상세
@@ -534,7 +534,7 @@ const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, sh
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      to={`/organizations/${request.organizationId}`}
+                      to={`/admin/organizations/${request.organizationId}`}
                       className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
                     >
                       <Building2 size={14} className="text-gray-400" />

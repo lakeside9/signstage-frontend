@@ -73,7 +73,7 @@ export const AdminAccountCreate: FC = () => {
 
   return (
     <div>
-      <Link to="/accounts" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link to="/admin/accounts" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} />
         관리자 계정 목록으로
       </Link>
@@ -112,7 +112,7 @@ export const AdminAccountCreate: FC = () => {
 
           <div className="flex gap-2">
             <Link
-              to="/accounts"
+              to="/admin/accounts"
               className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               목록으로 이동

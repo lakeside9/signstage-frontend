@@ -33,7 +33,7 @@ export const UserCeremonyEventCreate: FC = () => {
   const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<number[]>([]);
 
-  const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
 
   useEffect(() => {
     let cancelled = false;

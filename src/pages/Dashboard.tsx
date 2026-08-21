@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 /**
  * 아직 채워지지 않은 대시보드. 로그인 이후 진입 지점만 확보한다.
- * 조직 목록/검색은 "조직 관리"(`AdminOrganizationList`, `/organizations`)로 옮겼다.
+ * 조직 목록/검색은 "조직 관리"(`AdminOrganizationList`, `/admin/organizations`)로 옮겼다.
  */
 export const Dashboard: FC = () => {
   const platformAdmin = useAuthStore((state) => state.platformAdmin);

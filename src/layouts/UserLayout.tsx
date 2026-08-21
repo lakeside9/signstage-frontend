@@ -17,11 +17,11 @@ import { api } from '../utils/api';
 import type { UserProfile } from '../types';
 
 const NAV_ITEMS = [
-  { to: '/org', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/org/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
-  { to: '/org/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
-  { to: '/org/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
-  { to: '/org/profile', end: false, icon: <User size={20} />, label: '내 정보' },
+  { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
+  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
+  { to: '/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
+  { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
+  { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 
 /**
@@ -67,7 +67,7 @@ export const UserLayout: FC = () => {
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
-        <Link to="/org" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="bg-gray-950 p-1.5 rounded-lg text-white">
             <Key size={20} />
           </div>

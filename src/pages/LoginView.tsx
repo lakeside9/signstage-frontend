@@ -14,10 +14,10 @@ import type { PlatformAdminInfo } from '../types';
  * - passwordChangeRequired=true: 최초 로그인이라 비밀번호 변경이 강제된다(5.3절).
  *   이 화면에서 바로 2단계(비밀번호 변경) 폼으로 전환한다.
  * - passwordChangeRequired=false: accessToken이 발급된다. 로그인 완료.
- *   platformAdmin이 있으면 플랫폼 관리자 콘솔(/)로, 없으면 일반 사용자다.
+ *   platformAdmin이 있으면 플랫폼 관리자 콘솔(/admin)로, 없으면 일반 사용자다.
  *
  * 일반 사용자는 아직 organizationId를 담은 조직 선택 흐름(5.2절)이 없어, 조직이 있든 없든
- * 항상 대시보드(/org)로 보낸다 — 조직 생성 화면으로 곧장 보내던 것을 분리했다(조직이 이미
+ * 항상 대시보드(/)로 보낸다 — 조직 생성 화면으로 곧장 보내던 것을 분리했다(조직이 이미
  * 있는 사용자도 매번 생성 화면부터 거쳐야 하는 문제가 있었다). 승인 대기(PENDING)
  * 계정으로 로그인을 시도하면 IDENTITY_ACCOUNT_PENDING_APPROVAL 오류가 오는데, 백엔드 메시지를
  * 그대로 스낵바에 띄운다.
@@ -73,7 +73,7 @@ export const LoginView: FC = () => {
       if (data.accessToken) {
         login(data.accessToken, data.platformAdmin);
         showSnackbar('로그인되었습니다.', 'success');
-        navigate(data.platformAdmin ? '/' : '/org', { replace: true });
+        navigate(data.platformAdmin ? '/admin' : '/', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '서버와의 통신 중 오류가 발생했습니다.';

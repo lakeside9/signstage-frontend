@@ -14,14 +14,14 @@ const STATUS_LABEL: Record<string, string> = {
 
 /**
  * 일반 사용자의 "조직 관리" 화면. `GET /api/organizations`로 내가 속한 조직 목록을 보여준다.
- * 조직 행을 누르면 상세/설정(`UserOrganizationDetail`, `/org/organizations/:id`)으로 이동해
+ * 조직 행을 누르면 상세/설정(`UserOrganizationDetail`, `/organizations/:id`)으로 이동해
  * 조직 정보를 확인/수정(OWNER만)할 수 있다. 페이지네이션이 없다 — 백엔드도 `List<>`를 그대로
  * 반환한다(한 사람이 속한 조직 수가 적을 걸 전제로 한 설계,
  * backend/organization-feature-implementation.md 참고). 그래서
  * frontend/list-screen-convention.md의 검색/페이지네비게이션 구조는 적용하지 않았다.
  *
  * 조직 생성 요청 제출/이력은 이 화면이 아니라 사이드바의 별도 메뉴 "조직 요청"
- * (`UserOrganizationRequests`, `/org/organization-requests`)에서 다룬다 — "내가 속한 조직"과
+ * (`UserOrganizationRequests`, `/organization-requests`)에서 다룬다 — "내가 속한 조직"과
  * "요청 진행 상태"는 서로 다른 관심사라서 분리했다.
  */
 export const UserOrganizationList: FC = () => {
@@ -79,7 +79,7 @@ export const UserOrganizationList: FC = () => {
             {organizations.map((organization) => (
               <li key={organization.id}>
                 <Link
-                  to={`/org/organizations/${organization.id}`}
+                  to={`/organizations/${organization.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <Building2 size={16} className="text-gray-400 shrink-0" />

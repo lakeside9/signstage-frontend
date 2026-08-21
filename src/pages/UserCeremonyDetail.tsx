@@ -96,7 +96,7 @@ const UNLIMITED_CAPACITY = 2147483647;
 const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPACITY ? '무제한' : `${limit}${unit}`);
 
 /**
- * 행사(Ceremony) 상세(`/org/ceremonies/:organizationId/:ceremonyId`). legacy 화면 구성을
+ * 행사(Ceremony) 상세(`/ceremonies/:organizationId/:ceremonyId`). legacy 화면 구성을
  * 따라 서명자 관리 목록, 문서 양식 관리 목록, 하위 행사(이벤트) 목록을 이 화면 하나에 모두
  * 담는다(예전엔 `UserSignerList`/`UserTemplateList`로 화면이 따로 있었으나 여기로 흡수됐다 —
  * 문서 위 서명란 배치만 항목이 많고 복잡해 `UserTemplateDetail`로 계속 분리돼 있다). 조회
@@ -175,7 +175,7 @@ export const UserCeremonyDetail: FC = () => {
   const [capacityStatus, setCapacityStatus] = useState<CapacityStatus | null>(null);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
-  const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -200,7 +200,7 @@ export const UserCeremonyDetail: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '행사 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate(`/org/ceremonies/${organizationId}`, { replace: true });
+          navigate(`/ceremonies/${organizationId}`, { replace: true });
         }
       } finally {
         if (!cancelled) {
@@ -703,7 +703,7 @@ export const UserCeremonyDetail: FC = () => {
   return (
     <div>
       <Link
-        to={`/org/ceremonies/${organizationId}`}
+        to={`/ceremonies/${organizationId}`}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />

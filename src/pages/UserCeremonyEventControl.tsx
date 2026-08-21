@@ -107,7 +107,7 @@ export const UserCeremonyEventControl: FC = () => {
   const [results, setResults] = useState<CeremonyResultSummary[]>([]);
   const [isGeneratingResults, setIsGeneratingResults] = useState(false);
 
-  const basePath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const basePath = `/ceremonies/${organizationId}/${ceremonyId}`;
   const apiBasePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}`;
 
   const fetchEvent = async () => {

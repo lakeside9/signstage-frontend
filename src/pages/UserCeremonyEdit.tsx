@@ -76,7 +76,7 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
 );
 
 /**
- * 행사(Ceremony) 수정(`/org/ceremonies/:organizationId/:ceremonyId/edit`). 용량/선택옵션
+ * 행사(Ceremony) 수정(`/ceremonies/:organizationId/:ceremonyId/edit`). 용량/선택옵션
  * 추가구매를 행사 상세(`UserCeremonyDetail`)에서 분리해 여기로 옮겼다 — 상세 화면은 조회
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
  * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
@@ -137,7 +137,7 @@ export const UserCeremonyEdit: FC = () => {
   const [isFeatureHistoryModalOpen, setIsFeatureHistoryModalOpen] = useState(false);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
-  const detailPath = `/org/ceremonies/${organizationId}/${ceremonyId}`;
+  const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
 
   useEffect(() => {
     let cancelled = false;

@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 const ALL_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'];
 
 /**
- * 내가 속한 조직 하나의 상세/설정 + 멤버 관리 화면(`/org/organizations/:organizationId`).
+ * 내가 속한 조직 하나의 상세/설정 + 멤버 관리 화면(`/organizations/:organizationId`).
  * "조직 관리"(`UserOrganizationList`) 목록의 조직 행에서 진입한다.
  *
  * - 조직 정보: OWNER만 이름/기본 언어를 수정할 수 있다(`PUT /api/organizations/{id}`) —
@@ -71,7 +71,7 @@ export const UserOrganizationDetail: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '조직 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate('/org/organizations', { replace: true });
+          navigate('/organizations', { replace: true });
         }
       } finally {
         if (!cancelled) {
@@ -222,7 +222,7 @@ export const UserOrganizationDetail: FC = () => {
   return (
     <div className="max-w-2xl">
       <Link
-        to="/org/organizations"
+        to="/organizations"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />

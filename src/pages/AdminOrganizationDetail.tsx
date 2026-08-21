@@ -86,7 +86,7 @@ export const AdminOrganizationDetail: FC = () => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : '조직 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
-          navigate('/organizations', { replace: true });
+          navigate('/admin/organizations', { replace: true });
         }
       } finally {
         if (!cancelled) {
@@ -265,7 +265,7 @@ export const AdminOrganizationDetail: FC = () => {
   return (
     <div>
       <Link
-        to="/organizations"
+        to="/admin/organizations"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
@@ -492,7 +492,7 @@ export const AdminOrganizationDetail: FC = () => {
                   <td className="py-2 text-gray-950">
                     {member.loginId}
                     <Link
-                      to={`/users/${member.userId}`}
+                      to={`/admin/users/${member.userId}`}
                       className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
                     >
                       상세
