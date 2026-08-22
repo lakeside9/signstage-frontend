@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, SquareCheckBig } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { EventDateTimeInput } from '../components/EventDateTimeInput';
 import type { CeremonyEventSummary, CeremonyEventType, OptionalFeatureSummary } from '../types';
 
 /**
@@ -172,23 +173,11 @@ export const UserCeremonyEventCreate: FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">예정 시작</label>
-            <input
-              type="datetime-local"
-              value={scheduledStartAt}
-              onChange={(e) => setScheduledStartAt(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-            />
+            <EventDateTimeInput value={scheduledStartAt} onChange={setScheduledStartAt} disabled={isLoading} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">예정 종료</label>
-            <input
-              type="datetime-local"
-              value={scheduledEndAt}
-              onChange={(e) => setScheduledEndAt(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-            />
+            <EventDateTimeInput value={scheduledEndAt} onChange={setScheduledEndAt} disabled={isLoading} />
           </div>
         </div>
 
