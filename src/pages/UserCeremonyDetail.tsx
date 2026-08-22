@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EventDateTimeInput } from '../components/EventDateTimeInput';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -1557,22 +1558,20 @@ export const UserCeremonyDetail: FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">예정 시작</label>
-              <input
-                type="datetime-local"
+              <EventDateTimeInput
                 value={editEventScheduledStart}
-                onChange={(e) => setEditEventScheduledStart(e.target.value)}
+                onChange={setEditEventScheduledStart}
                 disabled={processingEventId === editingEventId}
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                dense
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">예정 종료</label>
-              <input
-                type="datetime-local"
+              <EventDateTimeInput
                 value={editEventScheduledEnd}
-                onChange={(e) => setEditEventScheduledEnd(e.target.value)}
+                onChange={setEditEventScheduledEnd}
                 disabled={processingEventId === editingEventId}
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+                dense
               />
             </div>
           </div>
