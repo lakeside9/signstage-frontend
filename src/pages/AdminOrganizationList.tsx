@@ -91,14 +91,18 @@ export const AdminOrganizationList: FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setPage(0);
-    setSearchParams(formValues);
+    // 새 객체로 복사해서 넣는다 — formValues가 searchParams와 참조가 같으면(예: 아무 것도
+    // 안 건드리고 바로 "검색"을 누르거나, 검색 조건을 안 바꾸고 다시 누르는 경우) React가
+    // 같은 참조는 상태 변경으로 안 치고 넘어가 아래 useEffect가 다시 안 돌고, 방금 켠
+    // isLoading만 true로 영원히 남는다(2026-08-25 발견 — 검색 화면 공통 버그).
+    setSearchParams({ ...formValues });
   };
 
   const handleReset = () => {
     setIsLoading(true);
     setFormValues(EMPTY_SEARCH);
     setPage(0);
-    setSearchParams(EMPTY_SEARCH);
+    setSearchParams({ ...EMPTY_SEARCH });
   };
 
   const handlePageChange = (nextPage: number) => {
