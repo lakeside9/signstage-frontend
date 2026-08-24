@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import { AlertCircle, FileText, Info, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -17,6 +17,64 @@ const POLL_INTERVAL_MS = 5000;
 // 문서 이미지 로딩 실패 시 자동 재시도까지의 대기 시간(ProjectorView.tsx와 같은 이유 —
 // 레이트리밋 윈도우(60초)보다 훨씬 짧게 잡아 스스로 복구되는 게 보이게 한다).
 const PAGE_IMAGE_RETRY_DELAY_MS = 3000;
+
+// 도구모음(헤더) 숨김 여부는 이벤트+서명자 조합별로 로컬에 기억해 둔다 — legacy
+// SignerView.tsx와 같은 이유(같은 서명자가 화면을 새로고침해도 방금 고른 표시 방식이
+// 유지되게 하기 위해서). TTL을 두는 이유는 같은 브라우저를 다른 행사/서명자가 나중에
+// 다시 쓸 수도 있어 무기한 남기지 않기 위해서다.
+const TOOLBAR_SETTINGS_TTL_MS = 24 * 60 * 60 * 1000;
+const TOOLBAR_SETTINGS_STORAGE_PREFIX = 'signstage.signerPortalView.settings';
+
+interface ToolbarSettings {
+  isToolbarVisible: boolean;
+  savedAt: number;
+}
+
+const getToolbarSettingsStorageKey = (eventAccessKey?: string, signerAccessKey?: string) =>
+  `${TOOLBAR_SETTINGS_STORAGE_PREFIX}:${eventAccessKey ?? 'unknown'}:${signerAccessKey ?? 'unknown'}`;
+
+const readToolbarSettings = (eventAccessKey?: string, signerAccessKey?: string): ToolbarSettings | null => {
+  if (!eventAccessKey || !signerAccessKey) return null;
+  const storageKey = getToolbarSettingsStorageKey(eventAccessKey, signerAccessKey);
+
+  try {
+    const rawSettings = window.localStorage.getItem(storageKey);
+    if (!rawSettings) return null;
+
+    const parsed = JSON.parse(rawSettings) as Partial<ToolbarSettings>;
+    const savedAt = Number(parsed.savedAt);
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > TOOLBAR_SETTINGS_TTL_MS) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return {
+      isToolbarVisible: typeof parsed.isToolbarVisible === 'boolean' ? parsed.isToolbarVisible : false,
+      savedAt,
+    };
+  } catch (err) {
+    console.warn('Failed to read signer portal toolbar settings:', err);
+    window.localStorage.removeItem(storageKey);
+    return null;
+  }
+};
+
+const writeToolbarSettings = (
+  eventAccessKey: string | undefined,
+  signerAccessKey: string | undefined,
+  settings: Omit<ToolbarSettings, 'savedAt'>,
+) => {
+  if (!eventAccessKey || !signerAccessKey) return;
+
+  try {
+    window.localStorage.setItem(
+      getToolbarSettingsStorageKey(eventAccessKey, signerAccessKey),
+      JSON.stringify({ ...settings, savedAt: Date.now() }),
+    );
+  } catch (err) {
+    console.warn('Failed to save signer portal toolbar settings:', err);
+  }
+};
 
 const upsertStroke = (list: StrokeSummary[], stroke: StrokeSummary): StrokeSummary[] => {
   if (list.some((s) => s.templateFieldId === stroke.templateFieldId && s.strokeSeq === stroke.strokeSeq)) return list;
@@ -96,6 +154,9 @@ export const SignerPortalView: FC = () => {
   const [pageImageError, setPageImageError] = useState(false);
   const [pageImageRetryCount, setPageImageRetryCount] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
+  const [isToolbarVisible, setIsToolbarVisible] = useState(
+    () => readToolbarSettings(eventAccessKey, signerAccessKey)?.isToolbarVisible ?? false,
+  );
 
   const [myField, setMyField] = useState<TemplateFieldSummary | null>(null);
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
@@ -105,6 +166,10 @@ export const SignerPortalView: FC = () => {
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const portalBase = `/portal/events/${eventAccessKey}/signers/${signerAccessKey}`;
+
+  useEffect(() => {
+    writeToolbarSettings(eventAccessKey, signerAccessKey, { isToolbarVisible });
+  }, [eventAccessKey, isToolbarVisible, signerAccessKey]);
 
   const fetchAll = async () => {
     const [contextRes, contractRes, strokesRes] = await Promise.all([
@@ -458,6 +523,18 @@ export const SignerPortalView: FC = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-gray-950 text-white">
+      {!isToolbarVisible && (
+        <button
+          type="button"
+          onClick={() => setIsToolbarVisible(true)}
+          className="absolute right-4 top-4 z-50 flex items-center gap-1 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-white/75 shadow-lg backdrop-blur-md transition-colors hover:bg-black/75 hover:text-white"
+          title="도구모음 보이기"
+        >
+          <ChevronUp size={12} />
+          <span className="text-[10px] font-black tracking-wide">도구모음</span>
+        </button>
+      )}
+      {isToolbarVisible && (
       <header className="relative shrink-0 border-b border-gray-800 bg-gray-900 px-4 py-3 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -488,6 +565,31 @@ export const SignerPortalView: FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {contractInfo.totalPages > 1 && (
+              <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-950/40 p-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage <= 0}
+                  className="rounded-md px-2 py-1.5 text-xs font-black text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  title="이전 페이지"
+                >
+                  이전
+                </button>
+                <span className="min-w-14 text-center text-xs font-black text-gray-200">
+                  {currentPage + 1} / {Math.max(contractInfo.totalPages, maxStartPage + 1)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(maxStartPage, p + 1))}
+                  disabled={currentPage >= maxStartPage}
+                  className="rounded-md px-2 py-1.5 text-xs font-black text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  title="다음 페이지"
+                >
+                  다음
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-950/40 p-1">
               <button
                 type="button"
@@ -536,9 +638,19 @@ export const SignerPortalView: FC = () => {
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => setIsToolbarVisible(false)}
+              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-black text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+              title="도구모음 숨기기"
+            >
+              <ChevronUp size={14} />
+              숨기기
+            </button>
           </div>
         </div>
       </header>
+      )}
 
       <main className="relative min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
         <div className="flex h-full min-h-0 flex-col items-center">
@@ -585,28 +697,6 @@ export const SignerPortalView: FC = () => {
               </div>
             </div>
           </div>
-
-          {contractInfo.totalPages > 1 && (
-            <div className="mt-3 flex shrink-0 items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                disabled={currentPage <= 0}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-              >
-                이전
-              </button>
-              <span className="text-xs font-bold text-gray-400">
-                {currentPage + 1} / {Math.max(contractInfo.totalPages, maxStartPage + 1)}
-              </span>
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(maxStartPage, p + 1))}
-                disabled={currentPage >= maxStartPage}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-              >
-                다음
-              </button>
-            </div>
-          )}
 
           {contract && myFields.length === 0 && (
             <div className="mt-3 w-full max-w-lg shrink-0 rounded-xl border border-red-900/60 bg-red-950/40 p-4 text-center">
