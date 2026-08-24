@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeftRight,
   Building2,
   ChevronLeft,
   ClipboardCheck,
@@ -57,14 +56,6 @@ export const AdminLayout: FC = () => {
             <User size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{platformAdmin?.name ?? '관리자'}</span>
           </div>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-950 transition-colors text-sm font-medium"
-            title="일반 사용자 화면으로 전환합니다"
-          >
-            <ArrowLeftRight size={14} />
-            <span className="hidden sm:block">일반 화면으로</span>
-          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
