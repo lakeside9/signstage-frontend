@@ -877,7 +877,7 @@ export const UserCeremonyDetail: FC = () => {
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
-                <th className="text-left font-medium px-4 py-2">이름</th>
+                <th className="text-left font-medium px-4 py-2 w-40 min-w-40">이름</th>
                 <th className="text-left font-medium px-4 py-2">소속</th>
                 <th className="text-left font-medium px-4 py-2">직책</th>
                 <th className="text-right font-medium px-4 py-2">관리</th>
@@ -886,7 +886,7 @@ export const UserCeremonyDetail: FC = () => {
             <tbody className="divide-y divide-gray-100">
               {signers.map((signer) => (
                 <tr key={signer.id}>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 w-40 min-w-40">
                     <button
                       type="button"
                       onClick={() => setViewingSignerId(signer.id)}

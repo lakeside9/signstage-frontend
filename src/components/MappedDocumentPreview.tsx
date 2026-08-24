@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Stage, Layer, Image as KonvaImage, Rect, Text, Line } from 'react-konva';
 import useImage from 'use-image';
-import { ChevronLeft, ChevronRight, FileText, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Loader2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { StrokeSummary, TemplateFieldSummary } from '../types';
 
 const BASE_WIDTH = 500;
@@ -186,6 +186,14 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
               className="p-1 hover:bg-white rounded-md"
             >
               <ZoomIn size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScale(1)}
+              className="p-1 hover:bg-white rounded-md"
+              title="100%로 초기화"
+            >
+              <RotateCcw size={12} />
             </button>
           </div>
         </div>
