@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Stage, Layer, Rect, Text, Image as KonvaImage, Transformer } from 'react-konva';
@@ -119,6 +119,11 @@ export const UserTemplateDetail: FC = () => {
 
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  // 필드는 signerId로 서명자를 참조한다 — fieldName은 저장 시점 스냅샷이라 서명자 이름이
+  // 그 뒤 바뀌면 어긋난다. 화면 표시는 항상 현재 서명자 이름을 우선한다.
+  const signersById = useMemo(() => new Map(signers.map((signer) => [signer.id, signer])), [signers]);
+  const getFieldDisplayName = (field: EditableTemplateField) =>
+    field.signerId ? (signersById.get(field.signerId)?.name ?? field.fieldName) : field.fieldName;
 
   const STAGE_WIDTH = BASE_WIDTH * scale;
   const STAGE_HEIGHT = pageSize.width > 0 ? (pageSize.height / pageSize.width) * STAGE_WIDTH : STAGE_WIDTH;
@@ -164,13 +169,13 @@ export const UserTemplateDetail: FC = () => {
         setSigners(allSigners);
 
         const uniqueDocSigners: SignerSummary[] = [];
-        const seen = new Set<string>();
+        const seen = new Set<number>();
         mappedFields.forEach((f) => {
-          if (f.fieldName && !seen.has(f.fieldName)) {
-            const signer = allSigners.find((s) => s.name === f.fieldName);
+          if (f.signerId && !seen.has(f.signerId)) {
+            const signer = allSigners.find((s) => s.id === f.signerId);
             if (signer) {
               uniqueDocSigners.push(signer);
-              seen.add(f.fieldName);
+              seen.add(f.signerId);
             }
           }
         });
@@ -255,7 +260,7 @@ export const UserTemplateDetail: FC = () => {
 
   const handleAddSignerField = (signer: SignerSummary) => {
     if (isReadOnly) return;
-    if (!docSigners.some((s) => s.name === signer.name)) {
+    if (!docSigners.some((s) => s.id === signer.id)) {
       setDocSigners([...docSigners, signer]);
     }
 
@@ -327,17 +332,17 @@ export const UserTemplateDetail: FC = () => {
 
   const handleAddDocSigner = (signer: SignerSummary) => {
     if (isReadOnly) return;
-    if (docSigners.some((s) => s.name === signer.name)) return;
+    if (docSigners.some((s) => s.id === signer.id)) return;
     setDocSigners([...docSigners, signer]);
   };
 
   const handleRemoveDocSigner = (signer: SignerSummary) => {
     if (isReadOnly) return;
-    if (fields.some((f) => f.fieldName === signer.name)) {
+    if (fields.some((f) => f.signerId === signer.id)) {
       showSnackbar('배치된 서명란이 있는 서명자는 삭제할 수 없습니다.', 'info');
       return;
     }
-    setDocSigners(docSigners.filter((s) => s.name !== signer.name));
+    setDocSigners(docSigners.filter((s) => s.id !== signer.id));
   };
 
   const buildFieldsPayload = (): CreateTemplateFieldRequest[] =>
@@ -346,8 +351,8 @@ export const UserTemplateDetail: FC = () => {
       signerId: f.signerId ?? null,
       pageIndex: f.pageIndex,
       fieldIndex: f.fieldIndex,
-      fieldName: f.fieldName,
-      roleCode: f.roleCode ?? null,
+      fieldName: getFieldDisplayName(f),
+      roleCode: (f.signerId ? signersById.get(f.signerId)?.roleCode : undefined) ?? f.roleCode ?? null,
       signOrder: f.signOrder ?? null,
       isRequired: f.isRequired ?? true,
       xRatio: f.xRatio,
@@ -631,7 +636,7 @@ export const UserTemplateDetail: FC = () => {
             <div className="flex-1 overflow-auto p-4 space-y-2">
               {docSigners.length > 0 ? (
                 docSigners.map((signer, index) => {
-                  const field = fields.find((f) => f.fieldName === signer.name);
+                  const field = fields.find((f) => f.signerId === signer.id);
                   const isPlaced = !!field;
                   const isSelected = field && selectedTempIds.includes(field.tempId);
                   const color = FIELD_COLORS[index % FIELD_COLORS.length];
@@ -714,9 +719,9 @@ export const UserTemplateDetail: FC = () => {
                   <h3 className="font-bold text-gray-950 text-xs">협약 서명자 추가</h3>
                 </div>
                 <div className="flex-1 overflow-auto p-4 space-y-2 bg-gray-50/30">
-                  {signers.filter((s) => !docSigners.some((ds) => ds.name === s.name)).length > 0 ? (
+                  {signers.filter((s) => !docSigners.some((ds) => ds.id === s.id)).length > 0 ? (
                     signers
-                      .filter((s) => !docSigners.some((ds) => ds.name === s.name))
+                      .filter((s) => !docSigners.some((ds) => ds.id === s.id))
                       .map((signer) => (
                         <div
                           key={signer.id}
@@ -813,7 +818,7 @@ export const UserTemplateDetail: FC = () => {
                       <Text
                         x={field.xRatio * STAGE_WIDTH + 5}
                         y={field.yRatio * STAGE_HEIGHT + 5}
-                        text={field.fieldName}
+                        text={getFieldDisplayName(field)}
                         fontSize={11}
                         fill={isSelected ? '#000' : color.text}
                         fontStyle="bold"
