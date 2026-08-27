@@ -57,6 +57,7 @@ const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
   { value: 'SIGNERS', label: '서명자' },
   { value: 'TEMPLATES', label: '템플릿' },
   { value: 'TEST_EVENTS', label: '테스트 행사' },
+  { value: 'REHEARSAL_EVENTS', label: '리허설 행사' },
   { value: 'MAIN_EVENTS', label: '본행사' },
   { value: 'TABLETS', label: '태블릿' },
 ];
@@ -177,6 +178,7 @@ const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
   maxSigners: 0,
   maxTemplates: 0,
   maxTestEvents: 0,
+  maxRehearsalEvents: 0,
   maxMainEvents: 0,
   optionalFeatureIds: [],
 };
@@ -277,6 +279,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       maxSigners: plan.maxSigners,
       maxTemplates: plan.maxTemplates,
       maxTestEvents: plan.maxTestEvents,
+      maxRehearsalEvents: plan.maxRehearsalEvents,
       maxMainEvents: plan.maxMainEvents,
       active: plan.active,
       optionalFeatureIds: plan.optionalFeatureIds,
@@ -392,7 +395,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Field label="서명자 한도">
               <input
                 type="number"
@@ -419,6 +422,16 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 min={0}
                 value={createDraft.maxTestEvents === 0 ? '' : createDraft.maxTestEvents}
                 onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxTestEvents: Number(e.target.value) }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="리허설 행사 한도">
+              <input
+                type="number"
+                min={0}
+                value={createDraft.maxRehearsalEvents === 0 ? '' : createDraft.maxRehearsalEvents}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxRehearsalEvents: Number(e.target.value) }))}
                 disabled={isCreating}
                 className={inputClass}
               />
@@ -483,7 +496,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <th className="text-left font-medium py-2 px-4">이름</th>
               <th className="text-left font-medium py-2">공급가/판매가</th>
               <th className="text-left font-medium py-2">할인</th>
-              <th className="text-left font-medium py-2">한도(서명자/템플릿/테스트/본행사)</th>
+              <th className="text-left font-medium py-2">한도(서명자/템플릿/테스트/리허설/본행사)</th>
               <th className="text-left font-medium py-2">포함 선택옵션</th>
               <th className="text-left font-medium py-2">상태</th>
               <th className="text-right font-medium py-2 px-4">이력</th>
@@ -552,7 +565,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         />
                       </Field>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
                       <Field label="서명자 한도">
                         <input
                           type="number"
@@ -579,6 +592,16 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                           min={0}
                           value={editDraft.maxTestEvents === 0 ? '' : editDraft.maxTestEvents}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxTestEvents: Number(e.target.value) })}
+                          disabled={isSavingEdit}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="리허설 행사 한도">
+                        <input
+                          type="number"
+                          min={0}
+                          value={editDraft.maxRehearsalEvents === 0 ? '' : editDraft.maxRehearsalEvents}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxRehearsalEvents: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
                         />
@@ -652,7 +675,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                   </td>
                   <td className="py-2">{formatDiscount(plan.discountType, plan.discountValue)}</td>
                   <td className="py-2 text-gray-600">
-                    {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxMainEvents}
+                    {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxRehearsalEvents}/{plan.maxMainEvents}
                   </td>
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
                   <td className="py-2">
@@ -709,7 +732,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {formatPrice(history.salePrice)} · 서명자 {history.maxSigners}명 · 템플릿 {history.maxTemplates}건 ·
-                  테스트 {history.maxTestEvents}건 · 본행사 {history.maxMainEvents}건
+                  테스트 {history.maxTestEvents}건 · 리허설 {history.maxRehearsalEvents}건 · 본행사 {history.maxMainEvents}건
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
               </li>

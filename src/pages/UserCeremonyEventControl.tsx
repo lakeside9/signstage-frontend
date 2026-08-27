@@ -26,6 +26,7 @@ import { api } from '../utils/api';
 import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
+  CeremonyEventType,
   CeremonyResultSummary,
   CeremonyResultType,
   CeremonyTemplateSummary,
@@ -53,6 +54,25 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 };
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+
+/** 헤더 영역 배경/뱃지 색상 — 테스트/리허설/본행사를 한눈에 구분하기 위한 것(2026-08-27 legacy 포팅). */
+const EVENT_TYPE_CONTROL_META: Record<CeremonyEventType, { label: string; headerClassName: string; badgeClassName: string }> = {
+  TEST: {
+    label: '테스트',
+    headerClassName: 'bg-gray-100 border-gray-300',
+    badgeClassName: 'border-gray-300 bg-white/85 text-gray-800',
+  },
+  REHEARSAL: {
+    label: '리허설',
+    headerClassName: 'bg-sky-100 border-sky-300',
+    badgeClassName: 'border-sky-300 bg-white/90 text-sky-900',
+  },
+  MAIN: {
+    label: '본행사',
+    headerClassName: 'bg-indigo-100 border-indigo-300',
+    badgeClassName: 'border-indigo-300 bg-white/90 text-indigo-900',
+  },
+};
 
 /**
  * 행사제어(현장 실시간 운영 콘솔). legacy(~/Works/eform/source/signstage/signstage-frontend)
@@ -404,16 +424,20 @@ export const UserCeremonyEventControl: FC = () => {
   const mappedSigners = signers.filter((s) => mappedSignerIds.has(s.id));
   const isSignerComplete = (signerId: number) => signatureStatuses.find((s) => s.signerId === signerId)?.completed ?? false;
   const completedCount = signatureStatuses.filter((s) => s.completed).length;
+  const eventTypeMeta = EVENT_TYPE_CONTROL_META[event.eventType];
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+      <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${eventTypeMeta.headerClassName}`}>
         <div className="flex items-center gap-3">
           <Link to={basePath} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
             <ArrowLeft size={20} />
           </Link>
           <div>
             <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-black ${eventTypeMeta.badgeClassName}`}>
+                {eventTypeMeta.label}
+              </span>
               <h1 className="text-lg font-bold text-gray-950">{event.name}</h1>
               <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[event.status]}`}>
                 {STATUS_LABEL[event.status]}

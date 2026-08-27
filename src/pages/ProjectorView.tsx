@@ -14,11 +14,19 @@ import {
   Maximize,
   Maximize2,
   Minimize,
+  RefreshCw,
   Save,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import type { CeremonyEventStatus, ProjectorContext, RealtimeEventMessage, StrokeSummary, TemplateFieldSummary } from '../types';
+import type {
+  CeremonyEventStatus,
+  CeremonyEventType,
+  ProjectorContext,
+  RealtimeEventMessage,
+  StrokeSummary,
+  TemplateFieldSummary,
+} from '../types';
 import { resolveProjectorEffectActions } from './projectorEffects';
 
 const API_BASE = '/api/projector/events';
@@ -40,6 +48,13 @@ const POLL_INTERVAL_MS = 5000;
 // 페이지 이미지 로딩 실패 시 자동 재시도까지의 대기 시간 — 레이트리밋 윈도우(60초)보다 훨씬
 // 짧게 잡아 "잠깐 실패했다가 스스로 복구"되는 게 보이게 한다.
 const PAGE_IMAGE_RETRY_DELAY_MS = 3000;
+
+/** 도구모음의 구분 뱃지 색상(2026-08-27 legacy 포팅) — 어두운 배경 위라 밝은 pastel 톤을 쓴다. */
+const PROJECTOR_EVENT_TYPE_META: Record<CeremonyEventType, { label: string; className: string }> = {
+  TEST: { label: '테스트', className: 'border-gray-300 bg-white/90 text-gray-900' },
+  REHEARSAL: { label: '리허설', className: 'border-sky-300 bg-sky-50 text-sky-800' },
+  MAIN: { label: '본행사', className: 'border-indigo-300 bg-indigo-50 text-indigo-800' },
+};
 
 // 서명 하이라이트(SIGNER_FIELD_ZOOM) 연출 — 총 노출 시간과, 꺼지기 직전 페이드아웃 구간.
 const HIGHLIGHT_DURATION_MS = 4000;
@@ -366,6 +381,7 @@ export const ProjectorView: FC = () => {
   const [zoom, setZoom] = useState(() => initialSettings?.zoom ?? 1);
   const [pageSpacingMode, setPageSpacingMode] = useState<PageSpacingMode>(() => initialSettings?.pageSpacingMode ?? 'SPACED');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isToolbarVisible, setIsToolbarVisible] = useState(() => initialSettings?.isToolbarVisible ?? true);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -597,6 +613,23 @@ export const ProjectorView: FC = () => {
       setStrokes(mergeStrokes([], res.data as StrokeSummary[]));
     }
   }, [eventAccessKey]);
+
+  /**
+   * 도구모음의 수동 새로고침 버튼(2026-08-27 legacy 포팅) — 자동 폴링/실시간 구독과 별개로
+   * 사용자가 즉시 최신 상태를 당겨오고 싶을 때 쓴다. 실패는 조용히 무시한다(자동 폴링이
+   * 다음 기회에 다시 시도하므로 화면을 에러로 바꾸지 않는다).
+   */
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchContext(), fetchStrokes()]);
+    } catch {
+      // 조용히 무시 — 다음 자동 폴링에서 다시 시도한다.
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchContext, fetchStrokes, isRefreshing]);
 
   useEffect(() => {
     if (!eventAccessKey) return;
@@ -939,6 +972,10 @@ export const ProjectorView: FC = () => {
 
       {isToolbarVisible && (
         <div className="absolute bottom-4 left-4 right-4 z-40 flex min-h-16 flex-nowrap items-center justify-center gap-2 overflow-x-auto rounded-xl border border-white/10 bg-black/65 px-3 py-3 text-white shadow-2xl backdrop-blur-md">
+          <div className={`flex h-9 min-w-18 shrink-0 items-center justify-center rounded-lg border px-3 text-xs font-black shadow-lg ${PROJECTOR_EVENT_TYPE_META[context.eventType].className}`}>
+            {PROJECTOR_EVENT_TYPE_META[context.eventType].label}
+          </div>
+
           {context.eventStatus === 'STARTED' && (
             <div className="flex h-9 min-w-20 shrink-0 items-center justify-center rounded-lg border border-emerald-300/30 bg-emerald-500/90 px-3 text-xs font-black text-white shadow-lg">
               행사중
@@ -1048,6 +1085,19 @@ export const ProjectorView: FC = () => {
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
             {isFullscreen ? '창 모드' : '전체화면'}
+          </button>
+
+          <div className="h-6 w-px shrink-0 bg-white/15" />
+
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex shrink-0 items-center gap-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+            title="전시 화면 새로고침"
+          >
+            {isRefreshing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            새로고침
           </button>
 
           <div className="h-6 w-px shrink-0 bg-white/15" />

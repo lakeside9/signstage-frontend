@@ -74,6 +74,41 @@ const EVENT_STATUS_COLOR: Record<CeremonyEventStatus, string> = {
 
 const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = { TEST: '테스트', REHEARSAL: '리허설', MAIN: '본행사' };
 
+/** 하위 행사 목록 탭. 색상은 EVENT_TYPE_TAB_COLOR와 짝을 맞춰 이 애플리케이션 전반(행사제어/전시용/서명자 화면)에서 재사용한다. */
+const eventTypeTabs = [
+  { value: 'TEST', label: '테스트' },
+  { value: 'REHEARSAL', label: '리허설' },
+  { value: 'MAIN', label: '본행사' },
+] as const;
+
+const EVENT_TYPE_TAB_ACTIVE_COLOR: Record<CeremonyEventType, string> = {
+  TEST: 'bg-gray-100 text-gray-800 border border-gray-300',
+  REHEARSAL: 'bg-sky-100 text-sky-800 border border-sky-300',
+  MAIN: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+};
+
+const getEventsByType = (items: CeremonyEventSummary[], eventType: CeremonyEventType) =>
+  items.filter((event) => event.eventType === eventType);
+
+/**
+ * 하위 행사 표시 순서는 구분(TEST/REHEARSAL/MAIN)과 무관하게 이 Ceremony 전체가 하나의 순서를
+ * 공유한다(백엔드 CeremonyEventService#updateEventDisplayOrders). 탭 안에서만 재정렬한 배열을
+ * 전체 목록에 다시 합칠 때, 탭별로 구간을 나눠(TEST 구간 → REHEARSAL 구간 → MAIN 구간) 순서대로
+ * 이어붙인다 — 화면은 항상 한 탭만 보여주므로 이 방식으로도 사용자가 보는 순서는 정확히 맞는다.
+ */
+const mergeEventsByType = (
+  items: CeremonyEventSummary[],
+  eventType: CeremonyEventType,
+  reorderedTypeEvents: CeremonyEventSummary[],
+) => {
+  const queues: Record<CeremonyEventType, CeremonyEventSummary[]> = {
+    TEST: eventType === 'TEST' ? reorderedTypeEvents : getEventsByType(items, 'TEST'),
+    REHEARSAL: eventType === 'REHEARSAL' ? reorderedTypeEvents : getEventsByType(items, 'REHEARSAL'),
+    MAIN: eventType === 'MAIN' ? reorderedTypeEvents : getEventsByType(items, 'MAIN'),
+  };
+  return [...queues.TEST, ...queues.REHEARSAL, ...queues.MAIN];
+};
+
 /** 위/아래 이동 버튼이 배열 안에서 요소 하나를 인접 위치와 맞바꾼다. 경계를 벗어나면 그대로 돌려준다. */
 const moveItem = <T,>(items: T[], index: number, direction: -1 | 1): T[] => {
   const targetIndex = index + direction;
@@ -136,6 +171,7 @@ export const UserCeremonyDetail: FC = () => {
   const [events, setEvents] = useState<CeremonyEventSummary[]>([]);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
   const [isEventsSectionOpen, setIsEventsSectionOpen] = useState(true);
+  const [activeEventType, setActiveEventType] = useState<CeremonyEventType>('TEST');
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [isSignersLoading, setIsSignersLoading] = useState(true);
@@ -370,8 +406,10 @@ export const UserCeremonyDetail: FC = () => {
   const handleMoveEvent = async (index: number, direction: -1 | 1) => {
     if (reorderingTarget) return;
     const previous = events;
-    const next = moveItem(events, index, direction);
-    if (next === previous) return;
+    const currentTypeEvents = getEventsByType(events, activeEventType);
+    const reorderedTypeEvents = moveItem(currentTypeEvents, index, direction);
+    if (reorderedTypeEvents === currentTypeEvents) return;
+    const next = mergeEventsByType(events, activeEventType, reorderedTypeEvents);
     setEvents(next);
     setReorderingTarget('events');
     try {
@@ -780,6 +818,7 @@ export const UserCeremonyDetail: FC = () => {
   const viewingSigner = signers.find((s) => s.id === viewingSignerId) ?? null;
   const viewingTemplate = templates.find((t) => t.id === viewingTemplateId) ?? null;
   const viewingEvent = events.find((e) => e.id === viewingEventId) ?? null;
+  const activeEvents = getEventsByType(events, activeEventType);
 
   return (
     <div>
@@ -1473,7 +1512,8 @@ export const UserCeremonyDetail: FC = () => {
                 <span className="font-normal text-gray-400">({events.length})</span>
                 {capacityStatus && (
                   <span className="font-normal text-gray-400">
-                    · 등록 가능 테스트 행사 {formatCapacity(capacityStatus.testEventLimit, '회')} · 등록 가능 본행사{' '}
+                    · 등록 가능 테스트 행사 {formatCapacity(capacityStatus.testEventLimit, '회')} · 등록 가능 리허설 행사{' '}
+                    {formatCapacity(capacityStatus.rehearsalEventLimit, '회')} · 등록 가능 본행사{' '}
                     {formatCapacity(capacityStatus.mainEventLimit, '회')}
                   </span>
                 )}
@@ -1508,12 +1548,35 @@ export const UserCeremonyDetail: FC = () => {
         </div>
 
         {isEventsSectionOpen && (
-        <ListContainer isLoading={isEventsLoading} isEmpty={events.length === 0} emptyMessage="아직 등록된 하위 행사가 없습니다.">
+        <>
+        <div className="mb-3 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+          {eventTypeTabs.map((tab) => {
+            const isActive = activeEventType === tab.value;
+            const count = getEventsByType(events, tab.value).length;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveEventType(tab.value)}
+                className={`min-w-24 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  isActive ? EVENT_TYPE_TAB_ACTIVE_COLOR[tab.value] : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-1.5 ${isActive ? '' : 'text-gray-400'}`}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <ListContainer
+          isLoading={isEventsLoading}
+          isEmpty={activeEvents.length === 0}
+          emptyMessage={`등록된 ${EVENT_TYPE_LABEL[activeEventType]} 행사가 없습니다.`}
+        >
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
                 <th className="text-left font-medium px-4 py-2 w-20 min-w-20">순서</th>
-                <th className="text-left font-medium px-4 py-2">구분</th>
                 <th className="text-left font-medium px-4 py-2">행사 상세명</th>
                 <th className="text-left font-medium px-4 py-2">상태</th>
                 <th className="text-left font-medium px-4 py-2">일정</th>
@@ -1521,7 +1584,7 @@ export const UserCeremonyDetail: FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {events.map((event, index) => {
+              {activeEvents.map((event, index) => {
                 const isEventLocked =
                   event.status === 'STARTED' || event.status === 'FINISHED' || event.status === 'FORCE_FINISHED';
                 return (
@@ -1540,7 +1603,7 @@ export const UserCeremonyDetail: FC = () => {
                         <button
                           type="button"
                           onClick={() => handleMoveEvent(index, 1)}
-                          disabled={index === events.length - 1 || reorderingTarget !== null}
+                          disabled={index === activeEvents.length - 1 || reorderingTarget !== null}
                           title="아래로 이동"
                           className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
                         >
@@ -1548,7 +1611,6 @@ export const UserCeremonyDetail: FC = () => {
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
                     <td className="px-4 py-2">
                       <button
                         type="button"
@@ -1620,6 +1682,7 @@ export const UserCeremonyDetail: FC = () => {
             </tbody>
           </table>
         </ListContainer>
+        </>
         )}
       </section>
 

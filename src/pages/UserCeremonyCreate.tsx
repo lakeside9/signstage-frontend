@@ -194,6 +194,10 @@ export const UserCeremonyCreate: FC = () => {
                           <dd className="text-gray-700">{plan.maxTestEvents}회</dd>
                         </div>
                         <div className="flex justify-between">
+                          <dt>리허설 행사</dt>
+                          <dd className="text-gray-700">{plan.maxRehearsalEvents}회</dd>
+                        </div>
+                        <div className="flex justify-between">
                           <dt>본행사</dt>
                           <dd className="text-gray-700">{plan.maxMainEvents}회</dd>
                         </div>

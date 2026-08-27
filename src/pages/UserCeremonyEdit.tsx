@@ -34,6 +34,7 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   SIGNERS: '서명자 수',
   TEMPLATES: '템플릿 업로드 수',
   TEST_EVENTS: '테스트 행사 수',
+  REHEARSAL_EVENTS: '리허설 행사 수',
   MAIN_EVENTS: '본행사 수',
   TABLETS: '태블릿 수',
 };
@@ -529,6 +530,7 @@ export const UserCeremonyEdit: FC = () => {
         maxSigners: planSnapshot.planMaxSigners,
         maxTemplates: planSnapshot.planMaxTemplates,
         maxTestEvents: planSnapshot.planMaxTestEvents,
+        maxRehearsalEvents: planSnapshot.planMaxRehearsalEvents,
         maxMainEvents: planSnapshot.planMaxMainEvents,
       }
     : (plans.find((p) => p.id === ceremony.billingPlanId) ?? null);
@@ -746,6 +748,10 @@ export const UserCeremonyEdit: FC = () => {
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">테스트 행사 한도</span>
               <span className="text-gray-950">{plan.maxTestEvents}건</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">리허설 행사 한도</span>
+              <span className="text-gray-950">{plan.maxRehearsalEvents}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">본행사 한도</span>
