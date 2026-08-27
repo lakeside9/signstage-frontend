@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Building2,
+  Calculator,
   ChevronLeft,
   ClipboardCheck,
   ClipboardList,
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { to: '/admin/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
   { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
+  { to: '/admin/billing-simulator', end: false, icon: <Calculator size={20} />, label: '과금 시뮬레이터' },
   { to: '/admin/purchase-requests', end: false, icon: <ShoppingCart size={20} />, label: '추가구매 요청' },
   { to: '/admin/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
   { to: '/admin/profile', end: false, icon: <User size={20} />, label: '내 정보' },
