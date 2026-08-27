@@ -81,10 +81,20 @@ const eventTypeTabs = [
   { value: 'MAIN', label: '본행사' },
 ] as const;
 
-const EVENT_TYPE_TAB_ACTIVE_COLOR: Record<CeremonyEventType, string> = {
-  TEST: 'bg-gray-100 text-gray-800 border border-gray-300',
-  REHEARSAL: 'bg-sky-100 text-sky-800 border border-sky-300',
-  MAIN: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+/** 선택 여부와 무관하게 탭이 항상 자기 구분 색을 띠도록 active/inactive 둘 다 정의한다. */
+const EVENT_TYPE_TAB_COLOR: Record<CeremonyEventType, { active: string; inactive: string }> = {
+  TEST: {
+    active: 'bg-gray-200 text-gray-900 border border-gray-300 shadow-sm',
+    inactive: 'text-gray-600 border border-transparent hover:bg-gray-200/60 hover:text-gray-800',
+  },
+  REHEARSAL: {
+    active: 'bg-sky-100 text-sky-900 border border-sky-300 shadow-sm',
+    inactive: 'text-sky-600 border border-transparent hover:bg-sky-50 hover:text-sky-800',
+  },
+  MAIN: {
+    active: 'bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-sm',
+    inactive: 'text-indigo-600 border border-transparent hover:bg-indigo-50 hover:text-indigo-800',
+  },
 };
 
 const getEventsByType = (items: CeremonyEventSummary[], eventType: CeremonyEventType) =>
@@ -1559,11 +1569,11 @@ export const UserCeremonyDetail: FC = () => {
                 type="button"
                 onClick={() => setActiveEventType(tab.value)}
                 className={`min-w-24 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                  isActive ? EVENT_TYPE_TAB_ACTIVE_COLOR[tab.value] : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
+                  isActive ? EVENT_TYPE_TAB_COLOR[tab.value].active : EVENT_TYPE_TAB_COLOR[tab.value].inactive
                 }`}
               >
                 {tab.label}
-                <span className={`ml-1.5 ${isActive ? '' : 'text-gray-400'}`}>{count}</span>
+                <span className="ml-1.5 opacity-70">{count}</span>
               </button>
             );
           })}
