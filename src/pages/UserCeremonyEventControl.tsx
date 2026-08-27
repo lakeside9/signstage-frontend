@@ -19,6 +19,7 @@ import {
   Square,
   Users,
 } from 'lucide-react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -40,6 +41,7 @@ const STATUS_LABEL: Record<CeremonyEventStatus, string> = {
   READY: '시작 대기',
   STARTED: '진행 중',
   FINISHED: '종료',
+  FORCE_FINISHED: '강제종료',
 };
 
 const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
@@ -47,6 +49,7 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
   READY: 'bg-blue-50 text-blue-700 border-blue-200',
   STARTED: 'bg-amber-50 text-amber-700 border-amber-200',
   FINISHED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  FORCE_FINISHED: 'bg-red-50 text-red-700 border-red-200',
 };
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
@@ -91,6 +94,7 @@ export const UserCeremonyEventControl: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isForceFinishConfirmOpen, setIsForceFinishConfirmOpen] = useState(false);
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [mappedTemplates, setMappedTemplates] = useState<CeremonyTemplateSummary[]>([]);
@@ -322,7 +326,7 @@ export const UserCeremonyEventControl: FC = () => {
     return () => clearInterval(timer);
   }, [event?.actualStartAt, event?.status]);
 
-  const handleTransition = async (action: 'start' | 'finish') => {
+  const handleTransition = async (action: 'start' | 'finish' | 'force-finish') => {
     setIsTransitioning(true);
     try {
       const response = await api.post(`${apiBasePath}/${action}`);
@@ -333,6 +337,7 @@ export const UserCeremonyEventControl: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setIsTransitioning(false);
+      setIsForceFinishConfirmOpen(false);
     }
   };
 
@@ -454,6 +459,17 @@ export const UserCeremonyEventControl: FC = () => {
                     <Square size={12} fill="currentColor" />
                     행사 종료
                   </button>
+                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
+                    <button
+                      onClick={() => setIsForceFinishConfirmOpen(true)}
+                      disabled={isTransitioning}
+                      title="테스트 또는 리허설 행사를 서명 완료 여부와 관계없이 강제종료합니다."
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                    >
+                      <Square size={12} />
+                      강제종료
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -611,6 +627,15 @@ export const UserCeremonyEventControl: FC = () => {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={isForceFinishConfirmOpen}
+        title="행사 강제종료"
+        message="테스트와 리허설 행사에서만 가능하며, 강제종료 후에는 서명을 수정할 수 없습니다. 강제종료하시겠습니까?"
+        confirmLabel="강제종료"
+        isSubmitting={isTransitioning}
+        onConfirm={() => handleTransition('force-finish')}
+        onCancel={() => setIsForceFinishConfirmOpen(false)}
+      />
     </div>
   );
 };

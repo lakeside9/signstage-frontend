@@ -34,6 +34,7 @@ const STATUS_LABEL: Record<CeremonyEventStatus, string> = {
   READY: '시작 대기',
   STARTED: '진행 중',
   FINISHED: '종료',
+  FORCE_FINISHED: '강제종료',
 };
 
 /** 역할별로 화면에 보여줄 문서 하나의 미리보기 상태 — legacy의 exhibition/contract 상태 쌍과 같은 모양이다. */
@@ -226,7 +227,9 @@ export const UserCeremonyEventMapping: FC = () => {
   usePageImage(apiBasePath, exhibition, setExhibition);
   usePageImage(apiBasePath, contract, setContract);
 
-  const isLocked = event ? event.status === 'STARTED' || event.status === 'FINISHED' : false;
+  const isLocked = event
+    ? event.status === 'STARTED' || event.status === 'FINISHED' || event.status === 'FORCE_FINISHED'
+    : false;
 
   const openTemplateSelection = async (role: TemplateDocumentRole) => {
     setModalRole(role);

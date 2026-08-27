@@ -845,9 +845,11 @@ export const ProjectorView: FC = () => {
       ? { message: '행사 시작 대기 중', className: 'border-white/15 bg-black/70 text-white' }
       : context.eventStatus === 'FINISHED'
         ? { message: '행사가 종료되었습니다', className: 'border-red-300/40 bg-red-600/90 text-white' }
-        : context.eventStatus === 'STARTED' && showStartedNotice
-          ? { message: '행사가 시작되었습니다', className: 'border-emerald-300/40 bg-emerald-500/90 text-white' }
-          : null;
+        : context.eventStatus === 'FORCE_FINISHED'
+          ? { message: '행사가 강제종료되었습니다', className: 'border-red-300/40 bg-red-600/90 text-white' }
+          : context.eventStatus === 'STARTED' && showStartedNotice
+            ? { message: '행사가 시작되었습니다', className: 'border-emerald-300/40 bg-emerald-500/90 text-white' }
+            : null;
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden relative">
@@ -885,7 +887,7 @@ export const ProjectorView: FC = () => {
         </div>
       )}
 
-      <div className={`absolute inset-0 transition-[filter,opacity] duration-500 ${context.eventStatus === 'FINISHED' ? 'blur-[2px] brightness-75' : ''}`}>
+      <div className={`absolute inset-0 transition-[filter,opacity] duration-500 ${context.eventStatus === 'FINISHED' || context.eventStatus === 'FORCE_FINISHED' ? 'blur-[2px] brightness-75' : ''}`}>
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}

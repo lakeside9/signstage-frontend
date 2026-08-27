@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   CalendarClock,
   ChevronDown,
   ChevronUp,
@@ -40,6 +42,7 @@ import type {
   TemplateDocumentRole,
   TemplateStatus,
   TemplateSummary,
+  UpdateDisplayOrdersRequest,
 } from '../types';
 
 const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
@@ -58,6 +61,7 @@ const EVENT_STATUS_LABEL: Record<CeremonyEventStatus, string> = {
   READY: '시작 대기',
   STARTED: '진행 중',
   FINISHED: '종료',
+  FORCE_FINISHED: '강제종료',
 };
 
 const EVENT_STATUS_COLOR: Record<CeremonyEventStatus, string> = {
@@ -65,9 +69,24 @@ const EVENT_STATUS_COLOR: Record<CeremonyEventStatus, string> = {
   READY: 'bg-blue-50 text-blue-700 border-blue-200',
   STARTED: 'bg-amber-50 text-amber-700 border-amber-200',
   FINISHED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  FORCE_FINISHED: 'bg-red-50 text-red-700 border-red-200',
 };
 
-const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = { TEST: '테스트', MAIN: '본행사' };
+const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = { TEST: '테스트', REHEARSAL: '리허설', MAIN: '본행사' };
+
+/** 위/아래 이동 버튼이 배열 안에서 요소 하나를 인접 위치와 맞바꾼다. 경계를 벗어나면 그대로 돌려준다. */
+const moveItem = <T,>(items: T[], index: number, direction: -1 | 1): T[] => {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= items.length) return items;
+  const next = [...items];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
+};
+
+/** 위/아래 이동 후 배열을 그대로 PUT .../display-orders 요청 본문으로 바꾼다 — 인덱스가 곧 새 displayOrder다. */
+const toDisplayOrderItems = (items: Array<{ id: number }>): UpdateDisplayOrdersRequest => ({
+  items: items.map((item, index) => ({ id: item.id, displayOrder: index })),
+});
 
 /** LocalDateTime 문자열("2026-07-29T05:00:00")을 "2026-07-29 05:00"으로 자른다 — 타임존 변환 없이 그대로 보여준다. */
 const formatEventDateTime = (value: string | null) => (value ? `${value.slice(0, 10)} ${value.slice(11, 16)}` : null);
@@ -155,6 +174,10 @@ export const UserCeremonyDetail: FC = () => {
   const [editTemplateTitle, setEditTemplateTitle] = useState('');
   const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
+
+  // 서명자/문서 양식/하위 행사 목록의 위/아래 이동 버튼 처리 중 표시(2026-08-27 legacy 포팅) —
+  // 세 목록 중 하나만 동시에 재정렬한다.
+  const [reorderingTarget, setReorderingTarget] = useState<'signers' | 'templates' | 'events' | null>(null);
 
   const [processingEventId, setProcessingEventId] = useState<number | null>(null);
   const [viewingEventId, setViewingEventId] = useState<number | null>(null);
@@ -341,6 +364,25 @@ export const UserCeremonyDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setProcessingEventId(null);
+    }
+  };
+
+  const handleMoveEvent = async (index: number, direction: -1 | 1) => {
+    if (reorderingTarget) return;
+    const previous = events;
+    const next = moveItem(events, index, direction);
+    if (next === previous) return;
+    setEvents(next);
+    setReorderingTarget('events');
+    try {
+      await api.put(`${basePath}/events/display-orders`, toDisplayOrderItems(next));
+      setEvents(await fetchEvents());
+    } catch (err) {
+      setEvents(previous);
+      const message = err instanceof Error ? err.message : '하위 행사 순서 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setReorderingTarget(null);
     }
   };
 
@@ -542,6 +584,25 @@ export const UserCeremonyDetail: FC = () => {
     }
   };
 
+  const handleMoveSigner = async (index: number, direction: -1 | 1) => {
+    if (reorderingTarget) return;
+    const previous = signers;
+    const next = moveItem(signers, index, direction);
+    if (next === previous) return;
+    setSigners(next);
+    setReorderingTarget('signers');
+    try {
+      await api.put(`${basePath}/signers/display-orders`, toDisplayOrderItems(next));
+      setSigners(await fetchSigners());
+    } catch (err) {
+      setSigners(previous);
+      const message = err instanceof Error ? err.message : '서명자 순서 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setReorderingTarget(null);
+    }
+  };
+
   const openDeleteSigner = (signerId: number) => {
     setViewingSignerId(null);
     setEditingSignerId(null);
@@ -654,6 +715,25 @@ export const UserCeremonyDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setProcessingTemplateId(null);
+    }
+  };
+
+  const handleMoveTemplate = async (index: number, direction: -1 | 1) => {
+    if (reorderingTarget) return;
+    const previous = templates;
+    const next = moveItem(templates, index, direction);
+    if (next === previous) return;
+    setTemplates(next);
+    setReorderingTarget('templates');
+    try {
+      await api.put(`${basePath}/templates/display-orders`, toDisplayOrderItems(next));
+      setTemplates(await fetchTemplates());
+    } catch (err) {
+      setTemplates(previous);
+      const message = err instanceof Error ? err.message : '문서 양식 순서 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setReorderingTarget(null);
     }
   };
 
@@ -877,6 +957,7 @@ export const UserCeremonyDetail: FC = () => {
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
+                <th className="text-left font-medium px-4 py-2 w-20 min-w-20">순서</th>
                 <th className="text-left font-medium px-4 py-2 w-40 min-w-40">이름</th>
                 <th className="text-left font-medium px-4 py-2">소속</th>
                 <th className="text-left font-medium px-4 py-2">직책</th>
@@ -884,8 +965,30 @@ export const UserCeremonyDetail: FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {signers.map((signer) => (
+              {signers.map((signer, index) => (
                 <tr key={signer.id}>
+                  <td className="px-4 py-2 w-20 min-w-20">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSigner(index, -1)}
+                        disabled={index === 0 || reorderingTarget !== null}
+                        title="위로 이동"
+                        className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSigner(index, 1)}
+                        disabled={index === signers.length - 1 || reorderingTarget !== null}
+                        title="아래로 이동"
+                        className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-2 w-40 min-w-40">
                     <button
                       type="button"
@@ -1148,6 +1251,7 @@ export const UserCeremonyDetail: FC = () => {
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
+                <th className="text-left font-medium px-4 py-2 w-20 min-w-20">순서</th>
                 <th className="text-left font-medium px-4 py-2">문서 유형</th>
                 <th className="text-left font-medium px-4 py-2">양식명</th>
                 <th className="text-left font-medium px-4 py-2">상태</th>
@@ -1156,8 +1260,30 @@ export const UserCeremonyDetail: FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {templates.map((template) => (
+              {templates.map((template, index) => (
                 <tr key={template.id}>
+                  <td className="px-4 py-2 w-20 min-w-20">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTemplate(index, -1)}
+                        disabled={index === 0 || reorderingTarget !== null}
+                        title="위로 이동"
+                        className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTemplate(index, 1)}
+                        disabled={index === templates.length - 1 || reorderingTarget !== null}
+                        title="아래로 이동"
+                        className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
                   <td className="px-4 py-2">
                     <button
@@ -1353,8 +1479,8 @@ export const UserCeremonyDetail: FC = () => {
                 )}
               </h2>
               <p className="mt-1 text-xs text-gray-400">
-                실제로 서명이 진행되는 단위입니다. TEST로 리허설하거나 MAIN으로 정식 진행하며, 문서 매핑과
-                서명자 배정을 마쳐야 시작할 수 있습니다.
+                실제로 서명이 진행되는 단위입니다. TEST/REHEARSAL로 점검·연습하거나 MAIN으로 정식 진행하며,
+                문서 매핑과 서명자 배정을 마쳐야 시작할 수 있습니다.
               </p>
             </div>
           </button>
@@ -1386,6 +1512,7 @@ export const UserCeremonyDetail: FC = () => {
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
+                <th className="text-left font-medium px-4 py-2 w-20 min-w-20">순서</th>
                 <th className="text-left font-medium px-4 py-2">구분</th>
                 <th className="text-left font-medium px-4 py-2">행사 상세명</th>
                 <th className="text-left font-medium px-4 py-2">상태</th>
@@ -1394,10 +1521,33 @@ export const UserCeremonyDetail: FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {events.map((event) => {
-                const isEventLocked = event.status === 'STARTED' || event.status === 'FINISHED';
+              {events.map((event, index) => {
+                const isEventLocked =
+                  event.status === 'STARTED' || event.status === 'FINISHED' || event.status === 'FORCE_FINISHED';
                 return (
                   <tr key={event.id}>
+                    <td className="px-4 py-2 w-20 min-w-20">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveEvent(index, -1)}
+                          disabled={index === 0 || reorderingTarget !== null}
+                          title="위로 이동"
+                          className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveEvent(index, 1)}
+                          disabled={index === events.length - 1 || reorderingTarget !== null}
+                          title="아래로 이동"
+                          className="p-1 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-2 text-gray-600">{EVENT_TYPE_LABEL[event.eventType]}</td>
                     <td className="px-4 py-2">
                       <button

@@ -562,6 +562,11 @@ export const SignerPortalView: FC = () => {
                 행사가 종료되었습니다
               </span>
             )}
+            {context.eventStatus === 'FORCE_FINISHED' && (
+              <span className="whitespace-nowrap rounded-full border border-red-500/30 bg-red-600/80 px-4 py-1.5 text-xs font-black text-white shadow-lg">
+                행사가 강제종료되었습니다
+              </span>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -658,7 +663,9 @@ export const SignerPortalView: FC = () => {
             <div className="flex min-h-full min-w-full items-center justify-center">
               <div
                 className={`relative overflow-hidden rounded-xl bg-white shadow-2xl ${
-                  context.eventStatus === 'FINISHED' ? 'pointer-events-none grayscale-[0.3] blur-[2px] filter' : ''
+                  context.eventStatus === 'FINISHED' || context.eventStatus === 'FORCE_FINISHED'
+                    ? 'pointer-events-none grayscale-[0.3] blur-[2px] filter'
+                    : ''
                 }`}
                 style={{ width: `${documentSize.width}px`, height: `${documentSize.height}px` }}
               >

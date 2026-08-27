@@ -123,14 +123,14 @@ export const UserCeremonyEventCreate: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">하위 행사 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">테스트 행사는 리허설용, 본행사가 실제 진행되는 하위 행사입니다.</p>
+        <p className="mt-1 text-sm text-gray-500">테스트는 기능 점검용, 리허설은 실전 연습용, 본행사가 실제 진행되는 하위 행사입니다.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">유형</label>
           <div className="flex gap-2">
-            {(['TEST', 'MAIN'] as CeremonyEventType[]).map((type) => (
+            {(['TEST', 'REHEARSAL', 'MAIN'] as CeremonyEventType[]).map((type) => (
               <button
                 type="button"
                 key={type}
@@ -140,7 +140,7 @@ export const UserCeremonyEventCreate: FC = () => {
                   eventType === type ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                 }`}
               >
-                {type === 'TEST' ? '테스트' : '본행사'}
+                {type === 'TEST' ? '테스트' : type === 'REHEARSAL' ? '리허설' : '본행사'}
               </button>
             ))}
           </div>
