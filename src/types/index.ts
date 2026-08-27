@@ -807,11 +807,18 @@ export interface PlatformAdminOptionalFeaturePurchaseRequestSummary {
   createdAt: string;
 }
 
-/** feature.ceremony.entity.CeremonyEventType 값과 맞춘다. */
-export type CeremonyEventType = 'TEST' | 'MAIN';
+/**
+ * feature.ceremony.entity.CeremonyEventType 값과 맞춘다. REHEARSAL은 2026-08-27 legacy 포팅 —
+ * 과금 용량 한도는 TEST와 같은 버킷을 공유한다(백엔드 CapacityType.TEST_EVENTS).
+ */
+export type CeremonyEventType = 'TEST' | 'REHEARSAL' | 'MAIN';
 
-/** feature.ceremony.entity.CeremonyEventStatus 값과 맞춘다. 전이는 앞으로만 간다(역행 없음). */
-export type CeremonyEventStatus = 'DRAFT' | 'READY' | 'STARTED' | 'FINISHED';
+/**
+ * feature.ceremony.entity.CeremonyEventStatus 값과 맞춘다. 전이는 앞으로만 간다(역행 없음).
+ * FORCE_FINISHED(2026-08-27 legacy 포팅)는 STARTED인 TEST/REHEARSAL 행사를 서명 완료 여부와
+ * 무관하게 관리자가 강제로 끝냈을 때만 나온다 — MAIN에는 없다.
+ */
+export type CeremonyEventStatus = 'DRAFT' | 'READY' | 'STARTED' | 'FINISHED' | 'FORCE_FINISHED';
 
 /**
  * POST .../events 요청(CeremonyEventDto.Request.CreateCeremonyEvent)과 맞춘다.
@@ -898,6 +905,8 @@ export interface CeremonyEventSummary {
   accessKey: string;
   description: string | null;
   optionalFeatureIds: number[];
+  /** 하위 행사 목록의 표시 순서 — 위/아래 이동 버튼이 이 값을 그대로 다시 인덱싱해 저장한다(2026-08-27 legacy 포팅). */
+  displayOrder: number;
   createdAt: string;
 }
 
@@ -957,6 +966,16 @@ export interface CeremonyEventLogSummary {
   createdAt: string;
 }
 
+/**
+ * PUT .../signers/display-orders, .../templates/display-orders, .../events/display-orders
+ * 요청(DisplayOrderRequest.UpdateDisplayOrders)과 맞춘다 — 세 컨트롤러가 같은 모양을
+ * 공유한다. 목록 화면의 위/아래 이동 버튼이 전체 배열을 원하는 순서로 다시 인덱싱해
+ * 통째로 보낸다(2026-08-27 legacy 포팅).
+ */
+export interface UpdateDisplayOrdersRequest {
+  items: { id: number; displayOrder: number }[];
+}
+
 /** POST .../signers 요청(SignerDto.Request.CreateSigner)과 맞춘다. */
 export interface CreateSignerRequest {
   name: string;
@@ -985,6 +1004,8 @@ export interface SignerSummary {
   affiliation: string | null;
   roleCode: string | null;
   accessKey: string;
+  /** 서명자 목록의 표시 순서 — 위/아래 이동 버튼이 이 값을 그대로 다시 인덱싱해 저장한다(2026-08-27 legacy 포팅). */
+  displayOrder: number;
   /** 시작/종료된 하위 행사에 배정돼 수정이 막힌 서명자면 true. */
   locked: boolean;
   /** 서명란 배정/서명·감사 기록이 있어 삭제할 수 없는 서명자면 false — 삭제 버튼을 숨긴다. */
@@ -1028,6 +1049,8 @@ export interface TemplateSummary {
   documentRole: TemplateDocumentRole;
   originalFilename: string;
   status: TemplateStatus;
+  /** 문서 양식 목록의 표시 순서 — 위/아래 이동 버튼이 이 값을 그대로 다시 인덱싱해 저장한다(2026-08-27 legacy 포팅). */
+  displayOrder: number;
   fieldCount: number;
   /** 시작/종료된 하위 행사에 매핑돼 수정이 막힌 문서 양식이면 true. */
   locked: boolean;
