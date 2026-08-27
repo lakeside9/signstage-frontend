@@ -3,11 +3,19 @@ import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { PortalContext, PortalContractDocument, RealtimeEventMessage, StrokeSubmitted, StrokeSummary, TemplateFieldSummary } from '../types';
+import type {
+  CeremonyEventType,
+  PortalContext,
+  PortalContractDocument,
+  RealtimeEventMessage,
+  StrokeSubmitted,
+  StrokeSummary,
+  TemplateFieldSummary,
+} from '../types';
 
 const DEFAULT_CONTRACT_SIZE = { width: 595, height: 842 };
 const MIN_ZOOM = 0.75;
@@ -17,6 +25,13 @@ const POLL_INTERVAL_MS = 5000;
 // 문서 이미지 로딩 실패 시 자동 재시도까지의 대기 시간(ProjectorView.tsx와 같은 이유 —
 // 레이트리밋 윈도우(60초)보다 훨씬 짧게 잡아 스스로 복구되는 게 보이게 한다).
 const PAGE_IMAGE_RETRY_DELAY_MS = 3000;
+
+/** 도구모음의 구분 뱃지 색상(2026-08-27 legacy 포팅) — 어두운 배경 위라 ProjectorView.tsx보다 톤을 낮췄다. */
+const SIGNER_EVENT_TYPE_META: Record<CeremonyEventType, { label: string; className: string }> = {
+  TEST: { label: '테스트', className: 'border-gray-600 bg-gray-800 text-gray-100' },
+  REHEARSAL: { label: '리허설', className: 'border-sky-500/50 bg-sky-500/15 text-sky-100' },
+  MAIN: { label: '본행사', className: 'border-indigo-500/50 bg-indigo-500/20 text-indigo-100' },
+};
 
 // 도구모음(헤더) 숨김 여부는 이벤트+서명자 조합별로 로컬에 기억해 둔다 — legacy
 // SignerView.tsx와 같은 이유(같은 서명자가 화면을 새로고침해도 방금 고른 표시 방식이
@@ -163,6 +178,7 @@ export const SignerPortalView: FC = () => {
   const [pendingSignatureStrokes, setPendingSignatureStrokes] = useState<number[][]>([]);
   const [signatureCanvasKey, setSignatureCanvasKey] = useState(0);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const portalBase = `/portal/events/${eventAccessKey}/signers/${signerAccessKey}`;
@@ -189,6 +205,24 @@ export const SignerPortalView: FC = () => {
     if (mine.length > 0) {
       setMyField((prev) => prev ?? mine[0]);
       setCurrentPage((prev) => (prev === 0 ? mine[0].pageIndex : prev));
+    }
+  };
+
+  /**
+   * 도구모음의 수동 새로고침 버튼(2026-08-27 legacy 포팅) — 자동 폴링/실시간 구독과 별개로
+   * 서명자가 즉시 최신 상태를 당겨오고 싶을 때 쓴다. 실패하면 스낵바로만 알리고 화면은
+   * 그대로 둔다(ProjectorView.tsx와 달리 여기는 사용자가 직접 누른 조작이라 결과를 알려준다).
+   */
+  const handleRefresh = async () => {
+    if (isRefreshing || isSubmittingSignature) return;
+    setIsRefreshing(true);
+    try {
+      await fetchAll();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '화면을 새로고침하지 못했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -570,6 +604,19 @@ export const SignerPortalView: FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-black ${SIGNER_EVENT_TYPE_META[context.eventType].className}`}>
+              {SIGNER_EVENT_TYPE_META[context.eventType].label}
+            </span>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isSubmittingSignature}
+              className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-950/40 px-2.5 py-1.5 text-xs font-black text-gray-200 transition-colors hover:bg-gray-800 hover:text-white disabled:cursor-wait disabled:opacity-50"
+              title="서명자 화면 새로고침"
+            >
+              {isRefreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              새로고침
+            </button>
             {contractInfo.totalPages > 1 && (
               <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-950/40 p-1">
                 <button

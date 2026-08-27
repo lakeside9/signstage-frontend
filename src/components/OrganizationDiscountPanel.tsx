@@ -27,6 +27,7 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   SIGNERS: '서명자',
   TEMPLATES: '템플릿',
   TEST_EVENTS: '테스트 행사',
+  REHEARSAL_EVENTS: '리허설 행사',
   MAIN_EVENTS: '본행사',
   TABLETS: '태블릿',
 };

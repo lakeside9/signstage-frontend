@@ -280,6 +280,7 @@ export interface BillingPlanSummary {
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
+  maxRehearsalEvents: number;
   maxMainEvents: number;
   /** 사용여부. false면 새 행사 생성/플랜 변경 대상에서 제외된다. */
   active: boolean;
@@ -304,6 +305,7 @@ export interface BillingPlanHistorySummary {
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
+  maxRehearsalEvents: number;
   maxMainEvents: number;
   active: boolean;
   createdBy: number;
@@ -323,6 +325,7 @@ export interface CreateBillingPlanRequest {
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
+  maxRehearsalEvents: number;
   maxMainEvents: number;
   optionalFeatureIds: number[];
 }
@@ -340,6 +343,7 @@ export interface UpdateBillingPlanRequest {
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
+  maxRehearsalEvents: number;
   maxMainEvents: number;
   active: boolean;
   /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
@@ -421,7 +425,7 @@ export interface UpdateOptionalFeatureRequest {
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
-export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'MAIN_EVENTS' | 'TABLETS';
+export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'REHEARSAL_EVENTS' | 'MAIN_EVENTS' | 'TABLETS';
 
 /**
  * GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다.
@@ -691,6 +695,7 @@ export interface CeremonyPlanHistorySummary {
   planMaxSigners: number;
   planMaxTemplates: number;
   planMaxTestEvents: number;
+  planMaxRehearsalEvents: number;
   planMaxMainEvents: number;
   createdBy: number;
   createdAt: string;
@@ -739,6 +744,7 @@ export interface CapacityStatus {
   signerLimit: number;
   templateLimit: number;
   testEventLimit: number;
+  rehearsalEventLimit: number;
   mainEventLimit: number;
 }
 
@@ -809,7 +815,7 @@ export interface PlatformAdminOptionalFeaturePurchaseRequestSummary {
 
 /**
  * feature.ceremony.entity.CeremonyEventType 값과 맞춘다. REHEARSAL은 2026-08-27 legacy 포팅 —
- * 과금 용량 한도는 TEST와 같은 버킷을 공유한다(백엔드 CapacityType.TEST_EVENTS).
+ * 과금 용량 한도는 TEST와 별도인 자기 버킷을 쓴다(백엔드 CapacityType.REHEARSAL_EVENTS).
  */
 export type CeremonyEventType = 'TEST' | 'REHEARSAL' | 'MAIN';
 
@@ -1117,6 +1123,8 @@ export interface PortalRequiredFieldStatus {
 export interface PortalContext {
   eventId: number;
   eventName: string;
+  /** 서명자 포털 도구모음의 구분 뱃지에 쓴다(2026-08-27 legacy 포팅). */
+  eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
   signerId: number;
   signerName: string;
@@ -1230,6 +1238,8 @@ export interface StrokeSummary {
 export interface ProjectorContext {
   eventId: number;
   eventName: string;
+  /** 전시용 화면 도구모음의 구분 뱃지에 쓴다(2026-08-27 legacy 포팅). */
+  eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
