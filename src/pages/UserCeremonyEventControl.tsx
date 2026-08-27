@@ -15,7 +15,6 @@ import {
   PackageCheck,
   Play,
   QrCode,
-  Radio,
   Square,
   Users,
 } from 'lucide-react';
@@ -112,7 +111,6 @@ export const UserCeremonyEventControl: FC = () => {
 
   const [event, setEvent] = useState<CeremonyEventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isForceFinishConfirmOpen, setIsForceFinishConfirmOpen] = useState(false);
 
@@ -253,7 +251,6 @@ export const UserCeremonyEventControl: FC = () => {
       brokerURL: `${wsProtocol}://${window.location.hostname}:8080/ws-signstage`,
       reconnectDelay: 5000,
       onConnect: () => {
-        setIsRealtimeConnected(true);
         client.subscribe(
           `/topic/events/${event.id}/state`,
           (message: IMessage) => {
@@ -318,15 +315,12 @@ export const UserCeremonyEventControl: FC = () => {
           { eventAccessKey: event.accessKey },
         );
       },
-      onWebSocketClose: () => setIsRealtimeConnected(false),
-      onStompError: () => setIsRealtimeConnected(false),
     });
 
     client.activate();
 
     return () => {
       client.deactivate();
-      setIsRealtimeConnected(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id, event?.accessKey]);
@@ -441,12 +435,6 @@ export const UserCeremonyEventControl: FC = () => {
               <h1 className="text-lg font-bold text-gray-950">{event.name}</h1>
               <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[event.status]}`}>
                 {STATUS_LABEL[event.status]}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-medium ${isRealtimeConnected ? 'text-emerald-600' : 'text-gray-400'}`}
-              >
-                <Radio size={12} />
-                {isRealtimeConnected ? '실시간 연결됨' : '연결 끊김'}
               </span>
 
               <div className="h-4 w-px bg-gray-200 mx-1" />
