@@ -26,6 +26,7 @@ import type {
   PageResponse,
   PlatformAdminLoginHistoryEntry,
   PlatformAdminUserDetail,
+  PlatformAdminUserHistorySummary,
   PlatformAdminUserSummary,
   UserStatus,
 } from '../types';
@@ -56,7 +57,7 @@ const LOGIN_HISTORY_STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * 회원 상세 화면. `GET /api/platform-admin/users/{userId}`가 기본 정보 + 소속 조직 목록을
+ * 회원 상세 화면. `GET /api/platform-admin/users/{userId}`가 기본 정보 + 소속 파트너 목록을
  * 함께 반환한다(signstage-docs business/platform-admin-member-management.md 4.1절).
  * 로그인 이력은 PLATFORM_OPS 이상만 조회할 수 있어(login-security.md 6장) 별도로 불러온다.
  * 강제 탈퇴는 PLATFORM_SUPER만 가능한 되돌릴 수 없는 동작이라 2단계 확인을 거친다.
@@ -73,6 +74,9 @@ export const AdminUserDetail: FC = () => {
   const [historyPage, setHistoryPage] = useState(0);
   const [historyData, setHistoryData] = useState<PageResponse<PlatformAdminLoginHistoryEntry> | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+  const [infoHistory, setInfoHistory] = useState<PlatformAdminUserHistorySummary[]>([]);
+  const [isInfoHistoryLoading, setIsInfoHistoryLoading] = useState(true);
 
   const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
 
@@ -148,6 +152,33 @@ export const AdminUserDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, historyPage, canManage]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await api.get(`/platform-admin/users/${userId}/history`);
+        if (!cancelled) {
+          setInfoHistory(response.data as PlatformAdminUserHistorySummary[]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '회원 정보 변경 이력을 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInfoHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const handleChangeStatus = async (status: 'ACTIVE' | 'DISABLED') => {
     setIsProcessing(true);
@@ -266,15 +297,15 @@ export const AdminUserDetail: FC = () => {
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 mb-3 flex items-center gap-1.5">
           <Building2 size={14} />
-          소속 조직
+          소속 파트너
         </h2>
         {organizations.length === 0 ? (
-          <p className="text-sm text-gray-500">소속된 조직이 없습니다.</p>
+          <p className="text-sm text-gray-500">소속된 파트너가 없습니다.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
               <tr>
-                <th className="text-left font-medium pb-2">조직</th>
+                <th className="text-left font-medium pb-2">파트너</th>
                 <th className="text-left font-medium pb-2">역할</th>
                 <th className="text-left font-medium pb-2">상태</th>
                 <th className="text-right font-medium pb-2">가입일</th>
@@ -416,6 +447,59 @@ export const AdminUserDetail: FC = () => {
         )}
       </div>
 
+      <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 mb-3 flex items-center gap-1.5">
+          <History size={14} />
+          회원 정보 변경 이력
+        </h2>
+        <ListContainer
+          isLoading={isInfoHistoryLoading}
+          isEmpty={infoHistory.length === 0}
+          emptyMessage="변경 이력이 없습니다."
+        >
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium">일시</th>
+                <th className="text-left px-4 py-2 font-medium">이름</th>
+                <th className="text-left px-4 py-2 font-medium">이메일</th>
+                <th className="text-left px-4 py-2 font-medium">전화번호</th>
+                <th className="text-left px-4 py-2 font-medium">상태</th>
+                <th className="text-left px-4 py-2 font-medium">플랫폼 등급</th>
+                <th className="text-left px-4 py-2 font-medium">변경자</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {infoHistory.map((entry) => (
+                <tr key={entry.id}>
+                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">
+                    {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                  </td>
+                  <td className="px-4 py-2 text-gray-950">{entry.name}</td>
+                  <td className="px-4 py-2 text-gray-500">{entry.email ?? '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">{entry.phone ?? '-'}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[entry.status]}`}
+                    >
+                      {entry.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-500">{entry.platformRole ?? '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">
+                    {entry.createdBy == null || entry.createdBy === user.id ? '본인' : `관리자 #${entry.createdBy}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListContainer>
+        <p className="mt-2 text-xs text-gray-400">
+          "본인"은 회원가입 또는 내 정보 수정 화면에서 이 회원이 직접 바꾼 것이고, "관리자"는 플랫폼 관리자가 대신
+          바꾼 것입니다(번호는 그 관리자의 회원 id).
+        </p>
+      </div>
+
       {!isWithdrawn && (
         <div className="mt-4 bg-white border border-red-200 rounded-lg p-4">
           <h2 className="text-sm font-bold text-red-700 mb-3 flex items-center gap-1.5">
@@ -434,7 +518,7 @@ export const AdminUserDetail: FC = () => {
             <div className="space-y-3">
               <p className="text-sm text-red-700">
                 되돌릴 수 없습니다. 아이디/이름/이메일/전화번호가 마스킹되고 다시 로그인할 수 없게 됩니다. 이
-                회원이 마지막 OWNER인 조직이 있다면 실패합니다(먼저 소유권을 이전해주세요).
+                회원이 마지막 OWNER인 파트너가 있다면 실패합니다(먼저 소유권을 이전해주세요).
               </p>
               <div className="flex gap-2">
                 <button

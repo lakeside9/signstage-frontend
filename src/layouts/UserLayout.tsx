@@ -1,26 +1,43 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import type { FC, ReactElement } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
+  ChevronDown,
   ChevronLeft,
-  ClipboardCheck,
   FileSignature,
   Key,
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   User,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types';
 
-const NAV_ITEMS = [
+interface NavLeaf {
+  to: string;
+  end: boolean;
+  icon: ReactElement;
+  label: string;
+}
+
+const TOP_NAV_ITEMS: NavLeaf[] = [
   { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
-  { to: '/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
   { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
+];
+
+/**
+ * "설정" 하위 메뉴 — "회사정보관리"(구 "조직 관리")와 "내 정보"를 여기로 옮겼다(2026-08-30
+ * 요청). "회사등록요청"(구 "조직 요청")은 당분간 이 메뉴 어디에도 없다 — 지금은 플랫폼 관리자가
+ * 직접 파트너(조직)를 등록하고, 사용자 셀프서비스 등록 요청 흐름은 다시 열 때까지 보류한다.
+ * 화면(`UserOrganizationRequests`, `/organization-requests`)과 라우트는 그대로 남아 있어서,
+ * 나중에 재개하면 이 배열에 항목 하나만 추가하면 된다.
+ */
+const SETTINGS_NAV_ITEMS: NavLeaf[] = [
+  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '회사정보관리' },
   { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
 ];
 
@@ -32,15 +49,22 @@ const NAV_ITEMS = [
  * `AdminLayout`과 같은 header + left sidebar + content 구조를 그대로 따른다
  * (signstage-docs frontend/screen-composition-plan.md 2장).
  *
- * "조직 관리"(내가 속한 조직 + 정보 수정)와 "조직 요청"(생성 요청 제출 + 이력)을 별개 메뉴로
- * 분리했다 — 관심사가 다르기 때문이다(business/organization-creation-approval-review.md).
- * 나머지 화면군 B(멤버 관리 등)는 아직 없다.
+ * "회사정보관리"(내가 속한 조직 + 정보 수정)와 "내 정보"는 "설정" 하위 메뉴로 묶었다(2026-08-30).
+ * 원래는 "조직 관리"/"조직 요청"이 최상위에 별도 메뉴였으나(관심사가 다르다는 이유,
+ * business/organization-creation-approval-review.md), 조직 요청 흐름을 당분간 숨기면서 남은
+ * "조직 관리"(→ 회사정보관리)와 "내 정보"를 설정으로 묶었다. 나머지 화면군 B(멤버 관리 등)는
+ * 아직 없다.
  */
 export const UserLayout: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
+
+  const isSettingsActive = SETTINGS_NAV_ITEMS.some((item) => location.pathname.startsWith(item.to));
+  const [isSettingsOpenByUser, setIsSettingsOpenByUser] = useState(false);
+  const isSettingsOpen = isSettingsOpenByUser || isSettingsActive;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +122,7 @@ export const UserLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {NAV_ITEMS.map((item) => (
+            {TOP_NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -119,6 +143,58 @@ export const UserLayout: FC = () => {
                 </span>
               </NavLink>
             ))}
+
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpenByUser((value) => !value)}
+              className={`flex w-full items-center gap-3 p-3 rounded-xl transition-all ${
+                isSettingsActive ? 'text-gray-950 font-bold' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <span className="shrink-0">
+                <Settings size={20} />
+              </span>
+              <span
+                className={`flex-1 text-left transition-opacity duration-300 whitespace-nowrap ${
+                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
+                }`}
+              >
+                설정
+              </span>
+              <span
+                className={`shrink-0 transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''} ${
+                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
+                }`}
+              >
+                <ChevronDown size={16} />
+              </span>
+            </button>
+
+            {isSettingsOpen && (
+              <div className="space-y-2">
+                {SETTINGS_NAV_ITEMS.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 p-3 rounded-xl transition-all ${
+                        isSidebarOpen ? 'ml-6' : ''
+                      } ${isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'}`
+                    }
+                  >
+                    <span className="shrink-0">{item.icon}</span>
+                    <span
+                      className={`transition-opacity duration-300 whitespace-nowrap ${
+                        isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </nav>
 
           <div className="border-t border-gray-100 p-4">

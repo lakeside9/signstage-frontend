@@ -21,8 +21,8 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const NAV_ITEMS = [
   { to: '/admin', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, label: '조직 관리' },
-  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '조직 요청' },
+  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, label: '파트너관리' },
+  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '파트너등록요청관리' },
   { to: '/admin/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
   { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
   { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },

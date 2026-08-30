@@ -20,10 +20,15 @@ const STATUS_LABEL: Record<OrganizationCreationRequestStatus, string> = {
 };
 
 /**
- * 일반 사용자의 "조직 요청" 화면(`/organization-requests`, 사이드바 메뉴) — 조직 생성 요청
- * 제출과 요청 이력을 한 화면에서 다룬다. "조직 관리"(`UserOrganizationList`,
+ * 일반 사용자의 "회사등록요청"(구 "조직 요청") 화면(`/organization-requests`) — 조직 생성 요청
+ * 제출과 요청 이력을 한 화면에서 다룬다. "회사정보관리"(`UserOrganizationList`,
  * `/organizations`)가 "내가 속한 조직"을 보여주는 것과 역할이 분리돼 있다 — URL도
  * `/organizations` 하위가 아닌 별개 경로로 둬서 사이드바 활성 표시가 서로 겹치지 않는다.
+ *
+ * **사이드바 메뉴에서는 당분간 숨겨져 있다**(2026-08-30 결정) — 지금은 플랫폼 관리자가 직접
+ * 파트너(조직)를 등록하고, 사용자 셀프서비스 등록 요청 흐름은 다시 열 때까지 보류한다. 화면과
+ * API는 그대로 남겨둬서 나중에 `UserLayout.tsx`의 메뉴 배열에 항목을 다시 추가하기만 하면
+ * 재개할 수 있다. URL을 직접 아는 사용자는 여전히 접근할 수 있다.
  *
  * PENDING 요청이 있으면 새로 제출할 수 없으므로(동시 PENDING 1건 제한, 3.4절) 그 동안은 제출
  * 버튼을 비활성화한다. 이미 어느 조직에든 속해 있어도 마찬가지로 비활성화한다 — 1인 1조직
@@ -145,7 +150,7 @@ export const UserOrganizationRequests: FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">조직 요청</h1>
+        <h1 className="text-xl font-bold text-gray-950">회사등록요청</h1>
         <p className="mt-1 text-sm text-gray-500">
           새 조직 생성을 요청하고 진행 상태를 확인합니다. 승인되면 이 계정이 새 조직의 OWNER가 됩니다.
         </p>

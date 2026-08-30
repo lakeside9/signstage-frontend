@@ -32,12 +32,13 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 
 // VIDEO_ATTENDANCE(화상 참석)는 실제 효과 로직이 아직 없어(별도 트랙에서 검토 중) 이 화면에서는
 // 다루지 않는다 — signstage-docs business/ceremony-billing-options-review.md 참고.
-// TABLET_RENTAL(태블릿 대여)은 프로젝터 효과가 없는 순수 안내/표시용 옵션이다 — 실제 수량은
-// CapacityType.TABLETS 용량 추가구매로 관리한다(2026-08-21 추가).
+// TABLET_RENTAL(태블릿 대여)은 프로젝터 효과가 없는 순수 안내/표시용 옵션이라, 선택옵션 카탈로그를
+// 전시화면/서명화면에 실제 효과를 내는 항목으로 좁히면서 신규 등록 대상에서 뺐다(2026-08-30) —
+// signstage-docs business/optional-feature-display-scope-and-plan-capacity-addon-review.md 3장.
+// 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL 등)에는 이미 등록된 행을 계속 정상 표시해야 해서 남겨둔다.
 const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = [
   'SIGNER_FIELD_ZOOM',
   'ALL_SIGNED_FIREWORKS',
-  'TABLET_RENTAL',
 ];
 
 const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
@@ -138,6 +139,12 @@ const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: 
  *   해제할 방법이 없다는 문제로 수정 폼에서도 통째로 교체할 수 있게 열었다(signstage-docs
  *   business/ceremony-billing-options-review.md 9장 후속). 이미 확정/진행 중인 행사는
  *   `CeremonyPlanHistoryOptionalFeature` 스냅샷으로 보호되어 이 변경에 영향받지 않는다.
+ * - `BillingPlan`에는 구매 가능한 용량 추가구매 상품 구성(capacityAddOnIds)도 같은 방식으로
+ *   생성/수정 폼에서 통째로 교체할 수 있다(안 A 큐레이션, 2026-08-30) — `optionalFeatureIds`와
+ *   겉모습은 같지만 "무료 포함"이 아니라 "구매 후보로 고를 수 있는" 허용 목록이라는 뜻 차이가
+ *   있어 화면 안내문을 따로 둔다. `CeremonyPlanHistoryCapacityAddOn` 스냅샷으로 진행 중인
+ *   행사를 같은 방식으로 보호한다(signstage-docs
+ *   business/optional-feature-display-scope-and-plan-capacity-addon-review.md 5장).
  * - VIDEO_ATTENDANCE는 이 화면에서 다루지 않는다(위 MANAGEABLE_OPTIONAL_FEATURE_CODES 참고).
  */
 export const AdminBillingCatalog: FC = () => {
@@ -181,11 +188,13 @@ const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
   maxRehearsalEvents: 0,
   maxMainEvents: 0,
   optionalFeatureIds: [],
+  capacityAddOnIds: [],
 };
 
 const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
+  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
@@ -201,13 +210,15 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const fetchAll = async () => {
-    const [plansResponse, featuresResponse] = await Promise.all([
+    const [plansResponse, featuresResponse, addOnsResponse] = await Promise.all([
       api.get('/billing-plans'),
       api.get('/optional-features'),
+      api.get('/capacity-addons'),
     ]);
     return {
       plans: plansResponse.data as BillingPlanSummary[],
       features: featuresResponse.data as OptionalFeatureSummary[],
+      addOns: addOnsResponse.data as CapacityAddOnSummary[],
     };
   };
 
@@ -219,6 +230,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
         if (!cancelled) {
           setPlans(data.plans);
           setFeatures(data.features);
+          setAddOns(data.addOns);
         }
       } catch (err) {
         if (!cancelled) {
@@ -236,15 +248,27 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
 
   const featureName = (id: number) => features.find((f) => f.id === id)?.name ?? `#${id}`;
 
-  // 선택옵션은 별도 섹션(OptionalFeatureSection)에서 등록/수정될 수 있어, 생성 폼을 열 때마다
-  // 목록을 새로 불러온다 — 마운트 시점 한 번만 불러오면 다른 섹션에서 방금 만든 옵션이
-  // 체크박스 목록에 안 보이는 문제가 생긴다.
+  // 용량 추가구매 상품 목록도 CapacityAddOnSection에서 이미 쓰는 "주용량 +수량 · 보조용량 +수량"
+  // 라벨 조합을 그대로 재사용한다(운영현황 문서 6.5절 — 다섯 번째로 또 베끼지 않도록).
+  const addOnLabel = (id: number) => {
+    const addOn = addOns.find((a) => a.id === id);
+    if (!addOn) return `#${id}`;
+    const primary = `${CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +${addOn.unitAmount}`;
+    if (!addOn.secondaryCapacityType) return primary;
+    return `${primary} · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`;
+  };
+
+  // 선택옵션·용량 추가구매 상품은 각각 별도 섹션(OptionalFeatureSection/CapacityAddOnSection)에서
+  // 등록/수정될 수 있어, 생성 폼을 열 때마다 목록을 새로 불러온다 — 마운트 시점 한 번만 불러오면
+  // 다른 섹션에서 방금 만든 항목이 체크박스 목록에 안 보이는 문제가 생긴다.
   const handleOpenCreateForm = async () => {
     setIsCreateFormOpen(true);
     try {
-      setFeatures((await fetchAll()).features);
+      const data = await fetchAll();
+      setFeatures(data.features);
+      setAddOns(data.addOns);
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '선택옵션 목록을 불러오지 못했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '선택옵션/용량 추가구매 상품 목록을 불러오지 못했습니다.', 'error');
     }
   };
 
@@ -283,6 +307,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       maxMainEvents: plan.maxMainEvents,
       active: plan.active,
       optionalFeatureIds: plan.optionalFeatureIds,
+      capacityAddOnIds: plan.capacityAddOnIds,
     });
   };
 
@@ -474,7 +499,38 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 ))}
               </div>
             )}
-            <p className="mt-1 text-xs text-gray-400">플랜에 묶을 선택옵션 구성은 생성 후 바꿀 수 없습니다.</p>
+            <p className="mt-1 text-xs text-gray-400">플랜에 묶을 선택옵션 구성은 이후 수정 화면에서도 통째로 바꿀 수 있습니다.</p>
+          </div>
+
+          <div>
+            <span className="block text-xs font-medium text-gray-500 mb-1">구매 가능 용량 추가구매 상품</span>
+            {addOns.length === 0 ? (
+              <p className="text-xs text-gray-400">등록된 용량 추가구매 상품이 없습니다. 아래 용량 추가구매 섹션에서 먼저 등록해주세요.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {addOns.map((addOn) => (
+                  <label key={addOn.id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={createDraft.capacityAddOnIds.includes(addOn.id)}
+                      disabled={isCreating}
+                      onChange={(e) =>
+                        setCreateDraft((prev) => ({
+                          ...prev,
+                          capacityAddOnIds: e.target.checked
+                            ? [...prev.capacityAddOnIds, addOn.id]
+                            : prev.capacityAddOnIds.filter((id) => id !== addOn.id),
+                        }))
+                      }
+                    />
+                    {addOnLabel(addOn.id)}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-400">
+              체크한 상품만 이 플랜의 행사가 구매할 수 있습니다(무료 포함 아님 — 여전히 사용자가 구매 요청하고 관리자가 승인해야 합니다).
+            </p>
           </div>
 
           <FormActions
@@ -498,6 +554,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <th className="text-left font-medium py-2">할인</th>
               <th className="text-left font-medium py-2">한도(서명자/템플릿/테스트/리허설/본행사)</th>
               <th className="text-left font-medium py-2">포함 선택옵션</th>
+              <th className="text-left font-medium py-2">구매 가능 추가구매 상품</th>
               <th className="text-left font-medium py-2">상태</th>
               <th className="text-right font-medium py-2 px-4">이력</th>
               {canManage && <th className="text-right font-medium py-2 px-4">처리</th>}
@@ -507,7 +564,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
             {plans.map((plan) =>
               editingId === plan.id && editDraft ? (
                 <tr key={plan.id} className="bg-gray-50">
-                  <td colSpan={canManage ? 8 : 7} className="p-4">
+                  <td colSpan={canManage ? 9 : 8} className="p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="이름">
                         <input
@@ -654,6 +711,39 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         이미 확정/구매해서 쓰고 있는 행사는 변경 시점 스냅샷 기준이라 영향받지 않습니다.
                       </p>
                     </div>
+                    <div className="mb-3">
+                      <span className="block text-xs font-medium text-gray-500 mb-1">구매 가능 용량 추가구매 상품</span>
+                      {addOns.length === 0 ? (
+                        <p className="text-xs text-gray-400">등록된 용량 추가구매 상품이 없습니다.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-3">
+                          {addOns.map((addOn) => (
+                            <label key={addOn.id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={editDraft.capacityAddOnIds.includes(addOn.id)}
+                                disabled={isSavingEdit}
+                                onChange={(e) =>
+                                  setEditDraft((prev) =>
+                                    prev && {
+                                      ...prev,
+                                      capacityAddOnIds: e.target.checked
+                                        ? [...prev.capacityAddOnIds, addOn.id]
+                                        : prev.capacityAddOnIds.filter((id) => id !== addOn.id),
+                                    }
+                                  )
+                                }
+                              />
+                              {addOnLabel(addOn.id)}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <p className="mt-1 text-xs text-gray-400">
+                        체크한 상품만 이 플랜의 행사가 구매할 수 있습니다(무료 포함 아님). 이미 진행 중인 행사는 플랜
+                        확정/변경 시점 스냅샷 기준이라 영향받지 않습니다.
+                      </p>
+                    </div>
                     <UsageWarning count={plan.usageCount} itemLabel="플랜" />
                     <FormActions
                       isSaving={isSavingEdit}
@@ -678,6 +768,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                     {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxRehearsalEvents}/{plan.maxMainEvents}
                   </td>
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
+                  <td className="py-2 text-gray-600">{plan.capacityAddOnIds.map(addOnLabel).join(', ') || '-'}</td>
                   <td className="py-2">
                     <ActiveBadge active={plan.active} />
                     <span className="ml-1.5 text-xs text-gray-400">사용 {plan.usageCount}건</span>

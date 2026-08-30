@@ -66,7 +66,7 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
           추가구매 요청
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          행사의 용량/선택옵션 추가구매 요청입니다. 승인해야 조직이 실제로 사용할 수 있습니다.
+          행사의 용량/선택옵션 추가구매 요청입니다. 승인해야 파트너가 실제로 사용할 수 있습니다.
         </p>
       </div>
 
@@ -244,7 +244,7 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3 font-medium">요청자</th>
-              <th className="text-left px-4 py-3 font-medium">조직/행사</th>
+              <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
               <th className="text-left px-4 py-3 font-medium">용량</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">요청일</th>
@@ -521,7 +521,7 @@ const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, sh
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3 font-medium">요청자</th>
-              <th className="text-left px-4 py-3 font-medium">조직/행사</th>
+              <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
               <th className="text-left px-4 py-3 font-medium">선택옵션</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">요청일</th>

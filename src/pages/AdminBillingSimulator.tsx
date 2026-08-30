@@ -323,7 +323,7 @@ export const AdminBillingSimulator: FC = () => {
           과금 시뮬레이터
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          실제 카탈로그와 조직 할인 오버라이드를 그대로 읽어와, 행사를 만들지 않고 예상 청구 금액을 미리 계산합니다.
+          실제 카탈로그와 파트너 할인 오버라이드를 그대로 읽어와, 행사를 만들지 않고 예상 청구 금액을 미리 계산합니다.
           계산 공식은 signstage-docs business/ceremony-billing-consolidated-simulation-reference.md §2를 따릅니다.
         </p>
       </div>
@@ -567,7 +567,7 @@ export const AdminBillingSimulator: FC = () => {
 
 const OrgOverrideBadge: FC = () => (
   <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-    조직 할인 적용
+    파트너 할인 적용
   </span>
 );
 
@@ -595,10 +595,10 @@ const OrganizationPicker: FC<OrganizationPickerProps> = ({
   <section className="bg-white border border-gray-200 rounded-lg p-4">
     <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-1">
       <Building2 size={14} />
-      조직 (선택사항)
+      파트너 (선택사항)
     </h2>
     <p className="text-xs text-gray-400 mb-3">
-      조직을 고르면 그 조직에 설정된 품목별 할인 오버라이드가 자동으로 적용됩니다. 고르지 않으면 카탈로그 전역
+      파트너를 고르면 그 파트너에 설정된 품목별 할인 오버라이드가 자동으로 적용됩니다. 고르지 않으면 카탈로그 전역
       할인값으로 계산합니다.
     </p>
 
@@ -625,7 +625,7 @@ const OrganizationPicker: FC<OrganizationPickerProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchTermChange(e.target.value)}
-            placeholder="조직명으로 검색"
+            placeholder="파트너명으로 검색"
             className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
           />
         </div>

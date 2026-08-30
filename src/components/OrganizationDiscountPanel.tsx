@@ -101,10 +101,10 @@ export const OrganizationDiscountPanel: FC<PanelProps> = ({ organizationId, canM
       <div className="mb-3">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
           <Percent size={14} />
-          조직별 할인 오버라이드
+          파트너별 할인 오버라이드
         </h2>
         <p className="mt-1 text-xs text-gray-500">
-          이 조직이 특정 플랜/선택옵션/용량 추가구매를 살 때 카탈로그 할인 대신 적용할 값입니다. 새로 만드는
+          이 파트너가 특정 플랜/선택옵션/용량 추가구매를 살 때 카탈로그 할인 대신 적용할 값입니다. 새로 만드는
           행사·구매 건에만 반영되며, 이미 만든 것은 영향받지 않습니다.
         </p>
       </div>

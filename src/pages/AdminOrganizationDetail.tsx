@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Globe, Loader2, Plus, UserMinus, Users, UserPlus } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus, Users, UserPlus, X } from 'lucide-react';
+import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
 import { OrganizationDiscountPanel } from '../components/OrganizationDiscountPanel';
 import { CeremonyFinalDiscountPanel } from '../components/CeremonyFinalDiscountPanel';
@@ -11,6 +12,7 @@ import { api } from '../utils/api';
 import { canManagePlatform } from '../utils/permissions';
 import type {
   MemberRole,
+  OrganizationHistorySummary,
   OrganizationStatus,
   PageResponse,
   PlatformAdminMemberSummary,
@@ -29,7 +31,7 @@ const CANDIDATE_PAGE_SIZE = 10;
 const EMPTY_CANDIDATE_SEARCH = { loginId: '', name: '', email: '' };
 
 /**
- * 조직 상세 화면. `GET /api/platform-admin/organizations/{organizationId}`를 그대로 보여준다.
+ * 파트너 상세 화면. `GET /api/platform-admin/organizations/{organizationId}`를 그대로 보여준다.
  * 상태 변경(정지/재개)은 PLATFORM_OPS 이상만 가능하다. 멤버 목록과 강제 추가/역할변경/제거도
  * 이 화면에서 다룬다(signstage-docs business/platform-admin-member-management.md 4.2절
  * "조직 멤버십 강제 조정") — 호출자가 그 조직의 멤버가 아니어도 된다는 점이 일반 멤버
@@ -47,6 +49,15 @@ export const AdminOrganizationDetail: FC = () => {
   const [organization, setOrganization] = useState<PlatformAdminOrganizationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [localeDraft, setLocaleDraft] = useState('');
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<OrganizationHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const [members, setMembers] = useState<PlatformAdminMemberSummary[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
@@ -84,7 +95,7 @@ export const AdminOrganizationDetail: FC = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '조직 정보를 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '파트너 정보를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
           navigate('/admin/organizations', { replace: true });
         }
@@ -241,12 +252,57 @@ export const AdminOrganizationDetail: FC = () => {
     try {
       const response = await api.put(`/platform-admin/organizations/${organizationId}/status`, { status });
       setOrganization(response.data as PlatformAdminOrganizationSummary);
-      showSnackbar(status === 'ACTIVE' ? '조직을 재개했습니다.' : '조직을 정지했습니다.', 'success');
+      showSnackbar(status === 'ACTIVE' ? '파트너를 재개했습니다.' : '파트너를 정지했습니다.', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : '상태 변경에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const startEditInfo = () => {
+    if (!organization) return;
+    setNameDraft(organization.name);
+    setLocaleDraft(organization.defaultLocale);
+    setIsEditingInfo(true);
+  };
+
+  const handleSaveInfo = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!nameDraft.trim() || !localeDraft.trim()) {
+      showSnackbar('파트너 이름과 기본 언어를 입력해주세요.', 'error');
+      return;
+    }
+
+    setIsSavingInfo(true);
+    try {
+      const response = await api.put(`/platform-admin/organizations/${organizationId}/info`, {
+        organizationName: nameDraft.trim(),
+        defaultLocale: localeDraft.trim(),
+      });
+      setOrganization(response.data as PlatformAdminOrganizationSummary);
+      setIsEditingInfo(false);
+      showSnackbar('파트너 정보를 저장했습니다.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '파트너 정보 저장에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsSavingInfo(false);
+    }
+  };
+
+  const openHistory = async () => {
+    setIsHistoryOpen(true);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/organizations/${organizationId}/history`);
+      setHistory(response.data as OrganizationHistorySummary[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -269,7 +325,7 @@ export const AdminOrganizationDetail: FC = () => {
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
-        조직 목록으로
+        파트너 목록으로
       </Link>
 
       <div className="flex items-center justify-between mb-6">
@@ -278,25 +334,89 @@ export const AdminOrganizationDetail: FC = () => {
             <Building2 size={20} className="text-gray-400" />
             {organization.name}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">조직 상세 정보</p>
+          <p className="mt-1 text-sm text-gray-500">파트너 상세 정보</p>
         </div>
-        <span
-          className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[organization.status]}`}
-        >
-          {organization.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openHistory}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+          >
+            <History size={12} />
+            이력
+          </button>
+          <span
+            className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[organization.status]}`}
+          >
+            {organization.status}
+          </span>
+        </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-        <DetailRow icon={<Building2 size={16} />} label="조직 이름" value={organization.name} />
-        <DetailRow label="조직 코드" value={organization.code} />
-        <DetailRow icon={<Globe size={16} />} label="기본 언어" value={organization.defaultLocale} />
-        <DetailRow icon={<Users size={16} />} label="활성 멤버" value={`${organization.activeMemberCount}명`} />
-        <DetailRow label="생성일" value={new Date(organization.createdAt).toLocaleString('ko-KR')} />
-      </div>
+      {isEditingInfo ? (
+        <form onSubmit={handleSaveInfo} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">파트너 이름</label>
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              disabled={isSavingInfo}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기본 언어</label>
+            <input
+              type="text"
+              value={localeDraft}
+              onChange={(e) => setLocaleDraft(e.target.value)}
+              disabled={isSavingInfo}
+              placeholder="예: ko-KR"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditingInfo(false)}
+              disabled={isSavingInfo}
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              <X size={14} />
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={isSavingInfo}
+              className="flex-1 bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
+            >
+              {isSavingInfo ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+            <DetailRow icon={<Building2 size={16} />} label="파트너 이름" value={organization.name} />
+            <DetailRow label="파트너 코드" value={organization.code} />
+            <DetailRow icon={<Globe size={16} />} label="기본 언어" value={organization.defaultLocale} />
+            <DetailRow icon={<Users size={16} />} label="활성 멤버" value={`${organization.activeMemberCount}명`} />
+            <DetailRow label="생성일" value={new Date(organization.createdAt).toLocaleString('ko-KR')} />
+          </div>
+          {canManage && (
+            <button
+              onClick={startEditInfo}
+              className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            >
+              <Pencil size={14} />
+              파트너 정보 수정
+            </button>
+          )}
+        </>
+      )}
 
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 mb-3">조직 상태</h2>
+        <h2 className="text-sm font-bold text-gray-950 mb-3">파트너 상태</h2>
         {!canManage ? (
           <p className="text-sm text-gray-500">상태 변경은 PLATFORM_OPS 이상만 가능합니다. (조회 전용 계정)</p>
         ) : organization.status === 'TRIAL' ? (
@@ -346,7 +466,7 @@ export const AdminOrganizationDetail: FC = () => {
           <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium text-gray-500">
-                어느 조직에도 속하지 않은 사용자만 후보로 나옵니다(1인 1조직 제한). 조직 내부 위계와
+                어느 파트너에도 속하지 않은 사용자만 후보로 나옵니다(1인 1파트너 제한). 파트너 내부 위계와
                 무관하게 OWNER로도 추가할 수 있습니다.
               </p>
               <button
@@ -423,7 +543,7 @@ export const AdminOrganizationDetail: FC = () => {
                 </div>
               ) : !candidatePageData || candidatePageData.content.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-500">
-                  조건에 맞는, 어느 조직에도 속하지 않은 사용자가 없습니다.
+                  조건에 맞는, 어느 파트너에도 속하지 않은 사용자가 없습니다.
                 </p>
               ) : (
                 <table className="w-full text-sm">
@@ -578,6 +698,38 @@ export const AdminOrganizationDetail: FC = () => {
           <OrganizationDiscountPanel organizationId={organizationId} canManage={canManage} showSnackbar={showSnackbar} />
         </>
       )}
+
+      <Modal open={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} title="파트너 정보 변경 이력" widthClassName="max-w-lg">
+        {isHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {history.map((entry) => (
+              <li key={entry.id} className="py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-950 font-medium">{entry.name}</p>
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[entry.status]}`}
+                  >
+                    {entry.status}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  코드 {entry.code} · 기본 언어 {entry.defaultLocale}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                  {entry.createdBy != null && ` · 변경자 #${entry.createdBy}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 };

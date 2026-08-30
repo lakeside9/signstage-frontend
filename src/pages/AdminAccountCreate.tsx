@@ -7,8 +7,8 @@ import { api } from '../utils/api';
 import type { PlatformAdminCreatedUser, PlatformRole } from '../types';
 
 const PLATFORM_ROLE_OPTIONS: Array<{ value: PlatformRole; label: string; description: string }> = [
-  { value: 'PLATFORM_SUPPORT', label: 'PLATFORM_SUPPORT', description: '전 조직 데이터 조회만 (CS/지원팀)' },
-  { value: 'PLATFORM_OPS', label: 'PLATFORM_OPS', description: '조회 + 조직/회원 상태 제어 (운영팀)' },
+  { value: 'PLATFORM_SUPPORT', label: 'PLATFORM_SUPPORT', description: '전 파트너 데이터 조회만 (CS/지원팀)' },
+  { value: 'PLATFORM_OPS', label: 'PLATFORM_OPS', description: '조회 + 파트너/회원 상태 제어 (운영팀)' },
   { value: 'PLATFORM_SUPER', label: 'PLATFORM_SUPER', description: '전체 권한 + 관리자 계정 발급' },
 ];
 

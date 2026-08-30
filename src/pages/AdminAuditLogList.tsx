@@ -16,14 +16,15 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   CREATE_USER: '회원 생성',
   CREATE_ACCOUNT: '관리자 계정 생성',
   REVOKE_ACCOUNT: '관리자 권한 해제',
-  UPDATE_ORGANIZATION_STATUS: '조직 상태 변경',
-  CREATE_ORGANIZATION: '조직 등록',
+  UPDATE_ORGANIZATION_STATUS: '파트너 상태 변경',
+  UPDATE_ORGANIZATION_INFO: '파트너 정보 수정',
+  CREATE_ORGANIZATION: '파트너 등록',
   FORCE_ADD_MEMBER: '멤버 강제 추가',
   FORCE_UPDATE_MEMBER_ROLE: '멤버 역할 강제 변경',
   FORCE_REMOVE_MEMBER: '멤버 강제 제거',
   FORCE_WITHDRAW_USER: '회원 강제 탈퇴',
   UPDATE_ACCOUNT_ROLE: '관리자 등급 변경',
-  REJECT_ORGANIZATION_REQUEST: '조직 생성 요청 반려',
+  REJECT_ORGANIZATION_REQUEST: '파트너 등록 요청 반려',
   CREATE_BILLING_PLAN: '과금 플랜 등록',
   UPDATE_BILLING_PLAN: '과금 플랜 수정',
   CREATE_OPTIONAL_FEATURE: '선택옵션 등록',
@@ -32,9 +33,9 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   UPDATE_CAPACITY_ADDON: '용량 추가구매 상품 수정',
   UPDATE_CEREMONY_STATUS: '행사 상태 강제 변경',
   UPDATE_CEREMONY_FINAL_DISCOUNT: '행사 건별 재량 할인 설정',
-  UPDATE_ORGANIZATION_BILLING_PLAN_DISCOUNT: '조직×플랜 할인 오버라이드 변경',
-  UPDATE_ORGANIZATION_OPTIONAL_FEATURE_DISCOUNT: '조직×선택옵션 할인 오버라이드 변경',
-  UPDATE_ORGANIZATION_CAPACITY_ADDON_DISCOUNT: '조직×용량추가구매 할인 오버라이드 변경',
+  UPDATE_ORGANIZATION_BILLING_PLAN_DISCOUNT: '파트너×플랜 할인 오버라이드 변경',
+  UPDATE_ORGANIZATION_OPTIONAL_FEATURE_DISCOUNT: '파트너×선택옵션 할인 오버라이드 변경',
+  UPDATE_ORGANIZATION_CAPACITY_ADDON_DISCOUNT: '파트너×용량추가구매 할인 오버라이드 변경',
   APPROVE_CAPACITY_PURCHASE: '용량 추가구매 승인',
   REJECT_CAPACITY_PURCHASE: '용량 추가구매 반려',
   APPROVE_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 승인',
@@ -134,7 +135,7 @@ export const AdminAuditLogList: FC = () => {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">감사 로그</h1>
         <p className="mt-1 text-sm text-gray-500">
-          플랫폼 관리자가 회원/조직에 대해 수행한 제어 행위 기록입니다. 조회 전용입니다.
+          플랫폼 관리자가 회원/파트너에 대해 수행한 제어 행위 기록입니다. 조회 전용입니다.
         </p>
       </div>
 
@@ -197,7 +198,7 @@ export const AdminAuditLogList: FC = () => {
                     </Link>
                   ) : entry.organizationId ? (
                     <Link to={`/admin/organizations/${entry.organizationId}`} className="text-gray-950 hover:underline">
-                      조직: {entry.organizationName ?? `#${entry.organizationId}`}
+                      파트너: {entry.organizationName ?? `#${entry.organizationId}`}
                     </Link>
                   ) : (
                     <span className="text-gray-400">-</span>

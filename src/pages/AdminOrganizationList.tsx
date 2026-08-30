@@ -34,9 +34,9 @@ interface SearchParams {
 const EMPTY_SEARCH: SearchParams = { name: '', code: '', status: 'ALL' };
 
 /**
- * 조직 관리 = 전체 조직 목록/검색 + 등록 화면. `GET /api/platform-admin/organizations`로
+ * 파트너관리(구 "조직 관리") = 전체 파트너 목록/검색 + 등록 화면. `GET /api/platform-admin/organizations`로
  * 목록을 조회하고, `POST /api/platform-admin/organizations`(PLATFORM_OPS 이상)로 등록한다.
- * 조직 상태 변경/멤버 강제 조정은 이번 범위 밖.
+ * 파트너 상태 변경/멤버 강제 조정은 이번 범위 밖.
  *
  * 화면 구성은 signstage-docs frontend/list-screen-convention.md의 "검색 영역 → 목록 →
  * 페이지네비게이션" 3단 구조를 따른다(SearchBar/ListContainer 공통 컴포넌트 사용).
@@ -71,7 +71,7 @@ export const AdminOrganizationList: FC = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '조직 목록을 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '파트너 목록을 불러오지 못했습니다.';
           showSnackbar(message, 'error');
         }
       } finally {
@@ -116,8 +116,8 @@ export const AdminOrganizationList: FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-950">조직 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">전체 조직 목록입니다. 조직 이름을 누르면 상세로 이동합니다.</p>
+          <h1 className="text-xl font-bold text-gray-950">파트너관리</h1>
+          <p className="mt-1 text-sm text-gray-500">전체 파트너 목록입니다. 파트너 이름을 누르면 상세로 이동합니다.</p>
         </div>
         {canManage && (
           <Link
@@ -125,28 +125,28 @@ export const AdminOrganizationList: FC = () => {
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             <Plus size={16} />
-            조직 등록
+            파트너 등록
           </Link>
         )}
       </div>
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
-        <SearchField label="조직 이름" className="w-48">
+        <SearchField label="파트너 이름" className="w-48">
           <input
             type="text"
             value={formValues.name}
             onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="조직 이름"
+            placeholder="파트너 이름"
             className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
         </SearchField>
 
-        <SearchField label="조직 코드" className="w-40">
+        <SearchField label="파트너 코드" className="w-40">
           <input
             type="text"
             value={formValues.code}
             onChange={(e) => setFormValues((prev) => ({ ...prev, code: e.target.value }))}
-            placeholder="조직 코드"
+            placeholder="파트너 코드"
             className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
           />
         </SearchField>
@@ -171,7 +171,7 @@ export const AdminOrganizationList: FC = () => {
       <ListContainer
         isLoading={isLoading}
         isEmpty={organizations.length === 0}
-        emptyMessage="해당 조건의 조직이 없습니다."
+        emptyMessage="해당 조건의 파트너가 없습니다."
         pagination={
           pageData
             ? {
@@ -187,7 +187,7 @@ export const AdminOrganizationList: FC = () => {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
-              <th className="text-left px-4 py-3 font-medium">조직 이름</th>
+              <th className="text-left px-4 py-3 font-medium">파트너 이름</th>
               <th className="text-left px-4 py-3 font-medium">코드</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">언어</th>

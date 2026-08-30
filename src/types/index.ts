@@ -50,6 +50,31 @@ export interface OrganizationSummary {
 }
 
 /**
+ * GET /api/organizations/{id}/history, GET /api/platform-admin/organizations/{id}/history 응답
+ * (OrganizationDto.Response.OrganizationHistorySummary)과 맞춘다. 파트너 본인(OWNER)이 바꿨는지
+ * 플랫폼 관리자가 바꿨는지는 createdBy로 구분한다(2026-08-30 — 두 경로 모두 같은 이력에 남는다).
+ */
+export interface OrganizationHistorySummary {
+  id: number;
+  name: string;
+  code: string;
+  status: OrganizationStatus;
+  defaultLocale: string;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+/**
+ * PUT /api/platform-admin/organizations/{id}/info 요청
+ * (PlatformAdminOrganizationDto.Request.UpdateOrganizationInfo)과 맞춘다. code는 이 API로도
+ * 바꾸지 않는다(OrganizationDto.Request.UpdateOrganization과 같은 제약).
+ */
+export interface UpdateOrganizationInfoRequest {
+  organizationName: string;
+  defaultLocale: string;
+}
+
+/**
  * feature.organization.entity.OrganizationCreationRequestStatus 값과 맞춘다.
  * signstage-docs business/organization-creation-approval-review.md 3.1절 — 조직은 더 이상
  * 즉시 만들어지지 않고 이 요청이 승인돼야 만들어진다.
@@ -127,6 +152,7 @@ export type PlatformAdminAction =
   | 'CREATE_ACCOUNT'
   | 'REVOKE_ACCOUNT'
   | 'UPDATE_ORGANIZATION_STATUS'
+  | 'UPDATE_ORGANIZATION_INFO'
   | 'CREATE_ORGANIZATION'
   | 'FORCE_ADD_MEMBER'
   | 'FORCE_UPDATE_MEMBER_ROLE'
@@ -223,6 +249,25 @@ export interface PlatformAdminLoginHistoryEntry {
 }
 
 /**
+ * GET /api/platform-admin/users/{userId}/history 응답
+ * (PlatformAdminUserDto.Response.UserHistorySummary)과 맞춘다. 회원 본인이 바꿨는지 플랫폼
+ * 관리자가 바꿨는지는 createdBy로 구분한다(2026-08-30). 비밀번호(해시)는 절대 포함하지 않는다.
+ */
+export interface PlatformAdminUserHistorySummary {
+  id: number;
+  loginId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  locale: string;
+  status: UserStatus;
+  platformRole: PlatformRole | null;
+  passwordResetRequired: boolean;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+/**
  * GET/PUT/DELETE /api/platform-admin/organizations/{organizationId}/members 응답과 맞춘다
  * (PlatformAdminMemberDto.Response.MemberSummary).
  */
@@ -287,6 +332,12 @@ export interface BillingPlanSummary {
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   optionalFeatureIds: number[];
+  /**
+   * 이 플랜에서 구매 가능한(안 A 큐레이션) 용량 추가구매 상품 id 목록 — 무료 포함이 아니라
+   * "이 플랜을 쓰는 행사가 구매 후보로 고를 수 있는" 허용 목록이다(signstage-docs
+   * business/optional-feature-display-scope-and-plan-capacity-addon-review.md 4.1/5장).
+   */
+  capacityAddOnIds: number[];
   createdAt: string;
 }
 
@@ -314,7 +365,8 @@ export interface BillingPlanHistorySummary {
 
 /**
  * POST /api/platform-admin/billing-plans 요청(BillingPlanDto.Request.CreatePlan)과 맞춘다.
- * optionalFeatureIds는 생성 시점에만 정하고 이후 불변이다.
+ * optionalFeatureIds/capacityAddOnIds는 수정 시에도 통째로 교체할 수 있다(9장 후속 —
+ * UpdateBillingPlanRequest도 같은 필드를 갖는다).
  */
 export interface CreateBillingPlanRequest {
   name: string;
@@ -328,12 +380,11 @@ export interface CreateBillingPlanRequest {
   maxRehearsalEvents: number;
   maxMainEvents: number;
   optionalFeatureIds: number[];
+  /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
+  capacityAddOnIds: number[];
 }
 
-/**
- * PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다.
- * optionalFeatureIds는 불변이라 CreateBillingPlanRequest와 달리 여기엔 없다.
- */
+/** PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다. */
 export interface UpdateBillingPlanRequest {
   name: string;
   supplyPrice: number;
@@ -348,6 +399,8 @@ export interface UpdateBillingPlanRequest {
   active: boolean;
   /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
   optionalFeatureIds: number[];
+  /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
+  capacityAddOnIds: number[];
 }
 
 /** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */

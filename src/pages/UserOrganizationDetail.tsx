@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Globe, Loader2, Pencil, Plus, UserMinus, Users, X } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus, Users, X } from 'lucide-react';
+import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { MemberRole, MemberSummary, OrganizationSummary } from '../types';
+import type { MemberRole, MemberSummary, OrganizationHistorySummary, OrganizationSummary } from '../types';
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: '활성',
@@ -16,7 +17,7 @@ const ALL_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'];
 
 /**
  * 내가 속한 조직 하나의 상세/설정 + 멤버 관리 화면(`/organizations/:organizationId`).
- * "조직 관리"(`UserOrganizationList`) 목록의 조직 행에서 진입한다.
+ * "회사정보관리"(`UserOrganizationList`) 목록의 조직 행에서 진입한다.
  *
  * - 조직 정보: OWNER만 이름/기본 언어를 수정할 수 있다(`PUT /api/organizations/{id}`) —
  *   screen-composition-plan.md "조직 설정" 항목. 코드는 조직 식별자라 이 화면에서 바꿀 수 없다.
@@ -36,6 +37,10 @@ export const UserOrganizationDetail: FC = () => {
 
   const [nameDraft, setNameDraft] = useState('');
   const [localeDraft, setLocaleDraft] = useState('');
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<OrganizationHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
@@ -183,6 +188,20 @@ export const UserOrganizationDetail: FC = () => {
     }
   };
 
+  const openHistory = async () => {
+    setIsHistoryOpen(true);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`/organizations/${organizationId}/history`);
+      setHistory(response.data as OrganizationHistorySummary[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
   const handleRemoveMember = async (memberId: number) => {
     setProcessingMemberId(memberId);
     try {
@@ -226,7 +245,7 @@ export const UserOrganizationDetail: FC = () => {
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
-        조직 관리로
+        회사정보관리로
       </Link>
 
       <div className="flex items-center justify-between mb-6">
@@ -237,9 +256,18 @@ export const UserOrganizationDetail: FC = () => {
           </h1>
           <p className="mt-1 text-sm text-gray-500">내 역할: {organization.myRole}</p>
         </div>
-        <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200">
-          {STATUS_LABEL[organization.status] ?? organization.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openHistory}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+          >
+            <History size={12} />
+            이력
+          </button>
+          <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200">
+            {STATUS_LABEL[organization.status] ?? organization.status}
+          </span>
+        </div>
       </div>
 
       {isEditing ? (
@@ -476,6 +504,33 @@ export const UserOrganizationDetail: FC = () => {
           <p className="mt-2 text-xs text-gray-400">멤버 추가/역할변경/제거는 OWNER/ADMIN만 할 수 있습니다.</p>
         )}
       </div>
+
+      <Modal open={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} title="회사정보 변경 이력" widthClassName="max-w-lg">
+        {isHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-gray-400">변경 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            {history.map((entry) => (
+              <li key={entry.id} className="py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-950 font-medium">{entry.name}</p>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200">
+                    {STATUS_LABEL[entry.status] ?? entry.status}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  코드 {entry.code} · 기본 언어 {entry.defaultLocale}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(entry.createdAt).toLocaleString('ko-KR')}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 };

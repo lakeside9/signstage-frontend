@@ -41,9 +41,9 @@ const EMPTY_SEARCH: SearchParams = { status: 'PENDING' };
 type ActionMode = 'approve' | 'reject';
 
 /**
- * 플랫폼 관리자의 조직 생성 요청 승인/반려 화면 — signstage-docs
+ * 플랫폼 관리자의 파트너 등록 요청 승인/반려 화면 — signstage-docs
  * business/organization-creation-approval-review.md. 조회는 PLATFORM_SUPPORT 이상,
- * 승인/반려는 PLATFORM_OPS 이상만 가능하다(조직 등록·상태 변경과 같은 등급).
+ * 승인/반려는 PLATFORM_OPS 이상만 가능하다(파트너 등록·상태 변경과 같은 등급).
  *
  * 요청은 코드를 담지 않으므로 승인 시점에 관리자가 코드를 입력한다(3.3절). 승인되면
  * 관리자 대행 등록과 같은 저장 로직을 타고 organizations/organization_members가 만들어진다.
@@ -86,7 +86,7 @@ export const AdminOrganizationRequestList: FC = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '조직 생성 요청 목록을 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '파트너 등록 요청 목록을 불러오지 못했습니다.';
           showSnackbar(message, 'error');
         }
       } finally {
@@ -143,7 +143,7 @@ export const AdminOrganizationRequestList: FC = () => {
 
   const handleApprove = async (requestId: number) => {
     if (!codeDraft.trim()) {
-      showSnackbar('조직 코드를 입력해주세요.', 'error');
+      showSnackbar('파트너 코드를 입력해주세요.', 'error');
       return;
     }
     setIsSubmittingAction(true);
@@ -185,9 +185,9 @@ export const AdminOrganizationRequestList: FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">조직 생성 요청</h1>
+        <h1 className="text-xl font-bold text-gray-950">파트너등록요청관리</h1>
         <p className="mt-1 text-sm text-gray-500">
-          사용자가 제출한 조직 생성 요청입니다. 승인하면 신청자가 새 조직의 OWNER가 됩니다.
+          사용자가 제출한 파트너 등록 요청입니다. 승인하면 신청자가 새 파트너의 OWNER가 됩니다.
         </p>
       </div>
 
@@ -212,7 +212,7 @@ export const AdminOrganizationRequestList: FC = () => {
       <ListContainer
         isLoading={isLoading}
         isEmpty={requests.length === 0}
-        emptyMessage="해당 조건의 조직 생성 요청이 없습니다."
+        emptyMessage="해당 조건의 파트너 등록 요청이 없습니다."
         pagination={
           pageData
             ? {
@@ -229,7 +229,7 @@ export const AdminOrganizationRequestList: FC = () => {
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3 font-medium">요청자</th>
-              <th className="text-left px-4 py-3 font-medium">조직 이름</th>
+              <th className="text-left px-4 py-3 font-medium">파트너 이름</th>
               <th className="text-left px-4 py-3 font-medium">메모</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">요청일</th>
@@ -323,7 +323,7 @@ export const AdminOrganizationRequestList: FC = () => {
                           value={codeDraft}
                           onChange={(e) => setCodeDraft(e.target.value.toLowerCase())}
                           disabled={isSubmittingAction}
-                          placeholder="조직 코드 (영문 소문자, 숫자, '-')"
+                          placeholder="파트너 코드 (영문 소문자, 숫자, '-')"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
                         <button

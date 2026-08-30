@@ -13,16 +13,17 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * 일반 사용자의 "조직 관리" 화면. `GET /api/organizations`로 내가 속한 조직 목록을 보여준다.
- * 조직 행을 누르면 상세/설정(`UserOrganizationDetail`, `/organizations/:id`)으로 이동해
- * 조직 정보를 확인/수정(OWNER만)할 수 있다. 페이지네이션이 없다 — 백엔드도 `List<>`를 그대로
- * 반환한다(한 사람이 속한 조직 수가 적을 걸 전제로 한 설계,
- * backend/organization-feature-implementation.md 참고). 그래서
- * frontend/list-screen-convention.md의 검색/페이지네비게이션 구조는 적용하지 않았다.
+ * 일반 사용자의 "회사정보관리"(구 "조직 관리") 화면 — 사이드바 "설정" 하위 메뉴(2026-08-30).
+ * `GET /api/organizations`로 내가 속한 조직 목록을 보여준다. 조직 행을 누르면
+ * 상세/설정(`UserOrganizationDetail`, `/organizations/:id`)으로 이동해 조직 정보를
+ * 확인/수정(OWNER만)할 수 있다. 페이지네이션이 없다 — 백엔드도 `List<>`를 그대로 반환한다
+ * (한 사람이 속한 조직 수가 적을 걸 전제로 한 설계, backend/organization-feature-implementation.md
+ * 참고). 그래서 frontend/list-screen-convention.md의 검색/페이지네비게이션 구조는 적용하지 않았다.
  *
- * 조직 생성 요청 제출/이력은 이 화면이 아니라 사이드바의 별도 메뉴 "조직 요청"
- * (`UserOrganizationRequests`, `/organization-requests`)에서 다룬다 — "내가 속한 조직"과
- * "요청 진행 상태"는 서로 다른 관심사라서 분리했다.
+ * 조직 생성 요청 제출/이력을 다루는 "회사등록요청"(구 "조직 요청", `UserOrganizationRequests`,
+ * `/organization-requests`) 화면은 당분간 사이드바에서 숨겨져 있다 — 지금은 플랫폼 관리자가
+ * 직접 파트너(조직)를 등록한다(2026-08-30 결정). 그래서 조직이 없는 사용자에게도 그 메뉴 대신
+ * 관리자에게 문의하라고 안내한다.
  */
 export const UserOrganizationList: FC = () => {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
@@ -60,7 +61,7 @@ export const UserOrganizationList: FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">조직 관리</h1>
+        <h1 className="text-xl font-bold text-gray-950">회사정보관리</h1>
         <p className="mt-1 text-sm text-gray-500">내가 속한 조직 목록입니다. 조직을 누르면 상세/설정으로 이동합니다.</p>
       </div>
 
@@ -71,8 +72,8 @@ export const UserOrganizationList: FC = () => {
           </div>
         ) : organizations.length === 0 ? (
           <p className="py-16 text-center text-sm text-gray-500">
-            아직 속한 조직이 없습니다. 사이드바의 "조직 요청"에서 새 조직 생성을 요청하거나, 소속될
-            조직의 관리자에게 초대를 요청해주세요.
+            아직 속한 조직이 없습니다. 플랫폼 관리자에게 회사 등록을 요청하거나, 소속될 조직의
+            관리자에게 초대를 요청해주세요.
           </p>
         ) : (
           <ul className="divide-y divide-gray-100">

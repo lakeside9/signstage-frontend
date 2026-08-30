@@ -2,8 +2,8 @@ import type { FC } from 'react';
 
 /**
  * 일반 사용자 로그인 후 진입 지점(`/`, `UserLayout` 하위). 관리자 콘솔의 `Dashboard.tsx`와
- * 마찬가지로 아직 채워지지 않은 placeholder다 — 내 조직 목록은 "조직 관리"
- * (`UserOrganizationList`, `/organizations`)로 옮겼다.
+ * 마찬가지로 아직 채워지지 않은 placeholder다 — 내 조직 목록은 "회사정보관리"
+ * (`UserOrganizationList`, `/organizations`, 사이드바 "설정" 하위)로 옮겼다.
  */
 export const UserDashboard: FC = () => (
   <div>

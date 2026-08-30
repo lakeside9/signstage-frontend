@@ -273,7 +273,10 @@ export const UserCeremonyEdit: FC = () => {
 
     (async () => {
       try {
-        const response = await api.get('/capacity-addons');
+        // 전체 카탈로그가 아니라 이 행사의 플랜에서 구매 가능한(안 A 큐레이션) 상품만 받는다 —
+        // 플랜에 없는 상품을 골라 제출한 뒤에야 거부당하는 UX를 피하기 위함이다(signstage-docs
+        // business/optional-feature-display-scope-and-plan-capacity-addon-review.md 5.6절).
+        const response = await api.get(`${basePath}/available-capacity-addons`);
         if (!cancelled) {
           setCapacityAddOns(response.data as CapacityAddOnSummary[]);
         }
@@ -293,7 +296,7 @@ export const UserCeremonyEdit: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [basePath]);
 
   useEffect(() => {
     let cancelled = false;

@@ -9,13 +9,13 @@ import type { OrganizationSummary } from '../types';
 /**
  * 사이드바 "행사 관리" 메뉴(`/ceremonies`)의 진입점. 행사 관리는 조직 스코프라
  * `organizationId`가 URL에 필요한데, 1인 1조직 제한상 `GET /api/organizations`가 사실상 항상
- * 1건만 돌려주므로 그 값을 받아 바로 `/ceremonies/:id`로 보낸다 — "조직 관리 → 상세 →
+ * 1건만 돌려주므로 그 값을 받아 바로 `/ceremonies/:id`로 보낸다 — "회사정보관리 → 상세 →
  * 행사 관리" 2-hop을 거치지 않게 하기 위한 얇은 리다이렉트 화면이다.
  *
  * `/organizations/:id`(조직 상세) 아래가 아니라 `/ceremonies/:id`라는 별도 최상위
- * 경로를 쓰는 이유: 사이드바 "조직 관리" 메뉴가 `/organizations` 접두어로 활성 표시를
- * 매칭하므로, 행사 화면을 그 아래 중첩시키면 행사 화면을 보는 동안 사이드바가 "조직 관리"를
- * 잘못 강조하게 된다.
+ * 경로를 쓰는 이유: 사이드바 "설정 → 회사정보관리" 메뉴가 `/organizations` 접두어로 활성
+ * 표시를 매칭하므로, 행사 화면을 그 아래 중첩시키면 행사 화면을 보는 동안 사이드바가
+ * "회사정보관리"를 잘못 강조하게 된다.
  */
 export const UserCeremonyEntry: FC = () => {
   const [organizationId, setOrganizationId] = useState<number | null | 'none'>(null);
@@ -57,7 +57,7 @@ export const UserCeremonyEntry: FC = () => {
   if (organizationId === 'none') {
     return (
       <p className="py-16 text-center text-sm text-gray-500">
-        속한 조직이 없어 행사 관리를 이용할 수 없습니다. 사이드바의 "조직 요청"에서 조직 생성을 먼저
+        속한 조직이 없어 행사 관리를 이용할 수 없습니다. 플랫폼 관리자에게 회사 등록을 먼저
         요청해주세요.
       </p>
     );
