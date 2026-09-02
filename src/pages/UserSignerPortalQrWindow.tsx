@@ -5,7 +5,30 @@ import QRCode from 'qrcode';
 import { Copy, ExternalLink, Loader2, QrCode, RefreshCw, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { useSnackbarStore } from '../store/useSnackbarStore';
-import type { CeremonyEventSummary, SignerCompletionStatus, SignerSummary } from '../types';
+import type { CeremonyEventSummary, CeremonyEventType, SignerCompletionStatus, SignerSummary } from '../types';
+
+/**
+ * 헤더 상단 영역 배경/뱃지 색상 — 테스트/리허설/본행사를 한눈에 구분하기 위한 것.
+ * `UserCeremonyEventControl.tsx`의 EVENT_TYPE_CONTROL_META와 같은 값을 쓴다(2026-09-02 legacy
+ * 포팅 — ~/Works/eform/source/signstage/signstage-frontend `SignerPortalQrWindow.tsx` 참고).
+ */
+const EVENT_TYPE_CONTROL_META: Record<CeremonyEventType, { label: string; headerClassName: string; badgeClassName: string }> = {
+  TEST: {
+    label: '테스트',
+    headerClassName: 'bg-gray-100 border-gray-300',
+    badgeClassName: 'border-gray-300 bg-white/85 text-gray-800',
+  },
+  REHEARSAL: {
+    label: '리허설',
+    headerClassName: 'bg-sky-100 border-sky-300',
+    badgeClassName: 'border-sky-300 bg-white/90 text-sky-900',
+  },
+  MAIN: {
+    label: '본행사',
+    headerClassName: 'bg-indigo-100 border-indigo-300',
+    badgeClassName: 'border-indigo-300 bg-white/90 text-indigo-900',
+  },
+};
 
 const PortalQrCode: FC<{ value: string }> = ({ value }) => {
   const [dataUrl, setDataUrl] = useState('');
@@ -99,14 +122,27 @@ export const UserSignerPortalQrWindow: FC = () => {
   const mappedSignerIds = new Set(signatureStatuses.map((status) => status.signerId));
   const mappedSigners = signers.filter((signer) => mappedSignerIds.has(signer.id));
 
+  const eventTypeMeta = event ? EVENT_TYPE_CONTROL_META[event.eventType] : null;
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-950">
-      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur">
+      <header
+        className={`sticky top-0 z-10 border-b px-6 py-4 shadow-sm backdrop-blur ${
+          eventTypeMeta ? eventTypeMeta.headerClassName : 'border-gray-200 bg-white/95'
+        }`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-black text-gray-900">
-              서명자 입장 포탈 <span className="font-medium text-gray-400">-</span> {event?.name ?? 'QR'}
-            </h1>
+            <div className="flex items-center gap-3">
+              {eventTypeMeta && (
+                <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-black ${eventTypeMeta.badgeClassName}`}>
+                  {eventTypeMeta.label}
+                </span>
+              )}
+              <h1 className="truncate text-2xl font-black text-gray-900">
+                서명자 입장 포탈 <span className="font-medium text-gray-400">-</span> {event?.name ?? 'QR'}
+              </h1>
+            </div>
             <p className="mt-1 text-sm font-medium text-gray-500">QR 코드를 스캔하면 서명자 포털로 바로 이동합니다.</p>
           </div>
           <div className="flex items-center gap-2">

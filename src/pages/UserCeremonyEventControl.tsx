@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eraser,
   Eye,
   FilePlus,
   Loader2,
@@ -113,6 +114,10 @@ export const UserCeremonyEventControl: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isForceFinishConfirmOpen, setIsForceFinishConfirmOpen] = useState(false);
+  const [isBulkResetConfirmOpen, setIsBulkResetConfirmOpen] = useState(false);
+  const [isBulkResetting, setIsBulkResetting] = useState(false);
+  const [signerToReset, setSignerToReset] = useState<SignerSummary | null>(null);
+  const [isSignerResetting, setIsSignerResetting] = useState(false);
 
   const [signers, setSigners] = useState<SignerSummary[]>([]);
   const [mappedTemplates, setMappedTemplates] = useState<CeremonyTemplateSummary[]>([]);
@@ -282,7 +287,17 @@ export const UserCeremonyEventControl: FC = () => {
             } else if (realtimeEvent.type === 'SIGNATURE_CLEARED') {
               const payload = realtimeEvent.payload as { templateFieldId: number };
               setStrokes((prev) => prev.filter((s) => s.templateFieldId !== payload.templateFieldId));
-            } else if (realtimeEvent.type === 'SIGNATURE_REPLACED' || realtimeEvent.type === 'EVENT_STATUS_CHANGED') {
+            } else if (realtimeEvent.type === 'SIGNATURE_REPLACED') {
+              // 관리자가 서명 초기화(개별/일괄)를 실행한 경우 — 라이브 미리보기에 남아있는
+              // 이 서명자의 스트로크를 지워야 지운 서명이 화면에서도 즉시 사라진다.
+              const payload = realtimeEvent.payload as { signerId: number };
+              setStrokes((prev) => prev.filter((s) => s.signerId !== payload.signerId));
+              fetchEvent()
+                .then(setEvent)
+                .catch(() => {
+                  // 실시간 알림은 왔는데 재조회만 실패한 것 — 새로고침하면 되므로 무시한다.
+                });
+            } else if (realtimeEvent.type === 'EVENT_STATUS_CHANGED') {
               fetchEvent()
                 .then(setEvent)
                 .catch(() => {
@@ -352,6 +367,39 @@ export const UserCeremonyEventControl: FC = () => {
     } finally {
       setIsTransitioning(false);
       setIsForceFinishConfirmOpen(false);
+    }
+  };
+
+  const handleBulkReset = async () => {
+    setIsBulkResetting(true);
+    try {
+      await api.post(`${apiBasePath}/reset-signatures`);
+      showSnackbar('모든 서명자의 서명을 초기화했습니다.', 'success');
+      setStrokes([]);
+      setSignatureStatuses(await fetchSignatureStatus());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명 일괄 초기화에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsBulkResetting(false);
+      setIsBulkResetConfirmOpen(false);
+    }
+  };
+
+  const handleResetSigner = async () => {
+    if (!signerToReset) return;
+    setIsSignerResetting(true);
+    try {
+      await api.post(`${apiBasePath}/signers/${signerToReset.id}/replace-signature`);
+      showSnackbar(`${signerToReset.name}님의 서명을 초기화했습니다.`, 'success');
+      setStrokes((prev) => prev.filter((s) => s.signerId !== signerToReset.id));
+      setSignatureStatuses(await fetchSignatureStatus());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명 초기화에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsSignerResetting(false);
+      setSignerToReset(null);
     }
   };
 
@@ -482,6 +530,17 @@ export const UserCeremonyEventControl: FC = () => {
                       강제종료
                     </button>
                   )}
+                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
+                    <button
+                      onClick={() => setIsBulkResetConfirmOpen(true)}
+                      disabled={isTransitioning}
+                      title="테스트 또는 리허설 행사의 모든 서명자 서명을 일괄 초기화합니다."
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                    >
+                      <Eraser size={12} />
+                      서명 초기화
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -550,11 +609,23 @@ export const UserCeremonyEventControl: FC = () => {
                           </div>
                         </div>
                       </div>
-                      {complete ? (
-                        <CheckCircle2 size={18} className="text-emerald-500" />
-                      ) : (
-                        <div className="w-4 h-4 rounded-full border-2 border-gray-200" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {event.status === 'STARTED' && (
+                          <button
+                            type="button"
+                            onClick={() => setSignerToReset(signer)}
+                            title={`${signer.name}님의 서명을 초기화합니다.`}
+                            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Eraser size={14} />
+                          </button>
+                        )}
+                        {complete ? (
+                          <CheckCircle2 size={18} className="text-emerald-500" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-gray-200" />
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -647,6 +718,24 @@ export const UserCeremonyEventControl: FC = () => {
         isSubmitting={isTransitioning}
         onConfirm={() => handleTransition('force-finish')}
         onCancel={() => setIsForceFinishConfirmOpen(false)}
+      />
+      <ConfirmDialog
+        open={isBulkResetConfirmOpen}
+        title="서명 일괄 초기화"
+        message="모든 서명자의 서명을 초기화하시겠습니까? 초기화 후에는 복구할 수 없습니다."
+        confirmLabel="초기화"
+        isSubmitting={isBulkResetting}
+        onConfirm={handleBulkReset}
+        onCancel={() => setIsBulkResetConfirmOpen(false)}
+      />
+      <ConfirmDialog
+        open={signerToReset != null}
+        title="서명 초기화"
+        message={`${signerToReset?.name ?? ''}님의 서명을 초기화하시겠습니까? 초기화 후에는 복구할 수 없습니다.`}
+        confirmLabel="초기화"
+        isSubmitting={isSignerResetting}
+        onConfirm={handleResetSigner}
+        onCancel={() => setSignerToReset(null)}
       />
     </div>
   );
