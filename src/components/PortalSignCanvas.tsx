@@ -143,7 +143,7 @@ export const PortalSignCanvas: FC<PortalSignCanvasProps> = ({
               text={stroke.text}
               align="center"
               verticalAlign="middle"
-              fontSize={Math.max(8, (stroke.boxHeight ?? 0.1) * height * 0.55)}
+              fontSize={Math.max(7, (stroke.boxHeight ?? 0.1) * height * 0.32)}
               fontStyle="bold"
               fill={stroke.color || '#000'}
             />
