@@ -220,6 +220,10 @@ export const UserCeremonyDetail: FC = () => {
   const [editTemplateTitle, setEditTemplateTitle] = useState('');
   const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
+  const [cloneFieldsTargetId, setCloneFieldsTargetId] = useState<number | null>(null);
+  const [cloneFieldsSourceId, setCloneFieldsSourceId] = useState<number | null>(null);
+  const [isCloneFieldsConfirmOpen, setIsCloneFieldsConfirmOpen] = useState(false);
+  const [isCloningFields, setIsCloningFields] = useState(false);
 
   // 서명자/문서 양식/하위 행사 목록의 위/아래 이동 버튼 처리 중 표시(2026-08-27 legacy 포팅) —
   // 세 목록 중 하나만 동시에 재정렬한다.
@@ -733,6 +737,42 @@ export const UserCeremonyDetail: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setProcessingTemplateId(null);
+    }
+  };
+
+  const cloneFieldsTarget = templates.find((t) => t.id === cloneFieldsTargetId) ?? null;
+  const cloneFieldsCandidates = cloneFieldsTarget
+    ? templates.filter((t) => t.documentRole === cloneFieldsTarget.documentRole && t.id !== cloneFieldsTarget.id)
+    : [];
+  const cloneFieldsSource = templates.find((t) => t.id === cloneFieldsSourceId) ?? null;
+
+  const handleOpenCloneFields = (templateId: number) => {
+    setCloneFieldsTargetId(templateId);
+    setCloneFieldsSourceId(null);
+  };
+
+  const handleCloseCloneFields = () => {
+    if (isCloningFields) return;
+    setCloneFieldsTargetId(null);
+    setCloneFieldsSourceId(null);
+    setIsCloneFieldsConfirmOpen(false);
+  };
+
+  const handleSubmitCloneFields = async () => {
+    if (!cloneFieldsTargetId || !cloneFieldsSourceId) return;
+    setIsCloningFields(true);
+    try {
+      await api.post(`${basePath}/templates/${cloneFieldsTargetId}/fields/clone-from/${cloneFieldsSourceId}`, {});
+      showSnackbar('서명란을 복제했습니다.', 'success');
+      setTemplates(await fetchTemplates());
+      setCloneFieldsTargetId(null);
+      setCloneFieldsSourceId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명란 복제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsCloningFields(false);
+      setIsCloneFieldsConfirmOpen(false);
     }
   };
 
@@ -1357,11 +1397,28 @@ export const UserCeremonyDetail: FC = () => {
                       <button
                         onClick={() => handleDuplicateTemplate(template.id)}
                         disabled={processingTemplateId === template.id || Boolean(registerDisabledReason)}
-                        title={registerDisabledReason}
+                        title={registerDisabledReason ?? '문서 파일과 서명란을 그대로 복제해 새 문서 양식을 만듭니다.'}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Copy size={12} />
-                        복제
+                        문서+서명란 복제
+                      </button>
+                      <button
+                        onClick={() => handleOpenCloneFields(template.id)}
+                        disabled={processingTemplateId === template.id || template.locked || template.status === 'COMPLETED' || isCompleted}
+                        title={
+                          isCompleted
+                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            : template.locked
+                              ? '시작되었거나 종료된 하위 행사에 매핑돼 수정할 수 없습니다.'
+                              : template.status === 'COMPLETED'
+                                ? '설정 완료된 문서 양식은 서명란을 복제할 수 없습니다.'
+                                : '같은 유형의 다른 문서에 있는 서명란을 이 문서로 가져옵니다. (기존 서명란은 삭제됨)'
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                      >
+                        <FileSignature size={12} />
+                        서명란 복제
                       </button>
                       <Link
                         to={`${detailPath}/templates/${template.id}`}
@@ -1500,6 +1557,80 @@ export const UserCeremonyDetail: FC = () => {
         isSubmitting={processingTemplateId === deletingTemplateId}
         onConfirm={() => deletingTemplateId !== null && handleDeleteTemplate(deletingTemplateId)}
         onCancel={() => setDeletingTemplateId(null)}
+      />
+
+      <Modal open={cloneFieldsTargetId !== null} onClose={handleCloseCloneFields} title="서명란 복제">
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            <span className="font-medium text-gray-950">{cloneFieldsTarget?.title}</span> 문서에 가져올 서명란의 원본 문서를 선택하세요.
+          </p>
+          <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+            <FileSignature size={16} className="mt-0.5 flex-shrink-0" />
+            <p>
+              원본 문서를 선택해 복제하면 <span className="font-medium">현재 문서에 있던 기존 서명란이 모두 삭제</span>되고,
+              선택한 문서의 서명란(위치·크기·서명자 지정)으로 새로 교체됩니다. 이 작업은 되돌릴 수 없습니다.
+            </p>
+          </div>
+          <div className="max-h-64 space-y-2 overflow-y-auto">
+            {cloneFieldsCandidates.length > 0 ? (
+              cloneFieldsCandidates.map((candidate) => (
+                <label
+                  key={candidate.id}
+                  className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm transition-colors ${
+                    cloneFieldsSourceId === candidate.id ? 'border-gray-950 bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cloneFieldsSource"
+                    className="sr-only"
+                    checked={cloneFieldsSourceId === candidate.id}
+                    onChange={() => setCloneFieldsSourceId(candidate.id)}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium text-gray-950">{candidate.title}</span>
+                      <span className="flex-shrink-0 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                        {DOCUMENT_ROLE_LABEL[candidate.documentRole]}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">서명란 {candidate.fieldCount}개</p>
+                  </div>
+                </label>
+              ))
+            ) : (
+              <p className="py-6 text-center text-xs text-gray-400">
+                복제할 수 있는 같은 유형({cloneFieldsTarget ? DOCUMENT_ROLE_LABEL[cloneFieldsTarget.documentRole] : ''})의 다른 문서가 없습니다.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={handleCloseCloneFields}
+              disabled={isCloningFields}
+              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => setIsCloneFieldsConfirmOpen(true)}
+              disabled={!cloneFieldsSourceId || isCloningFields}
+              className="px-4 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              서명란 복제
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={isCloneFieldsConfirmOpen}
+        title="서명란 복제"
+        message={`'${cloneFieldsSource?.title ?? ''}' 문서의 서명란으로 교체하시겠습니까? 현재 '${cloneFieldsTarget?.title ?? ''}' 문서에 있던 기존 서명란은 모두 삭제되고 복구할 수 없습니다.`}
+        confirmLabel="교체"
+        isSubmitting={isCloningFields}
+        onConfirm={handleSubmitCloneFields}
+        onCancel={() => setIsCloneFieldsConfirmOpen(false)}
       />
 
       {/* 하위 행사 목록 */}
