@@ -763,12 +763,12 @@ export const UserCeremonyDetail: FC = () => {
     setIsCloningFields(true);
     try {
       await api.post(`${basePath}/templates/${cloneFieldsTargetId}/fields/clone-from/${cloneFieldsSourceId}`, {});
-      showSnackbar('서명란을 복제했습니다.', 'success');
+      showSnackbar('서명란을 가져왔습니다.', 'success');
       setTemplates(await fetchTemplates());
       setCloneFieldsTargetId(null);
       setCloneFieldsSourceId(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : '서명란 복제에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '서명란 가져오기에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
       setIsCloningFields(false);
@@ -1401,7 +1401,7 @@ export const UserCeremonyDetail: FC = () => {
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Copy size={12} />
-                        문서+서명란 복제
+                        새 문서로 복제
                       </button>
                       <button
                         onClick={() => handleOpenCloneFields(template.id)}
@@ -1412,13 +1412,13 @@ export const UserCeremonyDetail: FC = () => {
                             : template.locked
                               ? '시작되었거나 종료된 하위 행사에 매핑돼 수정할 수 없습니다.'
                               : template.status === 'COMPLETED'
-                                ? '설정 완료된 문서 양식은 서명란을 복제할 수 없습니다.'
+                                ? '설정 완료된 문서 양식은 서명란을 가져올 수 없습니다.'
                                 : '같은 유형의 다른 문서에 있는 서명란을 이 문서로 가져옵니다. (기존 서명란은 삭제됨)'
                         }
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <FileSignature size={12} />
-                        서명란 복제
+                        서명란 가져오기
                       </button>
                       <Link
                         to={`${detailPath}/templates/${template.id}`}
@@ -1559,7 +1559,7 @@ export const UserCeremonyDetail: FC = () => {
         onCancel={() => setDeletingTemplateId(null)}
       />
 
-      <Modal open={cloneFieldsTargetId !== null} onClose={handleCloseCloneFields} title="서명란 복제">
+      <Modal open={cloneFieldsTargetId !== null} onClose={handleCloseCloneFields} title="서명란 가져오기">
         <div className="space-y-3">
           <p className="text-xs text-gray-500">
             <span className="font-medium text-gray-950">{cloneFieldsTarget?.title}</span> 문서에 가져올 서명란의 원본 문서를 선택하세요.
@@ -1567,7 +1567,7 @@ export const UserCeremonyDetail: FC = () => {
           <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
             <FileSignature size={16} className="mt-0.5 flex-shrink-0" />
             <p>
-              원본 문서를 선택해 복제하면 <span className="font-medium">현재 문서에 있던 기존 서명란이 모두 삭제</span>되고,
+              원본 문서를 선택해 가져오면 <span className="font-medium">현재 문서에 있던 기존 서명란이 모두 삭제</span>되고,
               선택한 문서의 서명란(위치·크기·서명자 지정)으로 새로 교체됩니다. 이 작업은 되돌릴 수 없습니다.
             </p>
           </div>
@@ -1600,7 +1600,7 @@ export const UserCeremonyDetail: FC = () => {
               ))
             ) : (
               <p className="py-6 text-center text-xs text-gray-400">
-                복제할 수 있는 같은 유형({cloneFieldsTarget ? DOCUMENT_ROLE_LABEL[cloneFieldsTarget.documentRole] : ''})의 다른 문서가 없습니다.
+                가져올 수 있는 같은 유형({cloneFieldsTarget ? DOCUMENT_ROLE_LABEL[cloneFieldsTarget.documentRole] : ''})의 다른 문서가 없습니다.
               </p>
             )}
           </div>
@@ -1617,7 +1617,7 @@ export const UserCeremonyDetail: FC = () => {
               disabled={!cloneFieldsSourceId || isCloningFields}
               className="px-4 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
             >
-              서명란 복제
+              서명란 가져오기
             </button>
           </div>
         </div>
@@ -1625,7 +1625,7 @@ export const UserCeremonyDetail: FC = () => {
 
       <ConfirmDialog
         open={isCloneFieldsConfirmOpen}
-        title="서명란 복제"
+        title="서명란 가져오기"
         message={`'${cloneFieldsSource?.title ?? ''}' 문서의 서명란으로 교체하시겠습니까? 현재 '${cloneFieldsTarget?.title ?? ''}' 문서에 있던 기존 서명란은 모두 삭제되고 복구할 수 없습니다.`}
         confirmLabel="교체"
         isSubmitting={isCloningFields}
