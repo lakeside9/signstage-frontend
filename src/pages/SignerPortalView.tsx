@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, MousePointerClick, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -474,6 +474,14 @@ export const SignerPortalView: FC = () => {
       canSign: context.eventStatus === 'STARTED',
     }));
 
+  // 서명란을 눌러야 팝업이 뜬다는 것을 사용자가 쉽게 알 수 있도록, 현재 페이지에 있는 내
+  // 미서명 서명란 아래에 "여기를 눌러서 서명하세요" 콜아웃을 띄운다. 서명이 완료되면(strokes에
+  // 반영되면) 자동으로 사라진다. legacy(~/Works/eform/source/signstage/signstage-frontend)
+  // SignerView.tsx 포팅.
+  const activeCalloutField = context.eventStatus === 'STARTED'
+    ? currentPageMyFields.find((f) => !strokes.some((s) => s.templateFieldId === f.id))
+    : undefined;
+
   const openSigningPanel = (field: TemplateFieldSummary) => {
     if (context.eventStatus !== 'STARTED') return;
     setMyField(field);
@@ -748,6 +756,24 @@ export const SignerPortalView: FC = () => {
                     내 서명란은 {myFields[0].pageIndex + 1}페이지에 있습니다
                   </button>
                 )}
+                {activeCalloutField && documentSize.width > 0 && (
+                  <div
+                    className="pointer-events-none absolute z-30 flex -translate-x-1/2 flex-col items-center"
+                    style={{
+                      left: `${(activeCalloutField.xRatio + activeCalloutField.widthRatio / 2) * documentSize.width}px`,
+                      top: `${Math.min(
+                        documentSize.height - 8,
+                        (activeCalloutField.yRatio + activeCalloutField.heightRatio) * documentSize.height + 8,
+                      )}px`,
+                    }}
+                  >
+                    <div className="-mb-px h-2 w-2 rotate-45 bg-orange-500" />
+                    <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-orange-500 px-3 py-1.5 text-xs font-black text-white shadow-xl">
+                      <MousePointerClick size={14} />
+                      여기를 눌러서 서명하세요
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -801,7 +827,7 @@ export const SignerPortalView: FC = () => {
                   type="button"
                   onClick={handleConfirmSignature}
                   disabled={pendingSignatureStrokes.length === 0 || isSubmittingSignature || context.eventStatus !== 'STARTED'}
-                  className="rounded-lg bg-blue-600 px-8 py-2 text-xs font-black text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+                  className="rounded-lg bg-orange-600 px-8 py-2 text-xs font-black text-white hover:bg-orange-700 disabled:bg-gray-300 disabled:text-gray-500"
                 >
                   {isSubmittingSignature ? '저장 중...' : '확인'}
                 </button>
