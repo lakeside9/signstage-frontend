@@ -20,10 +20,24 @@ const parseStrokePoints = (
 ): number[] | null => {
   try {
     const raw = JSON.parse(rawData) as [number, number][];
+    if (!Array.isArray(raw)) return null;
     return raw.flatMap(([x, y]) => [
       (field.xRatio + x * field.widthRatio) * stageWidth,
       (field.yRatio + y * field.heightRatio) * stageHeight,
     ]);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 서명매핑확인(테스트/리허설 전용, 2026-09-02 legacy 포팅)의 rawData는 좌표 배열이 아니라
+ * `{"text": "..."}` 형태다 — 손글씨 대신 소속명 텍스트를 그린다는 표시.
+ */
+const parseStrokeText = (rawData: string): string | null => {
+  try {
+    const parsed = JSON.parse(rawData) as { text?: unknown };
+    return typeof parsed?.text === 'string' ? parsed.text : null;
   } catch {
     return null;
   }
@@ -234,6 +248,27 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
                       listening={false}
                     />
                     {fieldStrokes.map((stroke) => {
+                      const text = parseStrokeText(stroke.rawData);
+                      if (text != null) {
+                        const boxHeight = field.heightRatio * stageHeight;
+                        return (
+                          <Text
+                            key={stroke.id}
+                            x={field.xRatio * stageWidth}
+                            y={field.yRatio * stageHeight}
+                            width={field.widthRatio * stageWidth}
+                            height={boxHeight}
+                            text={text}
+                            align="center"
+                            verticalAlign="middle"
+                            fontSize={Math.max(10, boxHeight * 0.55)}
+                            fontStyle="bold"
+                            fill="#111827"
+                            listening={false}
+                          />
+                        );
+                      }
+
                       const points = parseStrokePoints(stroke.rawData, field, stageWidth, stageHeight);
                       if (!points) return null;
                       return (

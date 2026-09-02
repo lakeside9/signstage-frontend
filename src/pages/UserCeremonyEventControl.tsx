@@ -6,6 +6,7 @@ import type { IMessage } from '@stomp/stompjs';
 import {
   ArrowLeft,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Download,
   Eraser,
@@ -386,6 +387,17 @@ export const UserCeremonyEventControl: FC = () => {
     }
   };
 
+  const handleSignatureMappingCheck = async () => {
+    try {
+      await api.post(`${apiBasePath}/signature-mapping-check`);
+      showSnackbar('서명매핑확인을 실행했습니다. 프로젝터·서명자 화면에서 소속명이 맞는 위치에 표시되는지 확인해주세요.', 'success');
+      // 새로 생긴 스트로크는 SIGNATURE_STROKE_SUBMITTED 실시간 알림으로 반영된다.
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '서명매핑확인에 실패했습니다.';
+      showSnackbar(message, 'error');
+    }
+  };
+
   const handleResetSigner = async () => {
     if (!signerToReset) return;
     setIsSignerResetting(true);
@@ -539,6 +551,17 @@ export const UserCeremonyEventControl: FC = () => {
                     >
                       <Eraser size={12} />
                       서명 초기화
+                    </button>
+                  )}
+                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
+                    <button
+                      onClick={handleSignatureMappingCheck}
+                      disabled={isTransitioning}
+                      title="테스트 또는 리허설 행사의 모든 서명란에 배정된 서명자의 소속명(5자)을 자동으로 채워, 프로젝터·서명자 화면에서 매핑이 맞는지 확인합니다. 이미 서명된 서명란은 건드리지 않습니다."
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                    >
+                      <ClipboardCheck size={12} />
+                      서명매핑확인
                     </button>
                   )}
                 </div>

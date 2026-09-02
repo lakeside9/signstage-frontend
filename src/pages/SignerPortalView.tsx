@@ -448,7 +448,19 @@ export const SignerPortalView: FC = () => {
       const field = fieldById.get(stroke.templateFieldId);
       if (!field || field.pageIndex !== currentPage) return null;
       try {
-        const raw = JSON.parse(stroke.rawData) as [number, number][];
+        const parsed = JSON.parse(stroke.rawData) as unknown;
+        // 서명매핑확인(테스트/리허설 전용) — 손글씨 대신 소속명 텍스트를 그린다.
+        if (parsed && typeof parsed === 'object' && typeof (parsed as { text?: unknown }).text === 'string') {
+          return {
+            text: (parsed as { text: string }).text,
+            boxX: field.xRatio,
+            boxY: field.yRatio,
+            boxWidth: field.widthRatio,
+            boxHeight: field.heightRatio,
+          };
+        }
+
+        const raw = parsed as [number, number][];
         return {
           points: raw.flatMap(([x, y]) => [field.xRatio + x * field.widthRatio, field.yRatio + y * field.heightRatio]),
           color: '#000000',
@@ -458,7 +470,7 @@ export const SignerPortalView: FC = () => {
         return null;
       }
     })
-    .filter((s): s is { points: number[]; color: string; width: number } => s !== null);
+    .filter((s): s is NonNullable<typeof s> => s !== null);
 
   const currentPageSignatureFields = (contract?.fields ?? [])
     .filter((f) => f.pageIndex === currentPage)

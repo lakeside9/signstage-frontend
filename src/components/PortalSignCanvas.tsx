@@ -6,9 +6,17 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import useImage from 'use-image';
 
 interface RenderedStroke {
-  points: number[];
+  points?: number[];
   color?: string;
   width?: number;
+  // 서명매핑확인(테스트/리허설 전용, 2026-09-02 legacy 포팅) 자동 서명 — 손글씨 대신
+  // 소속명을 텍스트로 표시한다. text가 있으면 points는 없고, boxX/boxY/boxWidth/boxHeight
+  // (서명란 박스, 0~1 비율)로 가운데 정렬해 그린다.
+  text?: string;
+  boxX?: number;
+  boxY?: number;
+  boxWidth?: number;
+  boxHeight?: number;
 }
 
 interface SignatureFieldOverlay {
@@ -125,15 +133,31 @@ export const PortalSignCanvas: FC<PortalSignCanvasProps> = ({
         {img && <KonvaImage image={img} width={width} height={height} />}
 
         {strokes.map((stroke, i) => (
-          <Line
-            key={i}
-            points={stroke.points.map((p, idx) => (idx % 2 === 0 ? p * width : p * height))}
-            stroke={stroke.color || '#000'}
-            strokeWidth={(stroke.width || 2) * scale}
-            tension={0.5}
-            lineCap="round"
-            lineJoin="round"
-          />
+          stroke.text != null ? (
+            <Text
+              key={i}
+              x={(stroke.boxX ?? 0) * width}
+              y={(stroke.boxY ?? 0) * height}
+              width={(stroke.boxWidth ?? 1) * width}
+              height={(stroke.boxHeight ?? 1) * height}
+              text={stroke.text}
+              align="center"
+              verticalAlign="middle"
+              fontSize={Math.max(8, (stroke.boxHeight ?? 0.1) * height * 0.55)}
+              fontStyle="bold"
+              fill={stroke.color || '#000'}
+            />
+          ) : (
+            <Line
+              key={i}
+              points={(stroke.points ?? []).map((p, idx) => (idx % 2 === 0 ? p * width : p * height))}
+              stroke={stroke.color || '#000'}
+              strokeWidth={(stroke.width || 2) * scale}
+              tension={0.5}
+              lineCap="round"
+              lineJoin="round"
+            />
+          )
         ))}
 
         {currentPoints.length > 0 && (
