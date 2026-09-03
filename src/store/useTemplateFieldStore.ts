@@ -36,6 +36,7 @@ interface TemplateFieldEditorState {
   setSelectedTempIds: (ids: string[]) => void;
   addField: (field: EditableTemplateField) => void;
   removeField: (tempId: string) => void;
+  removeFields: (tempIds: string[]) => void;
   updateField: (tempId: string, updates: Partial<EditableTemplateField>) => void;
   updateFields: (updates: Array<{ tempId: string; updates: Partial<EditableTemplateField> }>) => void;
   reset: () => void;
@@ -61,6 +62,15 @@ export const useTemplateFieldStore = create<TemplateFieldEditorState>()(
         fields: state.fields.filter((f) => f.tempId !== tempId),
         selectedTempIds: state.selectedTempIds.filter((id) => id !== tempId),
       })),
+
+    removeFields: (tempIds) =>
+      set((state) => {
+        const idSet = new Set(tempIds);
+        return {
+          fields: state.fields.filter((f) => !idSet.has(f.tempId)),
+          selectedTempIds: state.selectedTempIds.filter((id) => !idSet.has(id)),
+        };
+      }),
 
     updateField: (tempId, updates) =>
       set((state) => ({

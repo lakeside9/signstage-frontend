@@ -19,10 +19,10 @@ import {
   AlignVerticalJustifyStart,
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
-  LayoutGrid,
+  AlignHorizontalSpaceBetween,
+  AlignVerticalSpaceBetween,
   Undo2,
   Redo2,
-  MousePointer2,
   Lock,
   UserPlus,
   ZoomIn,
@@ -58,6 +58,16 @@ const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '�
 
 const BASE_WIDTH = 800;
 
+const DEFAULT_FIELD_POSITION = { xRatio: 0.425, yRatio: 0.475, widthRatio: 0.15, heightRatio: 0.05 };
+
+type PlacementRect = { xRatio: number; yRatio: number; widthRatio: number; heightRatio: number };
+
+const rectsOverlap = (a: PlacementRect, b: PlacementRect) =>
+  a.xRatio < b.xRatio + b.widthRatio &&
+  a.xRatio + a.widthRatio > b.xRatio &&
+  a.yRatio < b.yRatio + b.heightRatio &&
+  a.yRatio + a.heightRatio > b.yRatio;
+
 /**
  * 서명란(TemplateField) 배치 화면. legacy 소스
  * (~/Works/eform/source/signstage/signstage-frontend/src/pages/TemplateEdit.tsx, 라우트
@@ -92,14 +102,16 @@ export const UserTemplateDetail: FC = () => {
   const [docSigners, setDocSigners] = useState<SignerSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCeremonyCompleted, setIsCeremonyCompleted] = useState(false);
+  // 아래 훅들(키보드 삭제/이동, 마퀴 선택)이 이 값을 참조하므로 얼리 리턴보다 먼저 계산해둔다.
+  const isReadOnly = template?.status === 'COMPLETED' || isCeremonyCompleted;
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isSaveOverlapConfirmOpen, setIsSaveOverlapConfirmOpen] = useState(false);
   const [pageCount, setPageCount] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 595, height: 842 }); // 기본값 A4
   const [currentPage, setCurrentPage] = useState(0);
   const [scale, setScale] = useState(1);
-  const [selectionMode, setSelectionMode] = useState<'single' | 'multi'>('single');
 
   const [pageImageUrl, setPageImageUrl] = useState<string | null>(null);
   const [img] = useImage(pageImageUrl ?? '');
@@ -111,6 +123,7 @@ export const UserTemplateDetail: FC = () => {
     setSelectedTempIds,
     addField,
     removeField,
+    removeFields,
     updateField,
     updateFields,
     reset,
@@ -119,14 +132,46 @@ export const UserTemplateDetail: FC = () => {
 
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  // 드래그 영역(마퀴) 선택: 시각 표시용 사각형(state)과 드래그 중 계산에 쓰는 값(ref)을 분리
+  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(
+    null,
+  );
+  const marqueeStateRef = useRef<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    dragged: boolean;
+    additive: boolean;
+    baseSelection: string[];
+  } | null>(null);
   // 필드는 signerId로 서명자를 참조한다 — fieldName은 저장 시점 스냅샷이라 서명자 이름이
   // 그 뒤 바뀌면 어긋난다. 화면 표시는 항상 현재 서명자 이름을 우선한다.
   const signersById = useMemo(() => new Map(signers.map((signer) => [signer.id, signer])), [signers]);
   const getFieldDisplayName = (field: EditableTemplateField) =>
     field.signerId ? (signersById.get(field.signerId)?.name ?? field.fieldName) : field.fieldName;
 
+  // 페이지별로 겹치는 서명란이 하나라도 있는지(저장/설정완료 시 경고용)
+  const hasOverlappingFields = useMemo(() => {
+    const byPage = new Map<number, PlacementRect[]>();
+    fields.forEach((f) => {
+      const list = byPage.get(f.pageIndex) ?? [];
+      list.push(f);
+      byPage.set(f.pageIndex, list);
+    });
+    for (const pageFields of byPage.values()) {
+      for (let i = 0; i < pageFields.length; i++) {
+        for (let j = i + 1; j < pageFields.length; j++) {
+          if (rectsOverlap(pageFields[i], pageFields[j])) return true;
+        }
+      }
+    }
+    return false;
+  }, [fields]);
+
   const STAGE_WIDTH = BASE_WIDTH * scale;
   const STAGE_HEIGHT = pageSize.width > 0 ? (pageSize.height / pageSize.width) * STAGE_WIDTH : STAGE_WIDTH;
+  const BASE_HEIGHT = pageSize.width > 0 ? (pageSize.height / pageSize.width) * BASE_WIDTH : BASE_WIDTH;
 
   const fetchFields = async () => {
     const response = await api.get(`${basePath}/templates/${templateId}/fields`);
@@ -242,6 +287,109 @@ export const UserTemplateDetail: FC = () => {
     }
   }, [selectedTempIds, currentPage]);
 
+  // 선택된 서명란: Delete/Backspace로 삭제, 방향키(Shift = 큰 폭)로 이동
+  useEffect(() => {
+    const NUDGE_STEP_PX = 1;
+    const NUDGE_STEP_PX_SHIFT = 10;
+    const ARROW_DIRECTIONS: Record<string, { dx: number; dy: number }> = {
+      ArrowLeft: { dx: -1, dy: 0 },
+      ArrowRight: { dx: 1, dy: 0 },
+      ArrowUp: { dx: 0, dy: -1 },
+      ArrowDown: { dx: 0, dy: 1 },
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isReadOnly || selectedTempIds.length === 0) return;
+
+      // 입력창(숫자 입력 등)에 포커스가 있을 때는 해당 입력 동작을 우선한다.
+      const activeElement = document.activeElement as HTMLElement | null;
+      const tagName = activeElement?.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement?.isContentEditable) {
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        removeFields(selectedTempIds);
+        return;
+      }
+
+      const direction = ARROW_DIRECTIONS[e.key];
+      if (!direction) return;
+
+      e.preventDefault();
+      const stepPx = e.shiftKey ? NUDGE_STEP_PX_SHIFT : NUDGE_STEP_PX;
+      const dxRatio = (direction.dx * stepPx) / BASE_WIDTH;
+      const dyRatio = (direction.dy * stepPx) / BASE_HEIGHT;
+
+      const updates = selectedTempIds
+        .map((tempId) => fields.find((f) => f.tempId === tempId))
+        .filter((f): f is NonNullable<typeof f> => Boolean(f))
+        .map((f) => ({
+          tempId: f.tempId,
+          updates: { xRatio: f.xRatio + dxRatio, yRatio: f.yRatio + dyRatio },
+        }));
+
+      if (updates.length > 0) updateFields(updates);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReadOnly, selectedTempIds, fields, removeFields, updateFields, BASE_HEIGHT]);
+
+  // 빈 영역(서명란도 Transformer 핸들도 아닌 지점) 클릭 여부 판정.
+  // 배경 문서 이미지가 스테이지 전체를 덮고 있어 target이 Stage 자신이 아닌 경우가 많으므로,
+  // "선택된 tempId를 가진 서명란인지"로 판정한다.
+  const isBackgroundTarget = (target: Konva.Node) => {
+    if (target.getParent()?.className === 'Transformer') return false;
+    return !fields.some((f) => f.tempId === target.id());
+  };
+
+  // 드래그 영역(마퀴) 선택 마무리: mouseup은 스테이지 밖으로 벗어나 놓일 수도 있으므로 window에서 처리
+  useEffect(() => {
+    const handleWindowMouseUp = () => {
+      const marquee = marqueeStateRef.current;
+      marqueeStateRef.current = null;
+      setSelectionBox(null);
+      if (!marquee) return;
+
+      if (!marquee.dragged) {
+        // 실제 드래그 없이 빈 영역을 클릭만 한 경우: 기존과 동일하게 선택 해제
+        setSelectedTempIds([]);
+        return;
+      }
+
+      const boxLeft = Math.min(marquee.startX, marquee.currentX);
+      const boxRight = Math.max(marquee.startX, marquee.currentX);
+      const boxTop = Math.min(marquee.startY, marquee.currentY);
+      const boxBottom = Math.max(marquee.startY, marquee.currentY);
+
+      const matchedIds = fields
+        .filter((f) => f.pageIndex === currentPage)
+        .filter((f) => {
+          const left = f.xRatio * STAGE_WIDTH;
+          const top = f.yRatio * STAGE_HEIGHT;
+          const right = left + f.widthRatio * STAGE_WIDTH;
+          const bottom = top + f.heightRatio * STAGE_HEIGHT;
+          // 박스 안에 완전히 포함된 서명란만 선택 (일부만 겹치는 것은 제외)
+          return left >= boxLeft && right <= boxRight && top >= boxTop && bottom <= boxBottom;
+        })
+        .map((f) => f.tempId);
+
+      if (matchedIds.length === 0) {
+        if (!marquee.additive) setSelectedTempIds([]);
+        return;
+      }
+
+      setSelectedTempIds(
+        marquee.additive ? Array.from(new Set([...marquee.baseSelection, ...matchedIds])) : matchedIds,
+      );
+    };
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => window.removeEventListener('mouseup', handleWindowMouseUp);
+  }, [fields, currentPage, STAGE_WIDTH, STAGE_HEIGHT, setSelectedTempIds]);
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center py-24 text-gray-400">
@@ -253,10 +401,35 @@ export const UserTemplateDetail: FC = () => {
     return <div className="p-8 text-center text-gray-500">양식을 찾을 수 없습니다.</div>;
   }
 
-  const isReadOnly = template.status === 'COMPLETED' || isCeremonyCompleted;
   const visibleFields = fields.filter((f) => f.pageIndex === currentPage);
   const firstSelected = fields.find((f) => f.tempId === selectedTempIds[0]);
   const documentRoleLabel = DOCUMENT_ROLE_LABEL[template.documentRole];
+
+  // 새 서명란의 기본 자리(DEFAULT_FIELD_POSITION)에 이미 다른 서명란이 있으면,
+  // handleSpreadFields와 동일한 방식(오른쪽 → 다음 줄 순으로 밀어내기)으로 빈 자리를 찾는다.
+  const findFreeDefaultSlot = (widthRatio: number, heightRatio: number) => {
+    const GAP_PX = 12;
+    const gapXRatio = GAP_PX / BASE_WIDTH;
+    const gapYRatio = GAP_PX / BASE_HEIGHT;
+    const maxXRatio = 1 - gapXRatio;
+    const anchorX = DEFAULT_FIELD_POSITION.xRatio;
+
+    const obstacles = fields.filter((f) => f.pageIndex === currentPage);
+    let x = DEFAULT_FIELD_POSITION.xRatio;
+    let y = DEFAULT_FIELD_POSITION.yRatio;
+    let guard = 0;
+    let blocker = obstacles.find((o) => rectsOverlap({ xRatio: x, yRatio: y, widthRatio, heightRatio }, o));
+    while (blocker && guard < 100) {
+      x = blocker.xRatio + blocker.widthRatio + gapXRatio;
+      if (x + widthRatio > maxXRatio) {
+        x = anchorX;
+        y += heightRatio + gapYRatio;
+      }
+      blocker = obstacles.find((o) => rectsOverlap({ xRatio: x, yRatio: y, widthRatio, heightRatio }, o));
+      guard++;
+    }
+    return { xRatio: x, yRatio: y };
+  };
 
   const handleAddSignerField = (signer: SignerSummary) => {
     if (isReadOnly) return;
@@ -266,6 +439,8 @@ export const UserTemplateDetail: FC = () => {
 
     const nextIndex = fields.length > 0 ? Math.max(...fields.map((f) => f.fieldIndex)) + 1 : 1;
     const tempId = `field-new-${crypto.randomUUID()}`;
+    const { widthRatio, heightRatio } = DEFAULT_FIELD_POSITION;
+    const { xRatio, yRatio } = findFreeDefaultSlot(widthRatio, heightRatio);
     addField({
       tempId,
       fieldKey: `field-${tempId}`,
@@ -275,10 +450,10 @@ export const UserTemplateDetail: FC = () => {
       fieldName: signer.name,
       roleCode: signer.roleCode ?? undefined,
       isRequired: true,
-      xRatio: 0.425,
-      yRatio: 0.475,
-      widthRatio: 0.15,
-      heightRatio: 0.05,
+      xRatio,
+      yRatio,
+      widthRatio,
+      heightRatio,
     });
   };
 
@@ -311,6 +486,105 @@ export const UserTemplateDetail: FC = () => {
       const maxY = Math.max(...selectedFields.map((f) => f.yRatio + f.heightRatio));
       selectedFields.forEach((f) => updates.push({ tempId: f.tempId, updates: { yRatio: maxY - f.heightRatio } }));
     }
+
+    updateFields(updates);
+  };
+
+  const handleDistribute = (axis: 'horizontal' | 'vertical') => {
+    if (isReadOnly) return;
+    if (selectedTempIds.length < 3) return;
+    const selectedFields = fields.filter((f) => selectedTempIds.includes(f.tempId));
+    const updates: { tempId: string; updates: Partial<EditableTemplateField> }[] = [];
+
+    if (axis === 'horizontal') {
+      const sorted = [...selectedFields].sort((a, b) => a.xRatio - b.xRatio);
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const totalSpan = last.xRatio + last.widthRatio - first.xRatio;
+      const totalWidth = sorted.reduce((sum, f) => sum + f.widthRatio, 0);
+      const gap = (totalSpan - totalWidth) / (sorted.length - 1);
+
+      let cursorX = first.xRatio;
+      sorted.forEach((f, index) => {
+        // 맨 왼쪽/맨 오른쪽은 고정하고 사이 서명란만 간격이 균등하도록 재배치
+        if (index > 0 && index < sorted.length - 1) {
+          updates.push({ tempId: f.tempId, updates: { xRatio: cursorX } });
+        }
+        cursorX += f.widthRatio + gap;
+      });
+    } else {
+      const sorted = [...selectedFields].sort((a, b) => a.yRatio - b.yRatio);
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const totalSpan = last.yRatio + last.heightRatio - first.yRatio;
+      const totalHeight = sorted.reduce((sum, f) => sum + f.heightRatio, 0);
+      const gap = (totalSpan - totalHeight) / (sorted.length - 1);
+
+      let cursorY = first.yRatio;
+      sorted.forEach((f, index) => {
+        if (index > 0 && index < sorted.length - 1) {
+          updates.push({ tempId: f.tempId, updates: { yRatio: cursorY } });
+        }
+        cursorY += f.heightRatio + gap;
+      });
+    }
+
+    if (updates.length > 0) updateFields(updates);
+  };
+
+  // 겹쳐 쌓인 서명란(주로 기본 위치에 연속 추가된 경우)을 fieldIndex(추가 순서) 기준으로
+  // 겹치지 않게 가로로 순서대로 나열하고, 페이지 폭을 넘으면 다음 줄로 넘긴다.
+  // 나열될 자리에 이동 대상이 아닌 다른 서명란이 이미 있으면, 그 서명란을 피해 다음 자리로 밀어낸다.
+  const handleSpreadFields = () => {
+    if (isReadOnly) return;
+    if (selectedTempIds.length < 2) return;
+    const selected = fields
+      .filter((f) => selectedTempIds.includes(f.tempId))
+      .sort((a, b) => a.fieldIndex - b.fieldIndex);
+
+    const GAP_PX = 12;
+    const gapXRatio = GAP_PX / BASE_WIDTH;
+    const gapYRatio = GAP_PX / BASE_HEIGHT;
+    const maxXRatio = 1 - gapXRatio;
+
+    const anchorX = Math.min(...selected.map((f) => f.xRatio));
+    const anchorY = Math.min(...selected.map((f) => f.yRatio));
+
+    // 이동 대상이 아닌, 같은 페이지에 이미 놓여 있는 서명란(장애물)
+    const obstacles = fields.filter((f) => f.pageIndex === currentPage && !selectedTempIds.includes(f.tempId));
+    const overlapsObstacle = (x: number, y: number, w: number, h: number) =>
+      obstacles.find((o) => rectsOverlap({ xRatio: x, yRatio: y, widthRatio: w, heightRatio: h }, o));
+
+    let cursorX = anchorX;
+    let cursorY = anchorY;
+    let rowMaxHeight = 0;
+    const updates: { tempId: string; updates: Partial<EditableTemplateField> }[] = [];
+
+    selected.forEach((f) => {
+      if (cursorX > anchorX && cursorX + f.widthRatio > maxXRatio) {
+        cursorX = anchorX;
+        cursorY += rowMaxHeight + gapYRatio;
+        rowMaxHeight = 0;
+      }
+
+      // 이 자리에 다른 서명란이 이미 있으면, 그 오른쪽으로(필요하면 다음 줄로) 계속 밀어낸다
+      let blocker = overlapsObstacle(cursorX, cursorY, f.widthRatio, f.heightRatio);
+      let guard = 0;
+      while (blocker && guard < 100) {
+        cursorX = blocker.xRatio + blocker.widthRatio + gapXRatio;
+        if (cursorX + f.widthRatio > maxXRatio) {
+          cursorX = anchorX;
+          cursorY += rowMaxHeight + gapYRatio;
+          rowMaxHeight = 0;
+        }
+        blocker = overlapsObstacle(cursorX, cursorY, f.widthRatio, f.heightRatio);
+        guard++;
+      }
+
+      updates.push({ tempId: f.tempId, updates: { xRatio: cursorX, yRatio: cursorY } });
+      cursorX += f.widthRatio + gapXRatio;
+      rowMaxHeight = Math.max(rowMaxHeight, f.heightRatio);
+    });
 
     updateFields(updates);
   };
@@ -361,7 +635,7 @@ export const UserTemplateDetail: FC = () => {
       heightRatio: f.heightRatio,
     }));
 
-  const handleSave = async () => {
+  const executeSave = async () => {
     if (!template || isReadOnly) return;
     setIsSaving(true);
     try {
@@ -376,6 +650,15 @@ export const UserTemplateDetail: FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = () => {
+    if (!template || isReadOnly) return;
+    if (hasOverlappingFields) {
+      setIsSaveOverlapConfirmOpen(true);
+      return;
+    }
+    executeSave();
   };
 
   const completeTemplateFields = async () => {
@@ -525,24 +808,6 @@ export const UserTemplateDetail: FC = () => {
           <>
             <div className="flex items-center gap-1 border-r border-gray-100 pr-6">
               <button
-                onClick={() => {
-                  setSelectionMode('single');
-                  setSelectedTempIds([]);
-                }}
-                className={`p-1.5 rounded-md ${selectionMode === 'single' ? 'bg-gray-950 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
-              >
-                <MousePointer2 size={18} />
-              </button>
-              <button
-                onClick={() => setSelectionMode('multi')}
-                className={`p-1.5 rounded-md ${selectionMode === 'multi' ? 'bg-gray-950 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-1 border-r border-gray-100 pr-6">
-              <button
                 onClick={() => handleAlign('left')}
                 title="좌측 맞춤"
                 className="p-1.5 hover:bg-gray-100 rounded-md text-gray-600 disabled:opacity-30"
@@ -590,6 +855,32 @@ export const UserTemplateDetail: FC = () => {
                 disabled={selectedTempIds.length < 2}
               >
                 <AlignVerticalJustifyEnd size={18} />
+              </button>
+              <div className="w-px h-4 bg-gray-100 mx-1" />
+              <button
+                onClick={() => handleDistribute('horizontal')}
+                title="가로 등간격 배치 (3개 이상 선택)"
+                className="p-1.5 hover:bg-gray-100 rounded-md text-gray-600 disabled:opacity-30"
+                disabled={selectedTempIds.length < 3}
+              >
+                <AlignHorizontalSpaceBetween size={18} />
+              </button>
+              <button
+                onClick={() => handleDistribute('vertical')}
+                title="세로 등간격 배치 (3개 이상 선택)"
+                className="p-1.5 hover:bg-gray-100 rounded-md text-gray-600 disabled:opacity-30"
+                disabled={selectedTempIds.length < 3}
+              >
+                <AlignVerticalSpaceBetween size={18} />
+              </button>
+              <div className="w-px h-4 bg-gray-100 mx-1" />
+              <button
+                onClick={handleSpreadFields}
+                title="겹친 서명란을 순서대로 나열합니다 (2개 이상 선택)"
+                className="px-2.5 py-1.5 hover:bg-gray-100 rounded-md text-gray-600 disabled:opacity-30 text-[11px] font-bold whitespace-nowrap"
+                disabled={selectedTempIds.length < 2}
+              >
+                서명란 펼치기
               </button>
             </div>
 
@@ -759,13 +1050,41 @@ export const UserTemplateDetail: FC = () => {
               height={STAGE_HEIGHT}
               ref={stageRef}
               onMouseDown={(e) => {
-                if (e.target === e.target.getStage()) {
-                  setSelectedTempIds([]);
+                if (isBackgroundTarget(e.target)) {
+                  const pos = e.target.getStage()?.getPointerPosition();
+                  if (!pos) return;
+                  marqueeStateRef.current = {
+                    startX: pos.x,
+                    startY: pos.y,
+                    currentX: pos.x,
+                    currentY: pos.y,
+                    dragged: false,
+                    additive: e.evt.shiftKey,
+                    baseSelection: selectedTempIds,
+                  };
+                  setSelectionBox({ x: pos.x, y: pos.y, width: 0, height: 0 });
                   return;
                 }
                 if (e.target.getParent()?.className !== 'Transformer') {
-                  toggleSelection(e.target.id(), selectionMode === 'multi' || e.evt.shiftKey);
+                  toggleSelection(e.target.id(), e.evt.shiftKey);
                 }
+              }}
+              onMouseMove={(e) => {
+                const marquee = marqueeStateRef.current;
+                if (!marquee) return;
+                const pos = e.target.getStage()?.getPointerPosition();
+                if (!pos) return;
+                marquee.currentX = pos.x;
+                marquee.currentY = pos.y;
+                if (!marquee.dragged && (Math.abs(pos.x - marquee.startX) > 3 || Math.abs(pos.y - marquee.startY) > 3)) {
+                  marquee.dragged = true;
+                }
+                setSelectionBox({
+                  x: Math.min(marquee.startX, pos.x),
+                  y: Math.min(marquee.startY, pos.y),
+                  width: Math.abs(pos.x - marquee.startX),
+                  height: Math.abs(pos.y - marquee.startY),
+                });
               }}
             >
               <Layer>
@@ -839,6 +1158,19 @@ export const UserTemplateDetail: FC = () => {
                     borderDash={[3, 3]}
                   />
                 )}
+                {selectionBox && (
+                  <Rect
+                    x={selectionBox.x}
+                    y={selectionBox.y}
+                    width={selectionBox.width}
+                    height={selectionBox.height}
+                    fill="rgba(59, 130, 246, 0.08)"
+                    stroke="#3b82f6"
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    listening={false}
+                  />
+                )}
               </Layer>
             </Stage>
           </div>
@@ -848,11 +1180,28 @@ export const UserTemplateDetail: FC = () => {
       <ConfirmDialog
         open={isCompleteModalOpen}
         title="서명란 설정을 완료하시겠습니까?"
-        message="설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다."
+        message={
+          hasOverlappingFields
+            ? '설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다. 서로 겹쳐 있는 서명란이 있으니 완료 전에 위치를 다시 한번 확인해주세요.'
+            : '설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다.'
+        }
         confirmLabel="설정 완료"
         isSubmitting={isCompleting}
         onConfirm={completeTemplateFields}
         onCancel={() => setIsCompleteModalOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={isSaveOverlapConfirmOpen}
+        title="겹치는 서명란이 있습니다"
+        message="서로 겹쳐 있는 서명란이 있습니다. 이대로 저장하시겠습니까?"
+        confirmLabel="저장"
+        isSubmitting={isSaving}
+        onConfirm={() => {
+          setIsSaveOverlapConfirmOpen(false);
+          executeSave();
+        }}
+        onCancel={() => setIsSaveOverlapConfirmOpen(false)}
       />
     </div>
   );
