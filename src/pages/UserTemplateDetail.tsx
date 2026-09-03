@@ -181,10 +181,6 @@ export const UserTemplateDetail: FC = () => {
   // 이미 여러 개 선택된 상태에서 그중 하나를 mousedown한 경우: 드래그로 이어지면 그룹 전체를
   // 이동해야 하므로, 실제로 드래그 없이 놓였을 때만(mouseup) 단일 선택으로 좁힌다.
   const fieldMouseDownRef = useRef<{ tempId: string; dragStarted: boolean } | null>(null);
-  // 그룹(다중 선택) 드래그 중 드래그 대상이 아닌 나머지 선택된 서명란들을 같은 변위만큼 이동시키기 위한 시작 상태
-  const groupDragRef = useRef<{ originX: number; originY: number; starts: { tempId: string; x: number; y: number }[] } | null>(
-    null,
-  );
   // 필드는 signerId로 서명자를 참조한다 — fieldName은 저장 시점 스냅샷이라 서명자 이름이
   // 그 뒤 바뀌면 어긋난다. 화면 표시는 항상 현재 서명자 이름을 우선한다.
   const signersById = useMemo(() => new Map(signers.map((signer) => [signer.id, signer])), [signers]);
@@ -1172,40 +1168,14 @@ export const UserTemplateDetail: FC = () => {
                         stroke={isSelected ? '#000' : color.border}
                         strokeWidth={isSelected ? 3 : 2}
                         draggable={!isReadOnly}
-                        onDragStart={(e) => {
+                        onDragStart={() => {
                           if (fieldMouseDownRef.current?.tempId === field.tempId) {
                             fieldMouseDownRef.current.dragStarted = true;
                           }
-                          // 다중 선택 중 하나를 드래그하기 시작하면, 나머지 선택된 서명란들도
-                          // 같은 변위만큼 같이 움직이도록 시작 위치를 기록해둔다.
-                          if (selectedTempIds.length > 1 && selectedTempIds.includes(field.tempId)) {
-                            const stage = stageRef.current;
-                            const starts = stage
-                              ? selectedTempIds
-                                  .map((id) => stage.findOne('#' + id))
-                                  .filter((node): node is Konva.Node => !!node)
-                                  .map((node) => ({ tempId: node.id(), x: node.x(), y: node.y() }))
-                              : [];
-                            groupDragRef.current = { originX: e.target.x(), originY: e.target.y(), starts };
-                          } else {
-                            groupDragRef.current = null;
-                          }
-                        }}
-                        onDragMove={(e) => {
-                          const group = groupDragRef.current;
-                          const stage = stageRef.current;
-                          if (!group || !stage) return;
-                          const dx = e.target.x() - group.originX;
-                          const dy = e.target.y() - group.originY;
-                          group.starts.forEach((s) => {
-                            if (s.tempId === field.tempId) return;
-                            const node = stage.findOne('#' + s.tempId);
-                            if (node) {
-                              node.x(s.x + dx);
-                              node.y(s.y + dy);
-                            }
-                          });
-                          trRef.current?.getLayer()?.batchDraw();
+                          // 다중 선택된 서명란들을 함께 옮기는 것 자체는 Konva Transformer가 이미
+                          // 내장 지원한다(여러 노드가 붙어 있으면 하나를 드래그할 때 나머지도 같은
+                          // 변위로 자동으로 같이 움직여준다) — 여기서 직접 좌표를 옮기면 이 내장
+                          // 동작과 이중으로 겹쳐 위치가 튀거나 서명란이 화면 밖으로 날아가 버린다.
                         }}
                         onDragEnd={(e) => {
                           const nodes = trRef.current?.nodes() ?? [];
@@ -1218,7 +1188,6 @@ export const UserTemplateDetail: FC = () => {
                           } else {
                             updateField(field.tempId, { xRatio: e.target.x() / STAGE_WIDTH, yRatio: e.target.y() / STAGE_HEIGHT });
                           }
-                          groupDragRef.current = null;
                         }}
                         onTransformEnd={() => {
                           const nodes = trRef.current?.nodes() ?? [];
