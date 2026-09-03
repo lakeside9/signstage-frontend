@@ -27,8 +27,13 @@ import {
   UserPlus,
   ZoomIn,
   ZoomOut,
+  AlertTriangle,
+  MapPin,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { useTemplateFieldStore } from '../store/useTemplateFieldStore';
 import type { EditableTemplateField } from '../store/useTemplateFieldStore';
@@ -59,14 +64,39 @@ const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '�
 const BASE_WIDTH = 800;
 
 const DEFAULT_FIELD_POSITION = { xRatio: 0.425, yRatio: 0.475, widthRatio: 0.15, heightRatio: 0.05 };
+// 설정완료 확인창의 "미배치 서명자" 경고에 이름을 나열할 최대 개수(그 이상은 "외 N명"으로 축약)
+const UNPLACED_SIGNERS_PREVIEW_COUNT = 8;
 
 type PlacementRect = { xRatio: number; yRatio: number; widthRatio: number; heightRatio: number };
+type OverlapField = PlacementRect & { pageIndex: number; tempId: string };
 
 const rectsOverlap = (a: PlacementRect, b: PlacementRect) =>
   a.xRatio < b.xRatio + b.widthRatio &&
   a.xRatio + a.widthRatio > b.xRatio &&
   a.yRatio < b.yRatio + b.heightRatio &&
   a.yRatio + a.heightRatio > b.yRatio;
+
+// 페이지별로 겹치는 서명란 중 처음 발견된 한 쌍을 찾는다(저장/설정완료 시 경고 및 이동용).
+// useMemo 본문을 컴포넌트 밖 순수 함수로 빼둔 것은 React Compiler가 메모이제이션을
+// 보존하지 못해 lint 에러(react-hooks/preserve-manual-memoization)를 내기 때문이다.
+const findFirstOverlappingFields = (fields: OverlapField[]) => {
+  const byPage = new Map<number, OverlapField[]>();
+  fields.forEach((f) => {
+    const list = byPage.get(f.pageIndex) ?? [];
+    list.push(f);
+    byPage.set(f.pageIndex, list);
+  });
+  for (const [pageIndex, pageFields] of byPage.entries()) {
+    for (let i = 0; i < pageFields.length; i++) {
+      for (let j = i + 1; j < pageFields.length; j++) {
+        if (rectsOverlap(pageFields[i], pageFields[j])) {
+          return { pageIndex, tempIds: [pageFields[i].tempId, pageFields[j].tempId] };
+        }
+      }
+    }
+  }
+  return null;
+};
 
 /**
  * 서명란(TemplateField) 배치 화면. legacy 소스
@@ -132,6 +162,7 @@ export const UserTemplateDetail: FC = () => {
 
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
   // 드래그 영역(마퀴) 선택: 시각 표시용 사각형(state)과 드래그 중 계산에 쓰는 값(ref)을 분리
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(
     null,
@@ -151,23 +182,16 @@ export const UserTemplateDetail: FC = () => {
   const getFieldDisplayName = (field: EditableTemplateField) =>
     field.signerId ? (signersById.get(field.signerId)?.name ?? field.fieldName) : field.fieldName;
 
-  // 페이지별로 겹치는 서명란이 하나라도 있는지(저장/설정완료 시 경고용)
-  const hasOverlappingFields = useMemo(() => {
-    const byPage = new Map<number, PlacementRect[]>();
-    fields.forEach((f) => {
-      const list = byPage.get(f.pageIndex) ?? [];
-      list.push(f);
-      byPage.set(f.pageIndex, list);
-    });
-    for (const pageFields of byPage.values()) {
-      for (let i = 0; i < pageFields.length; i++) {
-        for (let j = i + 1; j < pageFields.length; j++) {
-          if (rectsOverlap(pageFields[i], pageFields[j])) return true;
-        }
-      }
-    }
-    return false;
-  }, [fields]);
+  // 페이지별로 겹치는 서명란이 하나라도 있는지(저장/설정완료 시 경고용) + 처음 발견된 겹침 쌍(이동용)
+  const firstOverlappingFields = useMemo(() => findFirstOverlappingFields(fields), [fields]);
+  const hasOverlappingFields = firstOverlappingFields !== null;
+
+  // 문서 서명자로 등록되어 있지만 서명란이 하나도 배치되지 않은 서명자(설정완료 시 경고용)
+  const unplacedSigners = useMemo(
+    () => docSigners.filter((signer) => !fields.some((f) => f.signerId === signer.id)),
+    [docSigners, fields],
+  );
+  const hasUnplacedSigners = unplacedSigners.length > 0;
 
   const STAGE_WIDTH = BASE_WIDTH * scale;
   const STAGE_HEIGHT = pageSize.width > 0 ? (pageSize.height / pageSize.width) * STAGE_WIDTH : STAGE_WIDTH;
@@ -619,6 +643,47 @@ export const UserTemplateDetail: FC = () => {
     setDocSigners(docSigners.filter((s) => s.id !== signer.id));
   };
 
+  // 문서 서명자 목록 내 순서를 위/아래로 한 칸씩 이동 (서명란 배치/삭제로 순서가 흐트러졌을 때 수동 정렬용)
+  const handleMoveDocSigner = (index: number, direction: 'up' | 'down') => {
+    if (isReadOnly) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= docSigners.length) return;
+    const next = [...docSigners];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setDocSigners(next);
+  };
+
+  // 설정완료 확인창에서 "겹쳐진 서명란으로 이동" 클릭 시: 팝업을 닫고 해당 페이지로 이동한 뒤
+  // 겹쳐진 서명란들을 선택 상태로 만들고, 그 위치가 보이도록 캔버스를 스크롤한다.
+  const handleGoToOverlappingFields = () => {
+    if (!firstOverlappingFields) return;
+    const { pageIndex, tempIds } = firstOverlappingFields;
+
+    setIsCompleteModalOpen(false);
+    setCurrentPage(pageIndex);
+    setSelectedTempIds(tempIds);
+
+    requestAnimationFrame(() => {
+      const container = canvasScrollRef.current;
+      if (!container) return;
+      const overlappingFields = fields.filter((f) => tempIds.includes(f.tempId));
+      if (overlappingFields.length === 0) return;
+
+      const minX = Math.min(...overlappingFields.map((f) => f.xRatio)) * STAGE_WIDTH;
+      const minY = Math.min(...overlappingFields.map((f) => f.yRatio)) * STAGE_HEIGHT;
+      const maxX = Math.max(...overlappingFields.map((f) => f.xRatio + f.widthRatio)) * STAGE_WIDTH;
+      const maxY = Math.max(...overlappingFields.map((f) => f.yRatio + f.heightRatio)) * STAGE_HEIGHT;
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      container.scrollTo({
+        left: centerX - container.clientWidth / 2,
+        top: centerY - container.clientHeight / 2,
+        behavior: 'smooth',
+      });
+    });
+  };
+
   const buildFieldsPayload = (): CreateTemplateFieldRequest[] =>
     fields.map((f) => ({
       fieldKey: f.fieldKey ?? `field-${f.tempId}`,
@@ -953,6 +1018,32 @@ export const UserTemplateDetail: FC = () => {
                       }}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {!isReadOnly && (
+                          <div className="flex flex-col -my-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveDocSigner(index, 'up');
+                              }}
+                              disabled={index === 0}
+                              title="위로 이동"
+                              className={`p-0.5 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed ${isSelected ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveDocSigner(index, 'down');
+                              }}
+                              disabled={index === docSigners.length - 1}
+                              title="아래로 이동"
+                              className={`p-0.5 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed ${isSelected ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                          </div>
+                        )}
                         <div className="flex flex-col items-center">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isPlaced ? color.border : '#d1d5db' }} />
                           {isPlaced && field && (
@@ -1043,7 +1134,7 @@ export const UserTemplateDetail: FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto flex items-start justify-center p-12 bg-gray-200 relative">
+        <div ref={canvasScrollRef} className="flex-1 overflow-auto flex items-start justify-center p-12 bg-gray-200 relative">
           <div className="bg-white shadow-2xl relative">
             <Stage
               width={STAGE_WIDTH}
@@ -1177,19 +1268,71 @@ export const UserTemplateDetail: FC = () => {
         </div>
       </div>
 
-      <ConfirmDialog
-        open={isCompleteModalOpen}
-        title="서명란 설정을 완료하시겠습니까?"
-        message={
-          hasOverlappingFields
-            ? '설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다. 서로 겹쳐 있는 서명란이 있으니 완료 전에 위치를 다시 한번 확인해주세요.'
-            : '설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다.'
-        }
-        confirmLabel="설정 완료"
-        isSubmitting={isCompleting}
-        onConfirm={completeTemplateFields}
-        onCancel={() => setIsCompleteModalOpen(false)}
-      />
+      <Modal open={isCompleteModalOpen} onClose={() => setIsCompleteModalOpen(false)} title="서명란 설정을 완료하시겠습니까?" widthClassName="max-w-md">
+        <div className="max-h-[70vh] overflow-y-auto">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-950">
+            <CheckCircle2 size={24} />
+          </div>
+          <p className="text-center text-sm leading-6 text-gray-500">
+            설정 완료 후에는 이 문서 양식의 서명란을 수정할 수 없습니다.
+          </p>
+          {hasOverlappingFields && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+              <AlertTriangle size={16} className="mt-0.5 flex-none" />
+              <div className="flex-1">
+                <p>서로 겹쳐 있는 서명란이 있습니다. 겹친 서명란을 정리해야 설정을 완료할 수 있습니다.</p>
+                <button
+                  type="button"
+                  onClick={handleGoToOverlappingFields}
+                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                >
+                  <MapPin size={12} /> 겹쳐진 서명란으로 이동
+                </button>
+              </div>
+            </div>
+          )}
+          {hasUnplacedSigners && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+              <AlertTriangle size={16} className="mt-0.5 flex-none" />
+              <span>
+                서명란이 배치되지 않은 서명자가 {unplacedSigners.length}명 있습니다. 설정을 완료하려면 모든 서명자의 서명란을 배치해주세요.
+                <br />
+                <span className="font-bold">
+                  {unplacedSigners.slice(0, UNPLACED_SIGNERS_PREVIEW_COUNT).map((s) => s.name).join(', ')}
+                  {unplacedSigners.length > UNPLACED_SIGNERS_PREVIEW_COUNT
+                    && ` 외 ${unplacedSigners.length - UNPLACED_SIGNERS_PREVIEW_COUNT}명`}
+                </span>
+              </span>
+            </div>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCompleteModalOpen(false)}
+              disabled={isCompleting}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={completeTemplateFields}
+              disabled={isCompleting || hasOverlappingFields || hasUnplacedSigners}
+              title={
+                hasOverlappingFields
+                  ? '겹쳐 있는 서명란을 먼저 정리해주세요.'
+                  : hasUnplacedSigners
+                    ? '서명란이 배치되지 않은 서명자가 있습니다.'
+                    : undefined
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isCompleting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              설정 완료
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={isSaveOverlapConfirmOpen}
