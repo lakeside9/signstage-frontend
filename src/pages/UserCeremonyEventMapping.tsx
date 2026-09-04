@@ -406,14 +406,24 @@ export const UserCeremonyEventMapping: FC = () => {
             </button>
           )}
 
-          {(event.status === 'DRAFT' || event.status === 'READY') && (
+          {event.status === 'DRAFT' && (
             <button
               onClick={handleGoToControl}
               disabled={isSaving}
               className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
             >
               {isSaving ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
-              행사 제어
+              시작 대기 처리
+            </button>
+          )}
+          {event.status === 'READY' && (
+            <button
+              onClick={handleGoToControl}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
+              행사 제어 이동
             </button>
           )}
         </div>
