@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
-import { GripVertical, Loader2 } from 'lucide-react';
+import type { FC, ReactNode } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Building2,
+  Calculator,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  FileSignature,
+  Loader2,
+  Package,
+  Settings,
+  ShieldCheck,
+  ShoppingCart,
+  User,
+  Users,
+} from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -14,16 +31,45 @@ const AXIS_TABS: Array<{ value: RoleAxis; label: string }> = [
 ];
 
 /** 관리자가 임의 문자열을 넣어 렌더링이 깨지는 걸 막는다 — AdminLayout/UserLayout이 실제로 아는 아이콘만 고른다. */
-const ICON_OPTIONS = [
-  'LayoutDashboard', 'FileSignature', 'Settings', 'Building2', 'User', 'Users',
-  'ClipboardCheck', 'ShieldCheck', 'Package', 'Calculator', 'ShoppingCart', 'ClipboardList',
-];
+const ICON_BY_KEY: Record<string, ReactNode> = {
+  LayoutDashboard: <ClipboardList size={14} />,
+  FileSignature: <FileSignature size={14} />,
+  Settings: <Settings size={14} />,
+  Building2: <Building2 size={14} />,
+  User: <User size={14} />,
+  Users: <Users size={14} />,
+  ClipboardCheck: <ClipboardCheck size={14} />,
+  ShieldCheck: <ShieldCheck size={14} />,
+  Package: <Package size={14} />,
+  Calculator: <Calculator size={14} />,
+  ShoppingCart: <ShoppingCart size={14} />,
+  ClipboardList: <ClipboardList size={14} />,
+};
+const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
+const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;
+
+interface TreeItem {
+  row: MenuAdminRow;
+  children: TreeItem[];
+}
+
+const buildTree = (rows: MenuAdminRow[]): TreeItem[] => {
+  const byParent = rows.reduce<Record<string, MenuAdminRow[]>>((acc, row) => {
+    const key = String(row.parentMenuId ?? 'root');
+    (acc[key] ??= []).push(row);
+    return acc;
+  }, {});
+  const toItems = (parentKey: string): TreeItem[] =>
+    (byParent[parentKey] ?? [])
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((row) => ({ row, children: toItems(String(row.id)) }));
+  return toItems('root');
+};
 
 interface Draft {
   label: string;
   path: string;
   iconKey: string;
-  displayOrder: number;
   active: boolean;
 }
 
@@ -31,16 +77,11 @@ const toDraft = (row: MenuAdminRow): Draft => ({
   label: row.label,
   path: row.path ?? '',
   iconKey: row.iconKey ?? '',
-  displayOrder: row.displayOrder,
   active: row.active,
 });
 
 const isDirty = (row: MenuAdminRow, draft: Draft) =>
-  draft.label !== row.label ||
-  draft.path !== (row.path ?? '') ||
-  draft.iconKey !== (row.iconKey ?? '') ||
-  draft.displayOrder !== row.displayOrder ||
-  draft.active !== row.active;
+  draft.label !== row.label || draft.path !== (row.path ?? '') || draft.iconKey !== (row.iconKey ?? '') || draft.active !== row.active;
 
 /**
  * 메뉴 구조(이름/경로/아이콘/순서/사용여부) 관리 화면 — signstage-docs
@@ -48,9 +89,9 @@ const isDirty = (row: MenuAdminRow, draft: Draft) =>
  * 이름/경로/순서까지 편집 허용). `AdminPermissionMatrix`와 같은 이유로 접근은 서버가 다시
  * 검증하지만(PLATFORM_SUPER 전용), 안내 화면을 먼저 보여준다.
  *
- * 부모가 없는 메뉴를 먼저, 그 아래 자식을 들여쓰기로 붙이는 순서로 나열한다 — 실제 사이드바에
- * 그려지는 순서와 같다. "설정"처럼 경로가 없는 그룹 메뉴도 이름/아이콘/순서는 그대로 편집
- * 가능하다(경로 칸은 비워둔다).
+ * 좌측 트리(부모-자식 계층, 펼치기/접기) + 우측 편집 패널 구조다. 순서는 숫자를 직접 입력하는
+ * 대신 형제 사이 위/아래 이동 버튼으로 바꾼다 — 서명자/문서 양식 순서 편집(UserCeremonyDetail/
+ * UserTemplateDetail)과 같은 패턴.
  */
 export const AdminMenuManager: FC = () => {
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
@@ -59,8 +100,11 @@ export const AdminMenuManager: FC = () => {
   const [console_, setConsole] = useState<RoleAxis>('PLATFORM');
   const [rows, setRows] = useState<MenuAdminRow[]>([]);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(isSuper);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [movingId, setMovingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isSuper) {
@@ -74,6 +118,8 @@ export const AdminMenuManager: FC = () => {
           const data = response.data as MenuAdminRow[];
           setRows(data);
           setDrafts(Object.fromEntries(data.map((row) => [row.id, toDraft(row)])));
+          setExpandedIds(new Set(data.filter((row) => row.parentMenuId === null).map((row) => row.id)));
+          setSelectedId(data.find((row) => row.parentMenuId === null)?.id ?? null);
         }
       } catch (err) {
         showSnackbar(err instanceof Error ? err.message : '메뉴 목록을 불러오지 못했습니다.', 'error');
@@ -86,6 +132,15 @@ export const AdminMenuManager: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuper, console_]);
+
+  const toggleExpanded = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const updateDraft = (rowId: number, patch: Partial<Draft>) => {
     setDrafts((prev) => ({ ...prev, [rowId]: { ...prev[rowId], ...patch } }));
@@ -101,13 +156,13 @@ export const AdminMenuManager: FC = () => {
         label: draft.label !== row.label ? draft.label : null,
         path: draft.path.trim() === '' ? null : draft.path.trim(),
         iconKey: draft.iconKey === '' ? null : draft.iconKey,
-        displayOrder: draft.displayOrder,
+        displayOrder: row.displayOrder,
         active: draft.active,
       });
       setRows((prev) =>
         prev.map((item) =>
           item.id === row.id
-            ? { ...item, label: draft.label, path: draft.path || null, iconKey: draft.iconKey || null, displayOrder: draft.displayOrder, active: draft.active }
+            ? { ...item, label: draft.label, path: draft.path || null, iconKey: draft.iconKey || null, active: draft.active }
             : item
         )
       );
@@ -116,6 +171,38 @@ export const AdminMenuManager: FC = () => {
       showSnackbar(err instanceof Error ? err.message : '메뉴 수정에 실패했습니다.', 'error');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  /** 같은 부모를 둔 형제끼리 표시 순서를 맞바꾼다 — 그 둘의 저장된 값만 바꾸고 draft는 건드리지 않는다. */
+  const handleMove = async (row: MenuAdminRow, direction: -1 | 1) => {
+    const siblings = rows
+      .filter((item) => item.parentMenuId === row.parentMenuId)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+    const index = siblings.findIndex((item) => item.id === row.id);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    const other = siblings[targetIndex];
+
+    setMovingId(row.id);
+    try {
+      await api.put(`/platform-admin/menus/${row.id}`, {
+        label: null, path: row.path, iconKey: row.iconKey, displayOrder: other.displayOrder, active: row.active,
+      });
+      await api.put(`/platform-admin/menus/${other.id}`, {
+        label: null, path: other.path, iconKey: other.iconKey, displayOrder: row.displayOrder, active: other.active,
+      });
+      setRows((prev) =>
+        prev.map((item) => {
+          if (item.id === row.id) return { ...item, displayOrder: other.displayOrder };
+          if (item.id === other.id) return { ...item, displayOrder: row.displayOrder };
+          return item;
+        })
+      );
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '순서 변경에 실패했습니다.', 'error');
+    } finally {
+      setMovingId(null);
     }
   };
 
@@ -128,20 +215,56 @@ export const AdminMenuManager: FC = () => {
     );
   }
 
-  // 부모(부모 없는 메뉴 먼저) 아래 자식을 순서대로 붙인다 — 사이드바에 그려지는 순서와 같다.
-  const topLevel = rows.filter((row) => row.parentMenuId === null).sort((a, b) => a.displayOrder - b.displayOrder);
-  const childrenByParent = rows.reduce<Record<number, MenuAdminRow[]>>((acc, row) => {
-    if (row.parentMenuId !== null) {
-      (acc[row.parentMenuId] ??= []).push(row);
-    }
-    return acc;
-  }, {});
-  const orderedRows = topLevel.flatMap((parent) => [
-    { row: parent, depth: 0 },
-    ...(childrenByParent[parent.id] ?? [])
-      .sort((a, b) => a.displayOrder - b.displayOrder)
-      .map((child) => ({ row: child, depth: 1 })),
-  ]);
+  const tree = buildTree(rows);
+  const selectedRow = rows.find((row) => row.id === selectedId) ?? null;
+  const selectedDraft = selectedRow ? drafts[selectedRow.id] : null;
+  const siblingsOfSelected = selectedRow
+    ? rows.filter((row) => row.parentMenuId === selectedRow.parentMenuId).sort((a, b) => a.displayOrder - b.displayOrder)
+    : [];
+  const selectedSiblingIndex = selectedRow ? siblingsOfSelected.findIndex((row) => row.id === selectedRow.id) : -1;
+
+  const renderTreeItem = (item: TreeItem, depth: number): ReactNode => {
+    const hasChildren = item.children.length > 0;
+    const isExpanded = expandedIds.has(item.row.id);
+    const isSelected = item.row.id === selectedId;
+    return (
+      <div key={item.row.id}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedId(item.row.id)}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setSelectedId(item.row.id)}
+          className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-left transition-colors cursor-pointer ${
+            isSelected ? 'bg-gray-950 text-white font-medium' : 'text-gray-700 hover:bg-gray-100'
+          }`}
+          style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        >
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpanded(item.row.id);
+              }}
+              className={`shrink-0 rounded p-0.5 ${isSelected ? 'hover:bg-white/20' : 'hover:bg-gray-200'}`}
+            >
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          ) : (
+            <span className="w-[18px] shrink-0" />
+          )}
+          <span className={isSelected ? 'text-white' : 'text-gray-400'}>{iconFor(item.row.iconKey ?? '')}</span>
+          <span className="truncate flex-1">{item.row.label}</span>
+          {!item.row.active && (
+            <span className={`shrink-0 text-[10px] rounded px-1 ${isSelected ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+              비활성
+            </span>
+          )}
+        </div>
+        {hasChildren && isExpanded && item.children.map((child) => renderTreeItem(child, depth + 1))}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -160,6 +283,7 @@ export const AdminMenuManager: FC = () => {
             onClick={() => {
               setConsole(tab.value);
               setIsLoading(true);
+              setSelectedId(null);
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               console_ === tab.value
@@ -177,94 +301,116 @@ export const AdminMenuManager: FC = () => {
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
-        <div className="mt-6 bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  <th className="text-left font-medium py-2 px-4">메뉴</th>
-                  <th className="text-left font-medium py-2 px-4 w-56">경로</th>
-                  <th className="text-left font-medium py-2 px-4 w-40">아이콘</th>
-                  <th className="text-center font-medium py-2 px-4 w-20">순서</th>
-                  <th className="text-center font-medium py-2 px-4 w-20">사용</th>
-                  <th className="text-right font-medium py-2 px-4 w-24">처리</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {orderedRows.map(({ row, depth }) => {
-                  const draft = drafts[row.id];
-                  if (!draft) return null;
-                  const dirty = isDirty(row, draft);
-                  return (
-                    <tr key={row.id}>
-                      <td className="py-2 px-4">
-                        <div className={depth > 0 ? 'ml-6 flex items-center gap-1.5' : 'flex items-center gap-1.5'}>
-                          {depth > 0 && <GripVertical size={12} className="text-gray-300 shrink-0" />}
-                          <div>
-                            <input
-                              type="text"
-                              value={draft.label}
-                              onChange={(e) => updateDraft(row.id, { label: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                            />
-                            <div className="text-xs text-gray-400 mt-0.5">{row.menuKey}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-2 px-4">
-                        <input
-                          type="text"
-                          value={draft.path}
-                          onChange={(e) => updateDraft(row.id, { path: e.target.value })}
-                          placeholder="(그룹 메뉴 — 경로 없음)"
-                          className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                        />
-                      </td>
-                      <td className="py-2 px-4">
-                        <select
-                          value={draft.iconKey}
-                          onChange={(e) => updateDraft(row.id, { iconKey: e.target.value })}
-                          className="w-full px-2 py-1 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
-                        >
-                          <option value="">(없음)</option>
-                          {ICON_OPTIONS.map((icon) => (
-                            <option key={icon} value={icon}>
-                              {icon}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2 px-4">
-                        <input
-                          type="number"
-                          value={draft.displayOrder}
-                          onChange={(e) => updateDraft(row.id, { displayOrder: Number(e.target.value) })}
-                          className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-center focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                        />
-                      </td>
-                      <td className="py-2 px-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={draft.active}
-                          onChange={(e) => updateDraft(row.id, { active: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                      </td>
-                      <td className="py-2 px-4 text-right">
-                        <button
-                          type="button"
-                          disabled={!dirty || savingId === row.id}
-                          onClick={() => handleSave(row)}
-                          className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          저장
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="mt-6 flex gap-4 items-start">
+          <div className="w-72 shrink-0 bg-white border border-gray-200 rounded-lg p-2">
+            {tree.length === 0 ? (
+              <p className="py-6 text-center text-xs text-gray-400">메뉴가 없습니다.</p>
+            ) : (
+              tree.map((item) => renderTreeItem(item, 0))
+            )}
+          </div>
+
+          <div className="flex-1 bg-white border border-gray-200 rounded-lg p-5">
+            {!selectedRow || !selectedDraft ? (
+              <p className="text-sm text-gray-400">왼쪽 트리에서 메뉴를 선택하세요.</p>
+            ) : (
+              <div className="max-w-md space-y-4">
+                <div>
+                  <div className="text-xs text-gray-400">{selectedRow.menuKey}</div>
+                  <div className="text-xs text-gray-400">{selectedRow.labelKey}</div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+                  <input
+                    type="text"
+                    value={selectedDraft.label}
+                    onChange={(e) => updateDraft(selectedRow.id, { label: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">경로</label>
+                  <input
+                    type="text"
+                    value={selectedDraft.path}
+                    onChange={(e) => updateDraft(selectedRow.id, { path: e.target.value })}
+                    placeholder="(그룹 메뉴 — 경로 없음)"
+                    className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">아이콘</label>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-8 h-8 border border-gray-200 rounded-md text-gray-600">
+                      {iconFor(selectedDraft.iconKey)}
+                    </span>
+                    <select
+                      value={selectedDraft.iconKey}
+                      onChange={(e) => updateDraft(selectedRow.id, { iconKey: e.target.value })}
+                      className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+                    >
+                      <option value="">(없음)</option>
+                      {ICON_OPTIONS.map((icon) => (
+                        <option key={icon} value={icon}>
+                          {icon}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">표시 순서(형제 사이)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleMove(selectedRow, -1)}
+                      disabled={selectedSiblingIndex <= 0 || movingId !== null}
+                      title="위로 이동"
+                      className="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(selectedRow, 1)}
+                      disabled={selectedSiblingIndex === -1 || selectedSiblingIndex >= siblingsOfSelected.length - 1 || movingId !== null}
+                      title="아래로 이동"
+                      className="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30"
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <span className="text-xs text-gray-400">
+                      {selectedSiblingIndex + 1} / {siblingsOfSelected.length}
+                    </span>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={selectedDraft.active}
+                    onChange={(e) => updateDraft(selectedRow.id, { active: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  사용함(사이드바에 노출)
+                </label>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={!isDirty(selectedRow, selectedDraft) || savingId === selectedRow.id}
+                    onClick={() => handleSave(selectedRow)}
+                    className="px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
