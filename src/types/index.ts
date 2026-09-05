@@ -221,6 +221,22 @@ export interface MenuNode {
 }
 
 /**
+ * GET /api/platform-admin/menus/admin?console= 응답 하나(MenuDto.Response.MenuAdminRow)와
+ * 맞춘다 — 메뉴 관리 화면 전용, 역할 필터링 없이 평면 목록으로 내려온다.
+ */
+export interface MenuAdminRow {
+  id: number;
+  parentMenuId: number | null;
+  menuKey: string;
+  labelKey: string;
+  label: string;
+  path: string | null;
+  iconKey: string | null;
+  displayOrder: number;
+  active: boolean;
+}
+
+/**
  * GET /api/platform-admin/permissions/me 또는 GET /api/organizations/me/permissions
  * 응답(PermissionDto.Response.MyPermissions)과 맞춘다. roleValue는 축에 따라 PlatformRole
  * 또는 MemberRole 값을 담아 string으로 둔다(조직 멤버십이 없으면 null).

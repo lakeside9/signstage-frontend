@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Key,
   KeyRound,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -51,6 +52,7 @@ const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) ||
  * `/admin/menus` 응답과 별개로 조건부 렌더링한다.
  */
 const PERMISSION_MANAGEMENT_PATH = '/admin/permissions';
+const MENU_MANAGEMENT_PATH = '/admin/menus';
 
 export const AdminLayout: FC = () => {
   const { t } = useTranslation();
@@ -97,7 +99,10 @@ export const AdminLayout: FC = () => {
       label: node.label,
     })),
     ...(platformAdmin?.platformRole === 'PLATFORM_SUPER'
-      ? [{ to: PERMISSION_MANAGEMENT_PATH, end: false, icon: <KeyRound size={20} />, label: t('permission.management') }]
+      ? [
+          { to: PERMISSION_MANAGEMENT_PATH, end: false, icon: <KeyRound size={20} />, label: t('permission.management') },
+          { to: MENU_MANAGEMENT_PATH, end: false, icon: <Layers size={20} />, label: '메뉴 관리' },
+        ]
       : []),
   ];
 
