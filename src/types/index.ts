@@ -204,6 +204,44 @@ export interface PlatformAdminAuditLogEntry {
   createdAt: string;
 }
 
+/**
+ * GET /api/platform-admin/menus 응답 하나(MenuDto.Response.MenuNode)와 맞춘다 — signstage-docs
+ * business/menu-and-action-permission-management-review.md 7.1/10장. 호출자의 역할이 허용하지
+ * 않는 메뉴는 서버가 이미 걸러 응답에서 뺀다.
+ */
+export interface MenuNode {
+  id: number;
+  menuKey: string;
+  labelKey: string;
+  label: string;
+  path: string | null;
+  iconKey: string | null;
+  displayOrder: number;
+  children: MenuNode[];
+}
+
+/** GET /api/platform-admin/permissions/me 응답(PermissionDto.Response.MyPermissions)과 맞춘다. */
+export interface MyPermissions {
+  roleAxis: string;
+  roleValue: PlatformRole;
+  permissionKeys: string[];
+}
+
+/** 관리 화면의 역할×권한 매트릭스 한 행(PermissionDto.Response.PermissionMatrixRow)과 맞춘다. */
+export interface PermissionMatrixRow {
+  permissionDefinitionId: number;
+  permissionKey: string;
+  permissionType: 'MENU' | 'ACTION';
+  labelKey: string;
+  displayOrder: number;
+  roleAllowances: PermissionRoleAllowance[];
+}
+
+export interface PermissionRoleAllowance {
+  roleValue: PlatformRole;
+  allowed: boolean;
+}
+
 /** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL';
 

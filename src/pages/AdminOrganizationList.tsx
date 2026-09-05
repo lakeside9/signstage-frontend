@@ -4,11 +4,10 @@ import { Link } from 'react-router-dom';
 import { Building2, Plus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
-import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDate } from '../utils/internationalization';
-import { canManagePlatform } from '../utils/permissions';
 import type { OrganizationStatus, PageResponse, PlatformAdminOrganizationSummary } from '../types';
 
 const PAGE_SIZE = 20;
@@ -50,8 +49,7 @@ export const AdminOrganizationList: FC = () => {
   const [pageData, setPageData] = useState<PageResponse<PlatformAdminOrganizationSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canManagePlatform(currentPlatformRole);
+  const canManage = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_CREATE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   useEffect(() => {

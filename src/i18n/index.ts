@@ -17,6 +17,15 @@ const resources = {
         adminAccounts: '관리자 계정', billingCatalog: '과금 카탈로그', billingSimulator: '과금 시뮬레이터',
         purchaseRequests: '추가구매 요청', auditLogs: '감사 로그',
       },
+      permission: {
+        management: '권한 관리',
+        action: {
+          accountCreate: '관리자 계정 생성', accountRoleChange: '관리자 등급 변경', accountRevoke: '관리자 권한 해제',
+          userForceWithdraw: '회원 강제 탈퇴', memberForceControl: '회원 상태 제어(상태 변경/잠금 해제/비밀번호 재설정)',
+          partnerCreate: '파트너 등록', partnerStatusChange: '파트너 상태 변경', partnerInfoEdit: '파트너 정보 수정',
+          billingCatalogManage: '과금 카탈로그 등록/수정',
+        },
+      },
       auth: {
         signInGuide: '관리자 계정으로 로그인하세요', changePasswordGuide: '처음 로그인 시 비밀번호를 변경해야 합니다',
         loginId: '아이디', password: '비밀번호', signIn: '로그인', signingIn: '로그인 중...',
@@ -71,6 +80,15 @@ const resources = {
         partners: 'Partners', partnerRequests: 'Partner requests', users: 'Users', adminAccounts: 'Admin accounts',
         billingCatalog: 'Billing catalog', billingSimulator: 'Billing simulator', purchaseRequests: 'Purchase requests',
         auditLogs: 'Audit logs',
+      },
+      permission: {
+        management: 'Permission management',
+        action: {
+          accountCreate: 'Create admin account', accountRoleChange: 'Change admin grade', accountRevoke: 'Revoke admin privileges',
+          userForceWithdraw: 'Force withdraw user', memberForceControl: 'Control member status (status change / unlock / password reset)',
+          partnerCreate: 'Create partner', partnerStatusChange: 'Change partner status', partnerInfoEdit: 'Edit partner info',
+          billingCatalogManage: 'Manage billing catalog',
+        },
       },
       auth: {
         signInGuide: 'Sign in with your administrator account', changePasswordGuide: 'Change your password to continue',

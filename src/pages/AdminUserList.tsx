@@ -5,9 +5,9 @@ import { Lock, UserPlus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { canManagePlatform } from '../utils/permissions';
 import type { PageResponse, PlatformAdminUserSummary, UserStatus } from '../types';
 
 const PAGE_SIZE = 20;
@@ -58,8 +58,7 @@ export const AdminUserList: FC = () => {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
-  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canManagePlatform(currentPlatformRole);
+  const canManage = usePermissionStore((state) => state.hasPermission('ACTION_MEMBER_FORCE_CONTROL'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   // setState를 직접 호출하지 않는 순수 조회 함수로 분리한다. 이펙트 본문에서

@@ -5,9 +5,9 @@ import { ShieldCheck, ShieldOff, UserPlus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { isPlatformSuper } from '../utils/permissions';
 import type { PageResponse, PlatformAdminUserSummary, PlatformRole } from '../types';
 
 const PAGE_SIZE = 20;
@@ -51,8 +51,11 @@ export const AdminAccountList: FC = () => {
   const [roleDrafts, setRoleDrafts] = useState<Record<number, PlatformRole>>({});
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
-  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManageAccounts = isPlatformSuper(currentPlatformRole);
+  const hasPermission = usePermissionStore((state) => state.hasPermission);
+  const canCreateAccount = hasPermission('ACTION_ACCOUNT_CREATE');
+  const canChangeAccountRole = hasPermission('ACTION_ACCOUNT_ROLE_CHANGE');
+  const canRevokeAccount = hasPermission('ACTION_ACCOUNT_REVOKE');
+  const canManageAccounts = canChangeAccountRole || canRevokeAccount;
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const fetchAccounts = async (search: SearchParams, pageNumber: number) => {
@@ -166,7 +169,7 @@ export const AdminAccountList: FC = () => {
             platform_role을 가진 계정 목록입니다. 생성/권한 해제는 PLATFORM_SUPER만 가능합니다.
           </p>
         </div>
-        {canManageAccounts && (
+        {canCreateAccount && (
           <Link
             to="/admin/accounts/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
@@ -263,7 +266,7 @@ export const AdminAccountList: FC = () => {
                   <td className="px-4 py-3 text-gray-700">{account.name}</td>
                   <td className="px-4 py-3 text-gray-500">{account.email}</td>
                   <td className="px-4 py-3">
-                    {canManageAccounts && !isSelf && account.platformRole ? (
+                    {canChangeAccountRole && !isSelf && account.platformRole ? (
                       <select
                         value={roleDrafts[account.id] ?? account.platformRole}
                         onChange={(e) =>
@@ -296,7 +299,7 @@ export const AdminAccountList: FC = () => {
                       <p className="text-right text-xs text-gray-400">본인 계정은 변경할 수 없음</p>
                     ) : (
                       <div className="flex justify-end gap-2">
-                        {roleDrafts[account.id] && roleDrafts[account.id] !== account.platformRole && (
+                        {canChangeAccountRole && roleDrafts[account.id] && roleDrafts[account.id] !== account.platformRole && (
                           <button
                             onClick={() => handleUpdateRole(account.id)}
                             disabled={processingId === account.id}
@@ -305,14 +308,16 @@ export const AdminAccountList: FC = () => {
                             등급 저장
                           </button>
                         )}
-                        <button
-                          onClick={() => handleRevoke(account.id)}
-                          disabled={processingId === account.id}
-                          className="flex items-center gap-1.5 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                        >
-                          <ShieldOff size={12} />
-                          권한 해제
-                        </button>
+                        {canRevokeAccount && (
+                          <button
+                            onClick={() => handleRevoke(account.id)}
+                            disabled={processingId === account.id}
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                          >
+                            <ShieldOff size={12} />
+                            권한 해제
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>

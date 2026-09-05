@@ -6,11 +6,12 @@ import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
 import { OrganizationDiscountPanel } from '../components/OrganizationDiscountPanel';
 import { CeremonyFinalDiscountPanel } from '../components/CeremonyFinalDiscountPanel';
-import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
+import { useAuthStore } from '../store/useAuthStore';
 import type {
   MemberRole,
   OrganizationHistorySummary,
@@ -77,7 +78,14 @@ export const AdminOrganizationDetail: FC = () => {
   const [isCandidatesLoading, setIsCandidatesLoading] = useState(false);
 
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
+  // 멤버 강제 추가/역할변경/제거, 할인 오버라이드 설정은 아직 role_permissions로 옮기지
+  // 않은 별도 백엔드(PlatformAdminMemberService/OrganizationDiscountService)가 지켜
+  // canManagePlatform을 그대로 쓴다 — 정보수정/상태변경만 먼저 옮긴다(점진적 마이그레이션,
+  // 12장 결정 #8).
   const canManage = canManagePlatform(currentPlatformRole);
+  const hasPermission = usePermissionStore((state) => state.hasPermission);
+  const canEditInfo = hasPermission('ACTION_PARTNER_INFO_EDIT');
+  const canChangeStatus = hasPermission('ACTION_PARTNER_STATUS_CHANGE');
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const fetchMembers = async () => {
@@ -404,7 +412,7 @@ export const AdminOrganizationDetail: FC = () => {
             <DetailRow icon={<Users size={16} />} label="활성 멤버" value={`${organization.activeMemberCount}명`} />
             <DetailRow label="생성일" value={formatDateTime(organization.createdAt)} />
           </div>
-          {canManage && (
+          {canEditInfo && (
             <button
               onClick={startEditInfo}
               className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
@@ -418,7 +426,7 @@ export const AdminOrganizationDetail: FC = () => {
 
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 mb-3">파트너 상태</h2>
-        {!canManage ? (
+        {!canChangeStatus ? (
           <p className="text-sm text-gray-500">상태 변경은 PLATFORM_OPS 이상만 가능합니다. (조회 전용 계정)</p>
         ) : organization.status === 'TRIAL' ? (
           <p className="text-sm text-gray-500">TRIAL 상태는 이 화면에서 다루지 않습니다(과금 연동 시점에 별도 처리).</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Key,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -18,31 +19,48 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { api } from '../utils/api';
 import { setInternationalizationPreferences } from '../utils/internationalization';
-import type { UserProfile } from '../types';
+import type { MenuNode, UserProfile } from '../types';
 import { useTranslation } from 'react-i18next';
 
-const NAV_ITEMS = [
-  { to: '/admin', end: true, icon: <LayoutDashboard size={20} />, labelKey: 'navigation.dashboard' },
-  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, labelKey: 'navigation.partners' },
-  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, labelKey: 'navigation.partnerRequests' },
-  { to: '/admin/users', end: false, icon: <Users size={20} />, labelKey: 'navigation.users' },
-  { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, labelKey: 'navigation.adminAccounts' },
-  { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, labelKey: 'navigation.billingCatalog' },
-  { to: '/admin/billing-simulator', end: false, icon: <Calculator size={20} />, labelKey: 'navigation.billingSimulator' },
-  { to: '/admin/purchase-requests', end: false, icon: <ShoppingCart size={20} />, labelKey: 'navigation.purchaseRequests' },
-  { to: '/admin/audit-logs', end: false, icon: <ClipboardList size={20} />, labelKey: 'navigation.auditLogs' },
-  { to: '/admin/profile', end: false, icon: <User size={20} />, labelKey: 'navigation.profile' },
-];
+/**
+ * iconKey(서버 `menus.icon_key`) 문자열 → lucide 컴포넌트. 서버가 아는 아이콘 이름이 여기 없으면
+ * 기본 아이콘으로 대체한다 — signstage-docs
+ * business/menu-and-action-permission-management-review.md 7.1절.
+ */
+const ICON_BY_KEY: Record<string, ReactNode> = {
+  LayoutDashboard: <LayoutDashboard size={20} />,
+  Building2: <Building2 size={20} />,
+  ClipboardCheck: <ClipboardCheck size={20} />,
+  Users: <Users size={20} />,
+  ShieldCheck: <ShieldCheck size={20} />,
+  Package: <Package size={20} />,
+  Calculator: <Calculator size={20} />,
+  ShoppingCart: <ShoppingCart size={20} />,
+  ClipboardList: <ClipboardList size={20} />,
+  User: <User size={20} />,
+};
+
+const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
+
+/**
+ * 권한 관리 화면 자체로 가는 메뉴는 의도적으로 서버 메뉴 트리(role_permissions)에 넣지 않고
+ * PLATFORM_SUPER에게만 하드코딩으로 붙인다 — 자기 잠금(lockout) 방지(12장 결정 #6). `AdminLayout`이
+ * `/admin/menus` 응답과 별개로 조건부 렌더링한다.
+ */
+const PERMISSION_MANAGEMENT_PATH = '/admin/permissions';
 
 export const AdminLayout: FC = () => {
   const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [, setInternationalizationVersion] = useState(0);
+  const [menuNodes, setMenuNodes] = useState<MenuNode[]>([]);
   const navigate = useNavigate();
   const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const logout = useAuthStore((state) => state.logout);
+  const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
 
   useEffect(() => {
     api.get('/identity/me').then((response) => {
@@ -56,10 +74,32 @@ export const AdminLayout: FC = () => {
     }).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    // 사이드바는 서버가 역할 기준으로 이미 걸러 응답한 메뉴 트리로 그린다 — 하드코딩된
+    // NAV_ITEMS 배열을 두지 않는다(signstage-docs
+    // business/menu-and-action-permission-management-review.md 10장).
+    api.get('/platform-admin/menus').then((response) => {
+      setMenuNodes(response.data as MenuNode[]);
+    }).catch(() => undefined);
+    loadMyPermissions();
+  }, [loadMyPermissions]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const navItems = [
+    ...menuNodes.map((node) => ({
+      to: node.path ?? '#',
+      end: node.path === '/admin',
+      icon: iconFor(node.iconKey),
+      label: node.label,
+    })),
+    ...(platformAdmin?.platformRole === 'PLATFORM_SUPER'
+      ? [{ to: PERMISSION_MANAGEMENT_PATH, end: false, icon: <KeyRound size={20} />, label: t('permission.management') }]
+      : []),
+  ];
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
@@ -93,7 +133,7 @@ export const AdminLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -110,7 +150,7 @@ export const AdminLayout: FC = () => {
                     isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                   }`}
                 >
-                  {t(item.labelKey)}
+                  {item.label}
                 </span>
               </NavLink>
             ))}

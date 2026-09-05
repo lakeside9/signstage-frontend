@@ -18,10 +18,10 @@ import {
 } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDate, formatDateTime } from '../utils/internationalization';
-import { canManagePlatform, isPlatformSuper } from '../utils/permissions';
 import type {
   MemberStatus,
   PageResponse,
@@ -82,9 +82,9 @@ export const AdminUserDetail: FC = () => {
   const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
 
   const currentAdminId = useAuthStore((state) => state.platformAdmin?.id);
-  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canManagePlatform(currentPlatformRole);
-  const canWithdraw = isPlatformSuper(currentPlatformRole);
+  const hasPermission = usePermissionStore((state) => state.hasPermission);
+  const canManage = hasPermission('ACTION_MEMBER_FORCE_CONTROL');
+  const canWithdraw = hasPermission('ACTION_USER_FORCE_WITHDRAW');
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   useEffect(() => {

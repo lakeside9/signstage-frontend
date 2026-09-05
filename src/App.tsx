@@ -15,6 +15,7 @@ import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { AdminBillingCatalog } from './pages/AdminBillingCatalog';
 import { AdminBillingSimulator } from './pages/AdminBillingSimulator';
 import { AdminCeremonyPurchaseRequests } from './pages/AdminCeremonyPurchaseRequests';
+import { AdminPermissionMatrix } from './pages/AdminPermissionMatrix';
 import { UserDashboard } from './pages/UserDashboard';
 import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
@@ -111,6 +112,7 @@ function App() {
           <Route path="billing-catalog" element={<AdminBillingCatalog />} />
           <Route path="billing-simulator" element={<AdminBillingSimulator />} />
           <Route path="purchase-requests" element={<AdminCeremonyPurchaseRequests />} />
+          <Route path="permissions" element={<AdminPermissionMatrix />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 

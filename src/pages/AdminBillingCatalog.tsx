@@ -3,11 +3,10 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { History, Loader2, Package, Pencil, Plus, Sparkles, X } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
-import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
-import { canManagePlatform } from '../utils/permissions';
 import type {
   BillingPlanHistorySummary,
   BillingPlanSummary,
@@ -131,7 +130,7 @@ const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: 
 /**
  * 플랫폼 관리자용 행사 과금 카탈로그(플랜/선택옵션/용량 추가구매 상품) 관리 화면.
  * 조회는 PLATFORM_SUPPORT 이상 누구나, 등록/수정은 PLATFORM_OPS 이상만 할 수 있다
- * (최종 판단은 항상 백엔드가 하고, 여기서는 버튼을 안 보여주는 용도로만 `canManagePlatform`을 쓴다).
+ * (최종 판단은 항상 백엔드가 하고, 여기서는 버튼을 안 보여주는 용도로만 `hasPermission('ACTION_BILLING_CATALOG_MANAGE')`를 쓴다).
  *
  * - 수정 가능 필드는 가격/할인/이름/사용여부(플랜은 한도 4종·포함 선택옵션 구성, 용량
  *   추가구매는 unitAmount)다. `OptionalFeature.code`/`CapacityAddOn.capacityType`은 종류를
@@ -149,8 +148,7 @@ const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: 
  * - VIDEO_ATTENDANCE는 이 화면에서 다루지 않는다(위 MANAGEABLE_OPTIONAL_FEATURE_CODES 참고).
  */
 export const AdminBillingCatalog: FC = () => {
-  const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
-  const canManage = canManagePlatform(currentPlatformRole);
+  const canManage = usePermissionStore((state) => state.hasPermission('ACTION_BILLING_CATALOG_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   return (
