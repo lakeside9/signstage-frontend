@@ -81,7 +81,7 @@ export const AdminLayout: FC = () => {
     api.get('/platform-admin/menus').then((response) => {
       setMenuNodes(response.data as MenuNode[]);
     }).catch(() => undefined);
-    loadMyPermissions();
+    loadMyPermissions('/platform-admin/permissions/me');
   }, [loadMyPermissions]);
 
   const handleLogout = () => {

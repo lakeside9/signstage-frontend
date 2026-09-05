@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactElement } from 'react';
+import type { FC, ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -14,34 +14,25 @@ import {
   User,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { api } from '../utils/api';
-import type { UserProfile } from '../types';
+import type { MenuNode, UserProfile } from '../types';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import { useTranslation } from 'react-i18next';
 
-interface NavLeaf {
-  to: string;
-  end: boolean;
-  icon: ReactElement;
-  labelKey: string;
-}
-
-const TOP_NAV_ITEMS: NavLeaf[] = [
-  { to: '/', end: true, icon: <LayoutDashboard size={20} />, labelKey: 'navigation.dashboard' },
-  { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, labelKey: 'navigation.ceremonies' },
-];
-
 /**
- * "설정" 하위 메뉴 — "회사정보관리"(구 "조직 관리")와 "내 정보"를 여기로 옮겼다(2026-08-30
- * 요청). "회사등록요청"(구 "조직 요청")은 당분간 이 메뉴 어디에도 없다 — 지금은 플랫폼 관리자가
- * 직접 파트너(조직)를 등록하고, 사용자 셀프서비스 등록 요청 흐름은 다시 열 때까지 보류한다.
- * 화면(`UserOrganizationRequests`, `/organization-requests`)과 라우트는 그대로 남아 있어서,
- * 나중에 재개하면 이 배열에 항목 하나만 추가하면 된다.
+ * iconKey(서버 `menus.icon_key`) 문자열 → lucide 컴포넌트 — `AdminLayout`과 같은 방식
+ * (signstage-docs business/menu-and-action-permission-management-review.md 7.1절).
  */
-const SETTINGS_NAV_ITEMS: NavLeaf[] = [
-  { to: '/organizations', end: false, icon: <Building2 size={20} />, labelKey: 'navigation.organization' },
-  { to: '/profile', end: false, icon: <User size={20} />, labelKey: 'navigation.profile' },
-];
+const ICON_BY_KEY: Record<string, ReactNode> = {
+  LayoutDashboard: <LayoutDashboard size={20} />,
+  FileSignature: <FileSignature size={20} />,
+  Settings: <Settings size={20} />,
+  Building2: <Building2 size={20} />,
+  User: <User size={20} />,
+};
+
+const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
 
 /**
  * 조직 사용자 화면군의 레이아웃 셸(루트 경로). 플랫폼 관리자는 조직에 소속될 수 없고
@@ -61,13 +52,20 @@ export const UserLayout: FC = () => {
   const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [menuNodes, setMenuNodes] = useState<MenuNode[]>([]);
+  const [openGroupIds, setOpenGroupIds] = useState<Set<number>>(new Set());
   const navigate = useNavigate();
   const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
+  const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
 
-  const isSettingsActive = SETTINGS_NAV_ITEMS.some((item) => location.pathname.startsWith(item.to));
-  const [isSettingsOpenByUser, setIsSettingsOpenByUser] = useState(false);
-  const isSettingsOpen = isSettingsOpenByUser || isSettingsActive;
+  // 자식이 없는 항목은 최상위에 바로 노출하고(대시보드/행사 관리), 자식이 있는 항목은
+  // "설정"처럼 여닫는 그룹으로 렌더링한다 — 하드코딩된 TOP_NAV_ITEMS/SETTINGS_NAV_ITEMS
+  // 배열을 지우고 GET /api/organizations/me/menus 응답으로 그린다(10장).
+  const topLevelItems = menuNodes.filter((node) => node.children.length === 0);
+  const groupItems = menuNodes.filter((node) => node.children.length > 0);
+  const isGroupActive = (group: MenuNode) =>
+    group.children.some((child) => child.path && location.pathname.startsWith(child.path));
 
   useEffect(() => {
     let cancelled = false;
@@ -94,9 +92,28 @@ export const UserLayout: FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    api.get('/organizations/me/menus').then((response) => {
+      setMenuNodes(response.data as MenuNode[]);
+    }).catch(() => undefined);
+    loadMyPermissions('/organizations/me/permissions');
+  }, [loadMyPermissions]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const toggleGroup = (groupId: number) => {
+    setOpenGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
   };
 
   return (
@@ -131,79 +148,84 @@ export const UserLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {TOP_NAV_ITEMS.map((item) => (
+            {topLevelItems.map((item) => (
               <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
+                key={item.id}
+                to={item.path ?? '#'}
+                end={item.path === '/'}
                 className={({ isActive }) =>
                   `flex items-center gap-3 p-3 rounded-xl transition-all ${
                     isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'
                   }`
                 }
               >
-                <span className="shrink-0">{item.icon}</span>
+                <span className="shrink-0">{iconFor(item.iconKey)}</span>
                 <span
                   className={`transition-opacity duration-300 whitespace-nowrap ${
                     isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                   }`}
                 >
-                  {t(item.labelKey)}
+                  {item.label}
                 </span>
               </NavLink>
             ))}
 
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpenByUser((value) => !value)}
-              className={`flex w-full items-center gap-3 p-3 rounded-xl transition-all ${
-                isSettingsActive ? 'text-gray-950 font-bold' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <span className="shrink-0">
-                <Settings size={20} />
-              </span>
-              <span
-                className={`flex-1 text-left transition-opacity duration-300 whitespace-nowrap ${
-                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                }`}
-              >
-                {t('common.settings')}
-              </span>
-              <span
-                className={`shrink-0 transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''} ${
-                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                }`}
-              >
-                <ChevronDown size={16} />
-              </span>
-            </button>
-
-            {isSettingsOpen && (
-              <div className="space-y-2">
-                {SETTINGS_NAV_ITEMS.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                        isSidebarOpen ? 'ml-6' : ''
-                      } ${isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'}`
-                    }
+            {groupItems.map((group) => {
+              const isGroupOpen = openGroupIds.has(group.id) || isGroupActive(group);
+              return (
+                <div key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className={`flex w-full items-center gap-3 p-3 rounded-xl transition-all ${
+                      isGroupActive(group) ? 'text-gray-950 font-bold' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
                   >
-                    <span className="shrink-0">{item.icon}</span>
+                    <span className="shrink-0">{iconFor(group.iconKey)}</span>
                     <span
-                      className={`transition-opacity duration-300 whitespace-nowrap ${
+                      className={`flex-1 text-left transition-opacity duration-300 whitespace-nowrap ${
                         isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                       }`}
                     >
-                      {t(item.labelKey)}
+                      {group.label}
                     </span>
-                  </NavLink>
-                ))}
-              </div>
-            )}
+                    <span
+                      className={`shrink-0 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''} ${
+                        isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
+                      }`}
+                    >
+                      <ChevronDown size={16} />
+                    </span>
+                  </button>
+
+                  {isGroupOpen && (
+                    <div className="space-y-2">
+                      {group.children.map((item) => (
+                        <NavLink
+                          key={item.id}
+                          to={item.path ?? '#'}
+                          end={false}
+                          className={({ isActive }) =>
+                            `flex items-center gap-3 p-3 rounded-xl transition-all ${
+                              isSidebarOpen ? 'ml-6' : ''
+                            } ${isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'}`
+                          }
+                        >
+                          <span className="shrink-0">{iconFor(item.iconKey)}</span>
+                          <span
+                            className={`transition-opacity duration-300 whitespace-nowrap ${
+                              isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           <div className="border-t border-gray-100 p-4">

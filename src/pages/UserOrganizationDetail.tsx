@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus, Users, X } from 'lucide-react';
 import { Modal } from '../components/Modal';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
@@ -30,6 +31,7 @@ const ALL_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'];
 export const UserOrganizationDetail: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
+  const hasPermission = usePermissionStore((state) => state.hasPermission);
 
   const [organization, setOrganization] = useState<OrganizationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -242,8 +244,8 @@ export const UserOrganizationDetail: FC = () => {
     return null;
   }
 
-  const canEdit = organization.myRole === 'OWNER';
-  const canManageMembers = organization.myRole === 'OWNER' || organization.myRole === 'ADMIN';
+  const canEdit = hasPermission('ACTION_COMPANY_INFO_EDIT');
+  const canManageMembers = hasPermission('ACTION_MEMBER_MANAGE');
   // OWNER 역할의 지정/해제는 OWNER만 할 수 있다(MemberService#addMember, #updateMemberRole) — ADMIN에게는
   // 선택지에서 아예 뺀다.
   const roleOptions = organization.myRole === 'OWNER' ? ALL_ROLE_OPTIONS : ALL_ROLE_OPTIONS.filter((role) => role !== 'OWNER');

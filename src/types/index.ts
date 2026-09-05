@@ -220,10 +220,14 @@ export interface MenuNode {
   children: MenuNode[];
 }
 
-/** GET /api/platform-admin/permissions/me 응답(PermissionDto.Response.MyPermissions)과 맞춘다. */
+/**
+ * GET /api/platform-admin/permissions/me 또는 GET /api/organizations/me/permissions
+ * 응답(PermissionDto.Response.MyPermissions)과 맞춘다. roleValue는 축에 따라 PlatformRole
+ * 또는 MemberRole 값을 담아 string으로 둔다(조직 멤버십이 없으면 null).
+ */
 export interface MyPermissions {
   roleAxis: string;
-  roleValue: PlatformRole;
+  roleValue: string | null;
   permissionKeys: string[];
 }
 
@@ -237,8 +241,9 @@ export interface PermissionMatrixRow {
   roleAllowances: PermissionRoleAllowance[];
 }
 
+/** roleValue는 축에 따라 PlatformRole 또는 MemberRole 값이다. */
 export interface PermissionRoleAllowance {
-  roleValue: PlatformRole;
+  roleValue: string;
   allowed: boolean;
 }
 
