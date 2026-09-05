@@ -3,6 +3,7 @@ import type { ChangeEvent, FC, FormEvent, ReactNode } from 'react';
 import { CircleX, Key, Loader2, ShieldCheck, Upload } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type { CeremonyResultType, DocumentVerificationResult } from '../types';
 
 const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
@@ -77,7 +78,7 @@ export const DocumentVerificationView: FC = () => {
                 <DetailRow label="하위 행사" value={result.eventName ?? '-'} />
                 <DetailRow
                   label="생성 시각"
-                  value={result.generatedAt ? new Date(result.generatedAt).toLocaleString('ko-KR') : '-'}
+                  value={result.generatedAt ? formatDateTime(result.generatedAt) : '-'}
                 />
               </div>
             </>

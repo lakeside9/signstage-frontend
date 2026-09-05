@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { Building2, Calculator, Loader2, Receipt, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
+import { formatCurrency } from '../utils/internationalization';
 import type {
   BillingPlanSummary,
   CapacityAddOnSummary,
@@ -56,7 +57,7 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   TABLETS: '태블릿',
 };
 
-const formatPrice = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
+const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
 

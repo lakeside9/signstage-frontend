@@ -7,6 +7,7 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDate } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import type { OrganizationStatus, PageResponse, PlatformAdminOrganizationSummary } from '../types';
 
@@ -218,7 +219,7 @@ export const AdminOrganizationList: FC = () => {
                 <td className="px-4 py-3 text-gray-500">{organization.defaultLocale}</td>
                 <td className="px-4 py-3 text-right text-gray-700">{organization.activeMemberCount}</td>
                 <td className="px-4 py-3 text-right text-gray-500">
-                  {new Date(organization.createdAt).toLocaleDateString('ko-KR')}
+                  {formatDate(organization.createdAt)}
                 </td>
               </tr>
             ))}

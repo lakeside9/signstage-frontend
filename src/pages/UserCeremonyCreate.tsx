@@ -4,9 +4,10 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileSignature, Loader2 } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatCurrency } from '../utils/internationalization';
 import type { BillingPlanSummary, CeremonySummary } from '../types';
 
-const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 
 /**
  * 행사(Ceremony) 등록 화면. 플랜 선택이 필수다(signstage-docs
@@ -175,9 +176,9 @@ export const UserCeremonyCreate: FC = () => {
                         {isSelected && <CheckCircle2 size={18} className="text-gray-950" />}
                       </div>
                       <p className="mt-1 text-sm text-gray-950">
-                        {formatPrice(plan.salePrice)}
+                        {formatPrice(plan.salePrice, plan.currencyCode)}
                         {plan.discountValue > 0 && (
-                          <span className="ml-1.5 text-xs text-gray-400 line-through">{formatPrice(plan.supplyPrice)}</span>
+                          <span className="ml-1.5 text-xs text-gray-400 line-through">{formatPrice(plan.supplyPrice, plan.currencyCode)}</span>
                         )}
                       </p>
                       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">

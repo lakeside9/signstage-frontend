@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { parseUtcDate } from '../utils/internationalization';
 import type {
   CeremonyEventStatus,
   CeremonyEventSummary,
@@ -344,7 +345,7 @@ export const UserCeremonyEventControl: FC = () => {
   useEffect(() => {
     if (!event?.actualStartAt || event.status !== 'STARTED') return;
 
-    const start = new Date(event.actualStartAt).getTime();
+    const start = parseUtcDate(event.actualStartAt).getTime();
     const timer = setInterval(() => {
       const diff = Math.floor((Date.now() - start) / 1000);
       const h = Math.floor(diff / 3600).toString().padStart(2, '0');

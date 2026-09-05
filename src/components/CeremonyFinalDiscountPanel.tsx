@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Loader2, Percent } from 'lucide-react';
 import { ListContainer } from './ListContainer';
 import { api } from '../utils/api';
+import { formatCurrency } from '../utils/internationalization';
 import type { CeremonyStatus, CeremonySummary, DiscountType, PageResponse } from '../types';
 
 const PAGE_SIZE = 10;
@@ -32,7 +33,7 @@ const STATUS_BADGE_CLASS: Record<CeremonyStatus, string> = {
 };
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
-  discountType === 'PERCENT' ? `${discountValue}%` : `${discountValue.toLocaleString('ko-KR')}원`;
+  discountType === 'PERCENT' ? `${discountValue}%` : formatCurrency(discountValue);
 
 interface DiscountDraft {
   discountType: DiscountType;

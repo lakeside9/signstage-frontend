@@ -9,6 +9,7 @@ import { CeremonyFinalDiscountPanel } from '../components/CeremonyFinalDiscountP
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import type {
   MemberRole,
@@ -401,7 +402,7 @@ export const AdminOrganizationDetail: FC = () => {
             <DetailRow label="파트너 코드" value={organization.code} />
             <DetailRow icon={<Globe size={16} />} label="기본 언어" value={organization.defaultLocale} />
             <DetailRow icon={<Users size={16} />} label="활성 멤버" value={`${organization.activeMemberCount}명`} />
-            <DetailRow label="생성일" value={new Date(organization.createdAt).toLocaleString('ko-KR')} />
+            <DetailRow label="생성일" value={formatDateTime(organization.createdAt)} />
           </div>
           {canManage && (
             <button
@@ -722,7 +723,7 @@ export const AdminOrganizationDetail: FC = () => {
                   코드 {entry.code} · 기본 언어 {entry.defaultLocale}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                  {formatDateTime(entry.createdAt)}
                   {entry.createdBy != null && ` · 변경자 #${entry.createdBy}`}
                 </p>
               </li>

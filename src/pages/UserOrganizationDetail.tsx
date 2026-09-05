@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus,
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type { MemberRole, MemberSummary, OrganizationHistorySummary, OrganizationSummary } from '../types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -36,7 +37,10 @@ export const UserOrganizationDetail: FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [nameDraft, setNameDraft] = useState('');
+  const [languageDraft, setLanguageDraft] = useState('ko');
   const [localeDraft, setLocaleDraft] = useState('');
+  const [timeZoneDraft, setTimeZoneDraft] = useState('Asia/Seoul');
+  const [currencyDraft, setCurrencyDraft] = useState('KRW');
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<OrganizationHistorySummary[]>([]);
@@ -70,7 +74,10 @@ export const UserOrganizationDetail: FC = () => {
           const data = response.data as OrganizationSummary;
           setOrganization(data);
           setNameDraft(data.name);
+          setLanguageDraft(data.defaultLanguageCode);
           setLocaleDraft(data.defaultLocale);
+          setTimeZoneDraft(data.defaultTimeZoneId);
+          setCurrencyDraft(data.billingCurrencyCode);
         }
       } catch (err) {
         if (!cancelled) {
@@ -122,7 +129,10 @@ export const UserOrganizationDetail: FC = () => {
   const startEdit = () => {
     if (!organization) return;
     setNameDraft(organization.name);
+    setLanguageDraft(organization.defaultLanguageCode);
     setLocaleDraft(organization.defaultLocale);
+    setTimeZoneDraft(organization.defaultTimeZoneId);
+    setCurrencyDraft(organization.billingCurrencyCode);
     setIsEditing(true);
   };
 
@@ -137,7 +147,10 @@ export const UserOrganizationDetail: FC = () => {
     try {
       const response = await api.put(`/organizations/${organizationId}`, {
         name: nameDraft.trim(),
+        defaultLanguageCode: languageDraft,
         defaultLocale: localeDraft.trim(),
+        defaultTimeZoneId: timeZoneDraft,
+        billingCurrencyCode: currencyDraft,
       });
       setOrganization(response.data as OrganizationSummary);
       setIsEditing(false);
@@ -284,14 +297,41 @@ export const UserOrganizationDetail: FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">기본 언어</label>
-            <input
-              type="text"
-              value={localeDraft}
-              onChange={(e) => setLocaleDraft(e.target.value)}
+            <select
+              value={languageDraft}
+              onChange={(e) => setLanguageDraft(e.target.value)}
               disabled={isSaving}
-              placeholder="예: ko-KR"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-            />
+            >
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기본 표시 형식</label>
+            <select value={localeDraft} onChange={(e) => setLocaleDraft(e.target.value)} disabled={isSaving}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm disabled:bg-gray-50">
+              <option value="ko-KR">ko-KR</option>
+              <option value="en-US">en-US</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기본 시간대</label>
+            <select value={timeZoneDraft} onChange={(e) => setTimeZoneDraft(e.target.value)} disabled={isSaving}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm disabled:bg-gray-50">
+              {['Asia/Seoul', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'].map((zone) => (
+                <option key={zone} value={zone}>{zone}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기본 청구 통화</label>
+            <select value={currencyDraft} onChange={(e) => setCurrencyDraft(e.target.value)} disabled={isSaving}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm disabled:bg-gray-50">
+              {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => (
+                <option key={currency} value={currency}>{currency}</option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
             <button
@@ -316,8 +356,11 @@ export const UserOrganizationDetail: FC = () => {
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           <DetailRow icon={<Building2 size={16} />} label="조직 이름" value={organization.name} />
           <DetailRow label="조직 코드" value={organization.code} />
-          <DetailRow icon={<Globe size={16} />} label="기본 언어" value={organization.defaultLocale} />
-          <DetailRow label="생성일" value={new Date(organization.createdAt).toLocaleString('ko-KR')} />
+          <DetailRow icon={<Globe size={16} />} label="기본 언어" value={organization.defaultLanguageCode} />
+          <DetailRow label="표시 형식" value={organization.defaultLocale} />
+          <DetailRow label="시간대" value={organization.defaultTimeZoneId} />
+          <DetailRow label="청구 통화" value={organization.billingCurrencyCode} />
+          <DetailRow label="생성일" value={formatDateTime(organization.createdAt)} />
         </div>
       )}
 
@@ -525,7 +568,7 @@ export const UserOrganizationDetail: FC = () => {
                 <p className="text-xs text-gray-500 mt-0.5">
                   코드 {entry.code} · 기본 언어 {entry.defaultLocale}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(entry.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(entry.createdAt)}</p>
               </li>
             ))}
           </ul>

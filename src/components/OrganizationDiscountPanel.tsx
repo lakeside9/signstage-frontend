@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { History, Loader2, Percent, Plus, X } from 'lucide-react';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
+import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import type {
   BillingPlanSummary,
   CapacityAddOnSummary,
@@ -33,7 +34,7 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
 };
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
-  discountType === 'PERCENT' ? `${discountValue}%` : `${discountValue.toLocaleString('ko-KR')}원`;
+  discountType === 'PERCENT' ? `${discountValue}%` : formatCurrency(discountValue);
 
 interface DiscountDraft {
   discountType: DiscountType;
@@ -748,7 +749,7 @@ const DiscountHistoryModal: FC<{
               <p className="text-xs text-gray-500 mt-0.5">제거 직전 값: {formatDiscount(entry.discountType, entry.discountValue)}</p>
             )}
             <p className="text-xs text-gray-400 mt-0.5">
-              관리자 #{entry.createdBy} · {new Date(entry.createdAt).toLocaleString('ko-KR')}
+              관리자 #{entry.createdBy} · {formatDateTime(entry.createdAt)}
             </p>
           </li>
         ))}

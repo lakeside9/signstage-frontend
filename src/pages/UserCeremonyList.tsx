@@ -6,6 +6,7 @@ import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDate } from '../utils/internationalization';
 import type { BillingPlanSummary, CeremonyStatus, CeremonySummary, PageResponse } from '../types';
 
 const PAGE_SIZE = 20;
@@ -215,7 +216,7 @@ export const UserCeremonyList: FC = () => {
                 <td className="px-4 py-3 text-gray-600">{ceremony.organizingDepartment || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{ceremony.contactName || '-'}</td>
                 <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
-                  {new Date(ceremony.createdAt).toLocaleDateString('ko-KR')}
+                  {formatDate(ceremony.createdAt)}
                 </td>
               </tr>
             ))}

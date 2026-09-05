@@ -5,11 +5,24 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types';
+import {
+  DEFAULT_LANGUAGE_CODE,
+  DEFAULT_TIME_ZONE_ID,
+  setInternationalizationPreferences,
+} from '../utils/internationalization';
+import { useTranslation } from 'react-i18next';
 
 const LOCALE_OPTIONS = [
-  { value: 'ko-KR', label: '한국어' },
-  { value: 'en-US', label: 'English' },
+  { value: 'ko-KR', label: '한국 형식 (ko-KR)' },
+  { value: 'en-US', label: 'US format (en-US)' },
 ];
+
+const LANGUAGE_OPTIONS = [
+  { value: 'ko', label: '한국어' },
+  { value: 'en', label: 'English' },
+];
+
+const TIME_ZONE_OPTIONS = ['Asia/Seoul', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
 
 /**
  * 로그인 후 내 정보(이름/이메일/전화번호/언어)와 비밀번호를 수정하는 화면이다.
@@ -23,13 +36,16 @@ const LOCALE_OPTIONS = [
  * `useAuthStore`의 `platformAdmin` 유무로 판단한다(서버도 같은 기준으로 한 번 더 막는다).
  */
 export const ProfileView: FC = () => {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
   const [locale, setLocale] = useState('ko-KR');
+  const [timeZoneId, setTimeZoneId] = useState(DEFAULT_TIME_ZONE_ID);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -56,9 +72,16 @@ export const ProfileView: FC = () => {
         setName(data.name);
         setEmail(data.email);
         setPhone(data.phone ?? '');
+        setLanguageCode(data.languageCode);
         setLocale(data.locale);
+        setTimeZoneId(data.timeZoneId);
+        setInternationalizationPreferences({
+          languageCode: data.languageCode,
+          formatLocale: data.locale,
+          timeZoneId: data.timeZoneId,
+        });
       } catch (err) {
-        const message = err instanceof Error ? err.message : '내 정보를 불러오지 못했습니다.';
+        const message = err instanceof Error ? err.message : t('profile.loadFailed');
         showSnackbar(message, 'error');
       } finally {
         if (!cancelled) {
@@ -77,19 +100,31 @@ export const ProfileView: FC = () => {
     e.preventDefault();
 
     if (!name || !email) {
-      showSnackbar('이름과 이메일은 필수입니다.', 'error');
+      showSnackbar(t('profile.required'), 'error');
       return;
     }
 
     setIsSavingProfile(true);
     try {
-      const response = await api.put('/identity/me', { name, email, phone: phone || null, locale });
+      const response = await api.put('/identity/me', {
+        name,
+        email,
+        phone: phone || null,
+        languageCode,
+        locale,
+        timeZoneId,
+      });
       const data = response.data as UserProfile;
       setProfile(data);
+      setInternationalizationPreferences({
+        languageCode: data.languageCode,
+        formatLocale: data.locale,
+        timeZoneId: data.timeZoneId,
+      });
       updatePlatformAdminName(data.name);
-      showSnackbar('내 정보가 수정되었습니다.', 'success');
+      showSnackbar(t('profile.saved'), 'success');
     } catch (err) {
-      const message = err instanceof Error ? err.message : '내 정보 수정에 실패했습니다.';
+      const message = err instanceof Error ? err.message : t('profile.saveFailed');
       showSnackbar(message, 'error');
     } finally {
       setIsSavingProfile(false);
@@ -100,23 +135,23 @@ export const ProfileView: FC = () => {
     e.preventDefault();
 
     if (!currentPassword || !newPassword || !newPasswordConfirm) {
-      showSnackbar('비밀번호 항목을 모두 입력해주세요.', 'error');
+      showSnackbar(t('profile.passwordFieldsRequired'), 'error');
       return;
     }
     if (newPassword !== newPasswordConfirm) {
-      showSnackbar('새 비밀번호가 일치하지 않습니다.', 'error');
+      showSnackbar(t('profile.passwordMismatch'), 'error');
       return;
     }
 
     setIsSavingPassword(true);
     try {
       await api.put('/identity/me/password', { currentPassword, newPassword });
-      showSnackbar('비밀번호가 변경되었습니다.', 'success');
+      showSnackbar(t('profile.passwordChanged'), 'success');
       setCurrentPassword('');
       setNewPassword('');
       setNewPasswordConfirm('');
     } catch (err) {
-      const message = err instanceof Error ? err.message : '비밀번호 변경에 실패했습니다.';
+      const message = err instanceof Error ? err.message : t('profile.passwordChangeFailed');
       showSnackbar(message, 'error');
     } finally {
       setIsSavingPassword(false);
@@ -127,7 +162,7 @@ export const ProfileView: FC = () => {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <Loader2 size={18} className="animate-spin" />
-        불러오는 중...
+        {t('profile.loading')}
       </div>
     );
   }
@@ -135,15 +170,15 @@ export const ProfileView: FC = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-gray-950">내 정보</h1>
-        <p className="mt-1 text-sm text-gray-500">프로필과 비밀번호를 수정할 수 있습니다.</p>
+        <h1 className="text-xl font-bold text-gray-950">{t('profile.title')}</h1>
+        <p className="mt-1 text-sm text-gray-500">{t('profile.description')}</p>
       </div>
 
       <section className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-sm font-bold text-gray-950 mb-4">프로필</h2>
+        <h2 className="text-sm font-bold text-gray-950 mb-4">{t('profile.profile')}</h2>
         <form onSubmit={handleSaveProfile} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">로그인 아이디</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.loginId')}</label>
             <input
               type="text"
               value={profile?.loginId ?? ''}
@@ -153,7 +188,7 @@ export const ProfileView: FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.name')}</label>
             <div className="relative">
               <span className="absolute left-3 top-3 text-gray-400">
                 <User size={18} />
@@ -169,7 +204,7 @@ export const ProfileView: FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.email')}</label>
             <div className="relative">
               <span className="absolute left-3 top-3 text-gray-400">
                 <Mail size={18} />
@@ -183,12 +218,12 @@ export const ProfileView: FC = () => {
               />
             </div>
             {!canEditEmail && (
-              <p className="mt-1.5 text-xs text-gray-500">로그인 아이디로도 사용되고 있어 변경할 수 없습니다.</p>
+              <p className="mt-1.5 text-xs text-gray-500">{t('profile.emailLocked')}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">전화번호</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.phone')}</label>
             <div className="relative">
               <span className="absolute left-3 top-3 text-gray-400">
                 <Phone size={18} />
@@ -198,14 +233,28 @@ export const ProfileView: FC = () => {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={isSavingProfile}
-                placeholder="선택 입력"
+                placeholder={t('profile.optional')}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">언어</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.language')}</label>
+            <select
+              value={languageCode}
+              onChange={(e) => setLanguageCode(e.target.value)}
+              disabled={isSavingProfile}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            >
+              {LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.formatLocale')}</label>
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value)}
@@ -220,21 +269,33 @@ export const ProfileView: FC = () => {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.timeZone')}</label>
+            <select
+              value={timeZoneId}
+              onChange={(e) => setTimeZoneId(e.target.value)}
+              disabled={isSavingProfile}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            >
+              {TIME_ZONE_OPTIONS.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+            </select>
+          </div>
+
           <button
             type="submit"
             disabled={isSavingProfile}
             className="bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
           >
-            {isSavingProfile ? '저장 중...' : '저장'}
+            {t(isSavingProfile ? 'profile.saving' : 'profile.save')}
           </button>
         </form>
       </section>
 
       <section className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-sm font-bold text-gray-950 mb-4">비밀번호 변경</h2>
+        <h2 className="text-sm font-bold text-gray-950 mb-4">{t('profile.passwordChange')}</h2>
         <form onSubmit={handleChangePassword} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">현재 비밀번호</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('profile.currentPassword')}</label>
             <input
               type="password"
               value={currentPassword}
@@ -246,7 +307,7 @@ export const ProfileView: FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.newPassword')}</label>
             <input
               type="password"
               value={newPassword}
@@ -258,7 +319,7 @@ export const ProfileView: FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호 확인</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.confirmNewPassword')}</label>
             <input
               type="password"
               value={newPasswordConfirm}
@@ -274,7 +335,7 @@ export const ProfileView: FC = () => {
             disabled={isSavingPassword}
             className="bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
           >
-            {isSavingPassword ? '변경 중...' : '비밀번호 변경'}
+            {t(isSavingPassword ? 'profile.changing' : 'profile.passwordChange')}
           </button>
         </form>
       </section>

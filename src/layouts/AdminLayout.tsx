@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
@@ -18,25 +18,43 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { api } from '../utils/api';
+import { setInternationalizationPreferences } from '../utils/internationalization';
+import type { UserProfile } from '../types';
+import { useTranslation } from 'react-i18next';
 
 const NAV_ITEMS = [
-  { to: '/admin', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, label: '파트너관리' },
-  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, label: '파트너등록요청관리' },
-  { to: '/admin/users', end: false, icon: <Users size={20} />, label: '회원 관리' },
-  { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, label: '관리자 계정' },
-  { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, label: '과금 카탈로그' },
-  { to: '/admin/billing-simulator', end: false, icon: <Calculator size={20} />, label: '과금 시뮬레이터' },
-  { to: '/admin/purchase-requests', end: false, icon: <ShoppingCart size={20} />, label: '추가구매 요청' },
-  { to: '/admin/audit-logs', end: false, icon: <ClipboardList size={20} />, label: '감사 로그' },
-  { to: '/admin/profile', end: false, icon: <User size={20} />, label: '내 정보' },
+  { to: '/admin', end: true, icon: <LayoutDashboard size={20} />, labelKey: 'navigation.dashboard' },
+  { to: '/admin/organizations', end: false, icon: <Building2 size={20} />, labelKey: 'navigation.partners' },
+  { to: '/admin/organization-requests', end: false, icon: <ClipboardCheck size={20} />, labelKey: 'navigation.partnerRequests' },
+  { to: '/admin/users', end: false, icon: <Users size={20} />, labelKey: 'navigation.users' },
+  { to: '/admin/accounts', end: false, icon: <ShieldCheck size={20} />, labelKey: 'navigation.adminAccounts' },
+  { to: '/admin/billing-catalog', end: false, icon: <Package size={20} />, labelKey: 'navigation.billingCatalog' },
+  { to: '/admin/billing-simulator', end: false, icon: <Calculator size={20} />, labelKey: 'navigation.billingSimulator' },
+  { to: '/admin/purchase-requests', end: false, icon: <ShoppingCart size={20} />, labelKey: 'navigation.purchaseRequests' },
+  { to: '/admin/audit-logs', end: false, icon: <ClipboardList size={20} />, labelKey: 'navigation.auditLogs' },
+  { to: '/admin/profile', end: false, icon: <User size={20} />, labelKey: 'navigation.profile' },
 ];
 
 export const AdminLayout: FC = () => {
+  const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [, setInternationalizationVersion] = useState(0);
   const navigate = useNavigate();
   const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const logout = useAuthStore((state) => state.logout);
+
+  useEffect(() => {
+    api.get('/identity/me').then((response) => {
+      const profile = response.data as UserProfile;
+      setInternationalizationPreferences({
+        languageCode: profile.languageCode,
+        formatLocale: profile.locale,
+        timeZoneId: profile.timeZoneId,
+      });
+      setInternationalizationVersion((value) => value + 1);
+    }).catch(() => undefined);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -56,14 +74,14 @@ export const AdminLayout: FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">{platformAdmin?.name ?? '관리자'}</span>
+            <span className="text-sm font-medium text-gray-700">{platformAdmin?.name ?? t('common.admin')}</span>
           </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
           >
             <LogOut size={18} />
-            <span className="hidden sm:block">로그아웃</span>
+            <span className="hidden sm:block">{t('common.logout')}</span>
           </button>
         </div>
       </header>
@@ -92,7 +110,7 @@ export const AdminLayout: FC = () => {
                     isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                   }`}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </span>
               </NavLink>
             ))}
@@ -105,7 +123,7 @@ export const AdminLayout: FC = () => {
               className={`flex w-full items-center rounded-xl p-3 text-gray-600 transition-colors hover:bg-gray-100 ${
                 isSidebarOpen ? 'justify-start gap-3' : 'justify-center'
               }`}
-              title={isSidebarOpen ? '사이드바 접기' : '사이드바 펼치기'}
+              title={t(isSidebarOpen ? 'common.collapseSidebar' : 'common.expandSidebar')}
             >
               {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
               <span
@@ -113,7 +131,7 @@ export const AdminLayout: FC = () => {
                   isSidebarOpen ? 'opacity-100' : 'hidden opacity-0'
                 }`}
               >
-                사이드바 접기
+                {t('common.collapseSidebar')}
               </span>
             </button>
           </div>

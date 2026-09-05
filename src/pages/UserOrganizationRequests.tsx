@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Building2, Clock, Loader2, NotebookPen, Plus, X } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type { OrganizationCreationRequestStatus, OrganizationCreationRequestSummary, OrganizationSummary } from '../types';
 
 const STATUS_BADGE_CLASS: Record<OrganizationCreationRequestStatus, string> = {
@@ -253,7 +254,7 @@ export const UserOrganizationRequests: FC = () => {
                     <p className="text-sm font-medium text-gray-950 truncate">{request.organizationName}</p>
                     <p className="text-xs text-gray-500 flex items-center gap-1">
                       <Clock size={12} />
-                      {new Date(request.createdAt).toLocaleString('ko-KR')}
+                      {formatDateTime(request.createdAt)}
                     </p>
                   </div>
                   <span

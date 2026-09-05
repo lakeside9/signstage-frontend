@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import type {
   BillingPlanHistorySummary,
@@ -67,7 +68,7 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = Object.fromEntries(
   CAPACITY_TYPE_OPTIONS.map((option) => [option.value, option.label]),
 );
 
-const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
@@ -178,10 +179,12 @@ interface SectionProps {
 
 const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
   name: '',
+  currencyCode: 'KRW',
   supplyPrice: 0,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
+  taxCode: 'KR_VAT_STANDARD',
   maxSigners: 0,
   maxTemplates: 0,
   maxTestEvents: 0,
@@ -296,10 +299,12 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
     setEditingId(plan.id);
     setEditDraft({
       name: plan.name,
+      currencyCode: plan.currencyCode,
       supplyPrice: plan.supplyPrice,
       salePrice: plan.salePrice,
       discountType: plan.discountType,
       discountValue: plan.discountValue,
+      taxCode: plan.taxCode,
       maxSigners: plan.maxSigners,
       maxTemplates: plan.maxTemplates,
       maxTestEvents: plan.maxTestEvents,
@@ -373,6 +378,11 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 disabled={isCreating}
                 className={inputClass}
               />
+            </Field>
+            <Field label="통화">
+              <select value={createDraft.currencyCode} onChange={(e) => setCreateDraft((prev) => ({ ...prev, currencyCode: e.target.value }))} disabled={isCreating} className={inputClass}>
+                {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
             </Field>
             <Field label="공급가">
               <input
@@ -575,6 +585,11 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                           className={inputClass}
                         />
                       </Field>
+                      <Field label="통화">
+                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
+                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                        </select>
+                      </Field>
                       <Field label="공급가">
                         <input
                           type="number"
@@ -761,7 +776,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 <tr key={plan.id}>
                   <td className="py-2 px-4 text-gray-950 font-medium">{plan.name}</td>
                   <td className="py-2">
-                    {formatPrice(plan.supplyPrice)} / {formatPrice(plan.salePrice)}
+                    {formatPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(plan.discountType, plan.discountValue)}</td>
                   <td className="py-2 text-gray-600">
@@ -822,10 +837,10 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                   <ActiveBadge active={history.active} />
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.salePrice)} · 서명자 {history.maxSigners}명 · 템플릿 {history.maxTemplates}건 ·
+                  {formatPrice(history.salePrice, history.currencyCode)} · 서명자 {history.maxSigners}명 · 템플릿 {history.maxTemplates}건 ·
                   테스트 {history.maxTestEvents}건 · 리허설 {history.maxRehearsalEvents}건 · 본행사 {history.maxMainEvents}건
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
             ))}
           </ul>
@@ -838,10 +853,12 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
 const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   code: 'SIGNER_FIELD_ZOOM',
   name: '',
+  currencyCode: 'KRW',
   supplyPrice: 0,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
+  taxCode: 'KR_VAT_STANDARD',
   projectorEffect: true,
   exclusivityGroup: '',
 };
@@ -937,10 +954,12 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     setEditingId(feature.id);
     setEditDraft({
       name: feature.name,
+      currencyCode: feature.currencyCode,
       supplyPrice: feature.supplyPrice,
       salePrice: feature.salePrice,
       discountType: feature.discountType,
       discountValue: feature.discountValue,
+      taxCode: feature.taxCode,
       active: feature.active,
       projectorEffect: feature.projectorEffect,
       exclusivityGroup: feature.exclusivityGroup ?? '',
@@ -1039,6 +1058,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 disabled={isCreating}
                 className={inputClass}
               />
+            </Field>
+            <Field label="통화">
+              <select value={createDraft.currencyCode} onChange={(e) => setCreateDraft((prev) => ({ ...prev, currencyCode: e.target.value }))} disabled={isCreating} className={inputClass}>
+                {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
             </Field>
             <Field label="공급가">
               <input
@@ -1153,6 +1177,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           className={inputClass}
                         />
                       </Field>
+                      <Field label="통화">
+                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
+                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                        </select>
+                      </Field>
                       <Field label="공급가">
                         <input
                           type="number"
@@ -1238,7 +1267,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <td className="py-2 px-4 text-gray-600">{OPTIONAL_FEATURE_CODE_LABEL[feature.code] ?? feature.code}</td>
                   <td className="py-2 text-gray-950 font-medium">{feature.name}</td>
                   <td className="py-2">
-                    {formatPrice(feature.supplyPrice)} / {formatPrice(feature.salePrice)}
+                    {formatPrice(feature.supplyPrice, feature.currencyCode)} / {formatPrice(feature.salePrice, feature.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(feature.discountType, feature.discountValue)}</td>
                   <td className="py-2">
@@ -1300,14 +1329,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <ActiveBadge active={history.active} />
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {formatPrice(history.salePrice)} ·{' '}
+                  {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {formatPrice(history.salePrice, history.currencyCode)} ·{' '}
                   할인 {formatDiscount(history.discountType, history.discountValue)}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {history.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
                   {history.exclusivityGroup && ` · 배타 그룹: ${history.exclusivityGroup}`}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
             ))}
           </ul>
@@ -1322,10 +1351,12 @@ const EMPTY_ADDON_DRAFT: CreateCapacityAddOnRequest = {
   unitAmount: 1,
   secondaryCapacityType: null,
   secondaryUnitAmount: null,
+  currencyCode: 'KRW',
   supplyPrice: 0,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
+  taxCode: 'KR_VAT_STANDARD',
 };
 
 const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
@@ -1398,10 +1429,12 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
     setEditDraft({
       unitAmount: addOn.unitAmount,
       secondaryUnitAmount: addOn.secondaryUnitAmount,
+      currencyCode: addOn.currencyCode,
       supplyPrice: addOn.supplyPrice,
       salePrice: addOn.salePrice,
       discountType: addOn.discountType,
       discountValue: addOn.discountValue,
+      taxCode: addOn.taxCode,
       active: addOn.active,
     });
   };
@@ -1529,6 +1562,11 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                 />
               </Field>
             )}
+            <Field label="통화">
+              <select value={createDraft.currencyCode} onChange={(e) => setCreateDraft((prev) => ({ ...prev, currencyCode: e.target.value }))} disabled={isCreating} className={inputClass}>
+                {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
+            </Field>
             <Field label="공급가">
               <input
                 type="number"
@@ -1651,6 +1689,11 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                           </Field>
                         </>
                       )}
+                      <Field label="통화">
+                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
+                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                        </select>
+                      </Field>
                       <Field label="공급가">
                         <input
                           type="number"
@@ -1728,7 +1771,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                     {addOn.secondaryCapacityType && addOn.secondaryUnitAmount != null && ` / +${addOn.secondaryUnitAmount}`}
                   </td>
                   <td className="py-2">
-                    {formatPrice(addOn.supplyPrice)} / {formatPrice(addOn.salePrice)}
+                    {formatPrice(addOn.supplyPrice, addOn.currencyCode)} / {formatPrice(addOn.salePrice, addOn.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(addOn.discountType, addOn.discountValue)}</td>
                   <td className="py-2">
@@ -1788,9 +1831,9 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                   <ActiveBadge active={history.active} />
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.salePrice)} · 할인 {formatDiscount(history.discountType, history.discountValue)}
+                  {formatPrice(history.salePrice, history.currencyCode)} · 할인 {formatDiscount(history.discountType, history.discountValue)}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
             ))}
           </ul>

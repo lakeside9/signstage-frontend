@@ -16,17 +16,19 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types';
+import { setInternationalizationPreferences } from '../utils/internationalization';
+import { useTranslation } from 'react-i18next';
 
 interface NavLeaf {
   to: string;
   end: boolean;
   icon: ReactElement;
-  label: string;
+  labelKey: string;
 }
 
 const TOP_NAV_ITEMS: NavLeaf[] = [
-  { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
+  { to: '/', end: true, icon: <LayoutDashboard size={20} />, labelKey: 'navigation.dashboard' },
+  { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, labelKey: 'navigation.ceremonies' },
 ];
 
 /**
@@ -37,8 +39,8 @@ const TOP_NAV_ITEMS: NavLeaf[] = [
  * 나중에 재개하면 이 배열에 항목 하나만 추가하면 된다.
  */
 const SETTINGS_NAV_ITEMS: NavLeaf[] = [
-  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '회사정보관리' },
-  { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
+  { to: '/organizations', end: false, icon: <Building2 size={20} />, labelKey: 'navigation.organization' },
+  { to: '/profile', end: false, icon: <User size={20} />, labelKey: 'navigation.profile' },
 ];
 
 /**
@@ -56,6 +58,7 @@ const SETTINGS_NAV_ITEMS: NavLeaf[] = [
  * 아직 없다.
  */
 export const UserLayout: FC = () => {
+  const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -73,7 +76,13 @@ export const UserLayout: FC = () => {
       try {
         const response = await api.get('/identity/me');
         if (!cancelled) {
-          setDisplayName((response.data as UserProfile).name);
+          const profile = response.data as UserProfile;
+          setDisplayName(profile.name);
+          setInternationalizationPreferences({
+            languageCode: profile.languageCode,
+            formatLocale: profile.locale,
+            timeZoneId: profile.timeZoneId,
+          });
         }
       } catch {
         // 헤더에 이름을 못 띄우는 정도라 실패해도 화면을 막지 않는다.
@@ -103,14 +112,14 @@ export const UserLayout: FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">{displayName ?? '사용자'}</span>
+            <span className="text-sm font-medium text-gray-700">{displayName ?? t('common.user')}</span>
           </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
           >
             <LogOut size={18} />
-            <span className="hidden sm:block">로그아웃</span>
+            <span className="hidden sm:block">{t('common.logout')}</span>
           </button>
         </div>
       </header>
@@ -139,7 +148,7 @@ export const UserLayout: FC = () => {
                     isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                   }`}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </span>
               </NavLink>
             ))}
@@ -159,7 +168,7 @@ export const UserLayout: FC = () => {
                   isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                 }`}
               >
-                설정
+                {t('common.settings')}
               </span>
               <span
                 className={`shrink-0 transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''} ${
@@ -189,7 +198,7 @@ export const UserLayout: FC = () => {
                         isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
                       }`}
                     >
-                      {item.label}
+                      {t(item.labelKey)}
                     </span>
                   </NavLink>
                 ))}
@@ -204,7 +213,7 @@ export const UserLayout: FC = () => {
               className={`flex w-full items-center rounded-xl p-3 text-gray-600 transition-colors hover:bg-gray-100 ${
                 isSidebarOpen ? 'justify-start gap-3' : 'justify-center'
               }`}
-              title={isSidebarOpen ? '사이드바 접기' : '사이드바 펼치기'}
+              title={t(isSidebarOpen ? 'common.collapseSidebar' : 'common.expandSidebar')}
             >
               {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
               <span
@@ -212,7 +221,7 @@ export const UserLayout: FC = () => {
                   isSidebarOpen ? 'opacity-100' : 'hidden opacity-0'
                 }`}
               >
-                사이드바 접기
+                {t('common.collapseSidebar')}
               </span>
             </button>
           </div>

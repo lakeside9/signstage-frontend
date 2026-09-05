@@ -20,7 +20,9 @@ export interface UserProfile {
   name: string;
   email: string;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   platformRole: PlatformRole | null;
 }
 
@@ -43,7 +45,10 @@ export interface OrganizationSummary {
   name: string;
   code: string;
   status: string;
+  defaultLanguageCode: string;
   defaultLocale: string;
+  defaultTimeZoneId: string;
+  billingCurrencyCode: string;
   createdAt: string;
   /** 호출한 사용자가 이 조직에서 가진 역할. OWNER만 조직 정보를 수정할 수 있다. */
   myRole: MemberRole;
@@ -59,7 +64,10 @@ export interface OrganizationHistorySummary {
   name: string;
   code: string;
   status: OrganizationStatus;
+  defaultLanguageCode: string;
   defaultLocale: string;
+  defaultTimeZoneId: string;
+  billingCurrencyCode: string;
   createdBy: number | null;
   createdAt: string;
 }
@@ -125,7 +133,9 @@ export interface PlatformAdminUserSummary {
   /** 탈퇴 처리된 계정은 PII 마스킹으로 null이다(user-organization-design.md 8.2절). */
   email: string | null;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   status: UserStatus;
   platformRole: PlatformRole | null;
   locked: boolean;
@@ -259,7 +269,9 @@ export interface PlatformAdminUserHistorySummary {
   name: string;
   email: string | null;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   status: UserStatus;
   platformRole: PlatformRole | null;
   passwordResetRequired: boolean;
@@ -318,10 +330,12 @@ export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
 export interface BillingPlanSummary {
   id: number;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -349,10 +363,12 @@ export interface BillingPlanSummary {
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -370,10 +386,12 @@ export interface BillingPlanHistorySummary {
  */
 export interface CreateBillingPlanRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -387,10 +405,12 @@ export interface CreateBillingPlanRequest {
 /** PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다. */
 export interface UpdateBillingPlanRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -415,10 +435,12 @@ export interface OptionalFeatureSummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
   /** 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제 동작은 projectorEffects.ts에 코드별로 구현돼 있어야 한다. */
@@ -438,10 +460,12 @@ export interface OptionalFeatureHistorySummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
@@ -453,10 +477,12 @@ export interface OptionalFeatureHistorySummary {
 export interface CreateOptionalFeatureRequest {
   code: OptionalFeatureCode;
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   /** 생략하면(undefined) 백엔드 기본값 true. */
   projectorEffect?: boolean;
   exclusivityGroup?: string | null;
@@ -468,10 +494,12 @@ export interface CreateOptionalFeatureRequest {
  */
 export interface UpdateOptionalFeatureRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
@@ -491,10 +519,12 @@ export interface CapacityAddOnSummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
   /** 이 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
@@ -512,10 +542,12 @@ export interface CapacityAddOnHistorySummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   active: boolean;
   createdBy: number;
   createdAt: string;
@@ -528,10 +560,12 @@ export interface CreateCapacityAddOnRequest {
   /** 묶음 상품일 때만 지정한다(예: "서명자+태블릿"). 없으면 단일 상품. */
   secondaryCapacityType?: CapacityType | null;
   secondaryUnitAmount?: number | null;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
 }
 
 /**
@@ -542,10 +576,12 @@ export interface CreateCapacityAddOnRequest {
 export interface UpdateCapacityAddOnRequest {
   unitAmount: number;
   secondaryUnitAmount?: number | null;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   active: boolean;
 }
 
@@ -671,6 +707,9 @@ export interface CeremonySummary {
   id: number;
   organizationId: number;
   billingPlanId: number;
+  currencyCode: string;
+  currencyFractionDigits: number;
+  timeZoneId: string;
   title: string;
   description: string | null;
   status: CeremonyStatus;
@@ -707,6 +746,11 @@ export interface EstimatedTotal {
   subtotal: number;
   finalDiscountType: DiscountType;
   finalDiscountValue: number;
+  currencyCode: string;
+  fractionDigits: number;
+  netAmount: number;
+  taxAmount: number;
+  grossAmount: number;
   finalTotal: number;
 }
 
@@ -741,10 +785,12 @@ export interface CeremonyPlanHistorySummary {
   id: number;
   billingPlanId: number;
   planName: string;
+  currencyCode: string;
   planSupplyPrice: number;
   planSalePrice: number;
   planDiscountType: DiscountType;
   planDiscountValue: number;
+  taxCode: string;
   planMaxSigners: number;
   planMaxTemplates: number;
   planMaxTestEvents: number;
@@ -779,9 +825,11 @@ export interface CapacityPurchaseSummary {
   purchasedUnitAmount: number;
   /** 묶음 상품(예: "서명자+태블릿")이었을 때만 값이 있다 — 구매 시점 보조 용량 단가 스냅샷. */
   purchasedSecondaryUnitAmount: number | null;
+  currencyCode: string;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  purchasedTaxCode: string;
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
@@ -816,9 +864,11 @@ export interface OptionalFeaturePurchaseSummary {
   optionalFeatureId: number;
   /** 구매 시점 이름 스냅샷 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */
   purchasedName: string;
+  currencyCode: string;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  purchasedTaxCode: string;
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;

@@ -28,6 +28,7 @@ import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type {
   BillingPlanSummary,
   CapacityStatus,
@@ -1863,11 +1864,11 @@ export const UserCeremonyDetail: FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1">실제 시작</p>
-                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualStartAt) ?? '-'}</p>
+                <p className="text-sm text-gray-950">{viewingEvent.actualStartAt ? formatDateTime(viewingEvent.actualStartAt) : '-'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1">실제 종료</p>
-                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualEndAt) ?? '-'}</p>
+                <p className="text-sm text-gray-950">{viewingEvent.actualEndAt ? formatDateTime(viewingEvent.actualEndAt) : '-'}</p>
               </div>
             </div>
             <div>

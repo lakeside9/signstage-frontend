@@ -5,6 +5,7 @@ import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type { PageResponse, PlatformAdminAction, PlatformAdminAuditLogEntry } from '../types';
 
 const PAGE_SIZE = 20;
@@ -185,7 +186,7 @@ export const AdminAuditLogList: FC = () => {
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                  {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                  {formatDateTime(entry.createdAt)}
                 </td>
                 <td className="px-4 py-3 text-gray-950 font-medium">
                   {entry.adminLoginId ?? `#${entry.adminUserId}`}

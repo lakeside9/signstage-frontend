@@ -20,6 +20,7 @@ import { ListContainer } from '../components/ListContainer';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDate, formatDateTime } from '../utils/internationalization';
 import { canManagePlatform, isPlatformSuper } from '../utils/permissions';
 import type {
   MemberStatus,
@@ -291,7 +292,7 @@ export const AdminUserDetail: FC = () => {
           value={user.locked ? '잠김' : '정상'}
         />
         <DetailRow label="비밀번호 재설정" value={user.passwordResetRequired ? '다음 로그인 시 강제' : '없음'} />
-        <DetailRow label="가입일" value={new Date(user.createdAt).toLocaleString('ko-KR')} />
+        <DetailRow label="가입일" value={formatDateTime(user.createdAt)} />
       </div>
 
       <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
@@ -325,7 +326,7 @@ export const AdminUserDetail: FC = () => {
                   <td className="py-2 text-gray-700">{membership.role}</td>
                   <td className="py-2 text-gray-500">{MEMBERSHIP_STATUS_LABEL[membership.status]}</td>
                   <td className="py-2 text-right text-gray-500">
-                    {membership.joinedAt ? new Date(membership.joinedAt).toLocaleDateString('ko-KR') : '-'}
+                    {membership.joinedAt ? formatDate(membership.joinedAt) : '-'}
                   </td>
                 </tr>
               ))}
@@ -433,7 +434,7 @@ export const AdminUserDetail: FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {(historyData?.content ?? []).map((entry) => (
                   <tr key={entry.id}>
-                    <td className="px-4 py-2 text-gray-500">{new Date(entry.createdAt).toLocaleString('ko-KR')}</td>
+                    <td className="px-4 py-2 text-gray-500">{formatDateTime(entry.createdAt)}</td>
                     <td className="px-4 py-2 text-gray-950">{entry.loginIdInput}</td>
                     <td className="px-4 py-2 text-gray-700">
                       {LOGIN_HISTORY_STATUS_LABEL[entry.status] ?? entry.status}
@@ -473,7 +474,7 @@ export const AdminUserDetail: FC = () => {
               {infoHistory.map((entry) => (
                 <tr key={entry.id}>
                   <td className="px-4 py-2 text-gray-500 whitespace-nowrap">
-                    {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                    {formatDateTime(entry.createdAt)}
                   </td>
                   <td className="px-4 py-2 text-gray-950">{entry.name}</td>
                   <td className="px-4 py-2 text-gray-500">{entry.email ?? '-'}</td>
