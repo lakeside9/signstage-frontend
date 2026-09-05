@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import type { MenuNode, UserProfile } from '../types';
@@ -91,20 +92,13 @@ export const AdminLayout: FC = () => {
     navigate('/login');
   };
 
-  const navItems = [
-    ...menuNodes.map((node) => ({
-      to: node.path ?? '#',
-      end: node.path === '/admin',
-      icon: iconFor(node.iconKey),
-      label: node.label,
-    })),
-    ...(platformAdmin?.platformRole === 'PLATFORM_SUPER'
+  const extraItems =
+    platformAdmin?.platformRole === 'PLATFORM_SUPER'
       ? [
-          { to: PERMISSION_MANAGEMENT_PATH, end: false, icon: <KeyRound size={20} />, label: t('permission.management') },
-          { to: MENU_MANAGEMENT_PATH, end: false, icon: <Layers size={20} />, label: '메뉴 관리' },
+          { to: PERMISSION_MANAGEMENT_PATH, icon: <KeyRound size={20} />, label: t('permission.management') },
+          { to: MENU_MANAGEMENT_PATH, icon: <Layers size={20} />, label: '메뉴 관리' },
         ]
-      : []),
-  ];
+      : [];
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
@@ -138,11 +132,12 @@ export const AdminLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {navItems.map((item) => (
+            <SidebarMenuTree nodes={menuNodes} isSidebarOpen={isSidebarOpen} iconFor={iconFor} />
+            {extraItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.end}
+                end={false}
                 className={({ isActive }) =>
                   `flex items-center gap-3 p-3 rounded-xl transition-all ${
                     isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'

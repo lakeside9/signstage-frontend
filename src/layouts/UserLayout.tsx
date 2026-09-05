@@ -1,20 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  FileSignature,
-  Key,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Settings,
-  User,
-} from 'lucide-react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Building2, ChevronLeft, FileSignature, Key, LayoutDashboard, LogOut, Menu, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
 import type { MenuNode, UserProfile } from '../types';
 import { setInternationalizationPreferences } from '../utils/internationalization';
@@ -53,19 +43,9 @@ export const UserLayout: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([]);
-  const [openGroupIds, setOpenGroupIds] = useState<Set<number>>(new Set());
   const navigate = useNavigate();
-  const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
   const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
-
-  // 자식이 없는 항목은 최상위에 바로 노출하고(대시보드/행사 관리), 자식이 있는 항목은
-  // "설정"처럼 여닫는 그룹으로 렌더링한다 — 하드코딩된 TOP_NAV_ITEMS/SETTINGS_NAV_ITEMS
-  // 배열을 지우고 GET /api/organizations/me/menus 응답으로 그린다(10장).
-  const topLevelItems = menuNodes.filter((node) => node.children.length === 0);
-  const groupItems = menuNodes.filter((node) => node.children.length > 0);
-  const isGroupActive = (group: MenuNode) =>
-    group.children.some((child) => child.path && location.pathname.startsWith(child.path));
 
   useEffect(() => {
     let cancelled = false;
@@ -104,18 +84,6 @@ export const UserLayout: FC = () => {
     navigate('/login');
   };
 
-  const toggleGroup = (groupId: number) => {
-    setOpenGroupIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
-    });
-  };
-
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
@@ -148,84 +116,7 @@ export const UserLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {topLevelItems.map((item) => (
-              <NavLink
-                key={item.id}
-                to={item.path ?? '#'}
-                end={item.path === '/'}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'
-                  }`
-                }
-              >
-                <span className="shrink-0">{iconFor(item.iconKey)}</span>
-                <span
-                  className={`transition-opacity duration-300 whitespace-nowrap ${
-                    isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
-
-            {groupItems.map((group) => {
-              const isGroupOpen = openGroupIds.has(group.id) || isGroupActive(group);
-              return (
-                <div key={group.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.id)}
-                    className={`flex w-full items-center gap-3 p-3 rounded-xl transition-all ${
-                      isGroupActive(group) ? 'text-gray-950 font-bold' : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span className="shrink-0">{iconFor(group.iconKey)}</span>
-                    <span
-                      className={`flex-1 text-left transition-opacity duration-300 whitespace-nowrap ${
-                        isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                      }`}
-                    >
-                      {group.label}
-                    </span>
-                    <span
-                      className={`shrink-0 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''} ${
-                        isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                      }`}
-                    >
-                      <ChevronDown size={16} />
-                    </span>
-                  </button>
-
-                  {isGroupOpen && (
-                    <div className="space-y-2">
-                      {group.children.map((item) => (
-                        <NavLink
-                          key={item.id}
-                          to={item.path ?? '#'}
-                          end={false}
-                          className={({ isActive }) =>
-                            `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                              isSidebarOpen ? 'ml-6' : ''
-                            } ${isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'}`
-                          }
-                        >
-                          <span className="shrink-0">{iconFor(item.iconKey)}</span>
-                          <span
-                            className={`transition-opacity duration-300 whitespace-nowrap ${
-                              isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                            }`}
-                          >
-                            {item.label}
-                          </span>
-                        </NavLink>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <SidebarMenuTree nodes={menuNodes} isSidebarOpen={isSidebarOpen} iconFor={iconFor} />
           </nav>
 
           <div className="border-t border-gray-100 p-4">

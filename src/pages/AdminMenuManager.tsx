@@ -7,6 +7,8 @@ import {
   Calculator,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardCheck,
   ClipboardList,
   FileSignature,
@@ -154,6 +156,8 @@ export const AdminMenuManager: FC = () => {
         // 실제로 바뀐 경우에만 label을 보낸다 — 그대로 보내면 매번 menu_translation_histories에
         // 같은 값 스냅샷이 또 쌓인다(백엔드는 label이 있으면 항상 저장한다).
         label: draft.label !== row.label ? draft.label : null,
+        // 이 화면(편집 폼)은 레벨을 바꾸지 않는다 — 상위 메뉴는 들여쓰기/내어쓰기 버튼 전용이다.
+        parentMenuId: row.parentMenuId,
         path: draft.path.trim() === '' ? null : draft.path.trim(),
         iconKey: draft.iconKey === '' ? null : draft.iconKey,
         displayOrder: row.displayOrder,
@@ -187,10 +191,12 @@ export const AdminMenuManager: FC = () => {
     setMovingId(row.id);
     try {
       await api.put(`/platform-admin/menus/${row.id}`, {
-        label: null, path: row.path, iconKey: row.iconKey, displayOrder: other.displayOrder, active: row.active,
+        label: null, parentMenuId: row.parentMenuId, path: row.path, iconKey: row.iconKey,
+        displayOrder: other.displayOrder, active: row.active,
       });
       await api.put(`/platform-admin/menus/${other.id}`, {
-        label: null, path: other.path, iconKey: other.iconKey, displayOrder: row.displayOrder, active: other.active,
+        label: null, parentMenuId: other.parentMenuId, path: other.path, iconKey: other.iconKey,
+        displayOrder: row.displayOrder, active: other.active,
       });
       setRows((prev) =>
         prev.map((item) => {
@@ -201,6 +207,66 @@ export const AdminMenuManager: FC = () => {
       );
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '순서 변경에 실패했습니다.', 'error');
+    } finally {
+      setMovingId(null);
+    }
+  };
+
+  /**
+   * 들여쓰기 — 바로 위 형제의 마지막 하위 메뉴로 편입한다(문서 편집기의 Tab과 같은 동작).
+   * 맨 처음 형제는 위에 아무도 없어 들여쓸 수 없다.
+   */
+  const handleIndent = async (row: MenuAdminRow) => {
+    const siblings = rows
+      .filter((item) => item.parentMenuId === row.parentMenuId)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+    const index = siblings.findIndex((item) => item.id === row.id);
+    if (index <= 0) return;
+    const newParent = siblings[index - 1];
+    const newSiblings = rows.filter((item) => item.parentMenuId === newParent.id);
+    const newDisplayOrder = newSiblings.length === 0 ? 0 : Math.max(...newSiblings.map((item) => item.displayOrder)) + 1;
+
+    setMovingId(row.id);
+    try {
+      await api.put(`/platform-admin/menus/${row.id}`, {
+        label: null, parentMenuId: newParent.id, path: row.path, iconKey: row.iconKey,
+        displayOrder: newDisplayOrder, active: row.active,
+      });
+      setRows((prev) =>
+        prev.map((item) => (item.id === row.id ? { ...item, parentMenuId: newParent.id, displayOrder: newDisplayOrder } : item))
+      );
+      setExpandedIds((prev) => new Set(prev).add(newParent.id));
+      showSnackbar('메뉴를 하위로 옮겼습니다.', 'success');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '메뉴 이동에 실패했습니다.', 'error');
+    } finally {
+      setMovingId(null);
+    }
+  };
+
+  /**
+   * 내어쓰기 — 지금 속한 상위 메뉴와 같은 레벨(그 상위 메뉴의 형제)로 올린다(Shift+Tab과 같은
+   * 동작). 이미 최상위면 더 올릴 곳이 없다.
+   */
+  const handleOutdent = async (row: MenuAdminRow) => {
+    if (row.parentMenuId === null) return;
+    const currentParent = rows.find((item) => item.id === row.parentMenuId);
+    const newParentId = currentParent?.parentMenuId ?? null;
+    const newSiblings = rows.filter((item) => item.parentMenuId === newParentId && item.id !== row.id);
+    const newDisplayOrder = newSiblings.length === 0 ? 0 : Math.max(...newSiblings.map((item) => item.displayOrder)) + 1;
+
+    setMovingId(row.id);
+    try {
+      await api.put(`/platform-admin/menus/${row.id}`, {
+        label: null, parentMenuId: newParentId, path: row.path, iconKey: row.iconKey,
+        displayOrder: newDisplayOrder, active: row.active,
+      });
+      setRows((prev) =>
+        prev.map((item) => (item.id === row.id ? { ...item, parentMenuId: newParentId, displayOrder: newDisplayOrder } : item))
+      );
+      showSnackbar('메뉴를 상위로 옮겼습니다.', 'success');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '메뉴 이동에 실패했습니다.', 'error');
     } finally {
       setMovingId(null);
     }
@@ -387,6 +453,37 @@ export const AdminMenuManager: FC = () => {
                       {selectedSiblingIndex + 1} / {siblingsOfSelected.length}
                     </span>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">레벨(상위 메뉴)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOutdent(selectedRow)}
+                      disabled={selectedRow.parentMenuId === null || movingId !== null}
+                      title="상위로 이동(내어쓰기)"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30 text-xs"
+                    >
+                      <ChevronsLeft size={14} />
+                      상위로
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleIndent(selectedRow)}
+                      disabled={selectedSiblingIndex <= 0 || movingId !== null}
+                      title="바로 위 메뉴의 하위로 편입(들여쓰기)"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30 text-xs"
+                    >
+                      하위로
+                      <ChevronsRight size={14} />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {selectedSiblingIndex > 0
+                      ? `"하위로"를 누르면 "${siblingsOfSelected[selectedSiblingIndex - 1].label}" 밑으로 들어갑니다.`
+                      : '바로 위 형제가 없어 하위로 편입할 수 없습니다.'}
+                  </p>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-gray-700">
