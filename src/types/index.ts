@@ -1,3 +1,15 @@
+import type {
+  CeremonyEffectTarget,
+  CeremonyEffectTrigger,
+} from '../utils/ceremonyEffectCatalog';
+
+export type {
+  AllSignaturesCompleteEffect,
+  CeremonyEffectTarget,
+  CeremonyEffectTrigger,
+  SignatureCompleteEffect,
+} from '../utils/ceremonyEffectCatalog';
+
 /**
  * signstage-docs business/user-organization-design.md 7장의 platformRole 값과 맞춘다.
  */
@@ -1001,6 +1013,8 @@ export interface CreateCeremonyEventRequest {
   scheduledEndAt: string | null;
   description: string | null;
   optionalFeatureIds?: number[];
+  /** 생략하면(undefined) 아무 효과도 선택하지 않는다(BE-SETTING-02). */
+  effectSelections?: CeremonyEffectSelection[];
 }
 
 /**
@@ -1015,6 +1029,8 @@ export interface UpdateCeremonyEventRequest {
   scheduledEndAt: string | null;
   description: string | null;
   optionalFeatureIds?: number[];
+  /** 생략하면(undefined) 기존 선택을 그대로 두고, 빈 배열을 명시적으로 보내면 전부 해제한다. */
+  effectSelections?: CeremonyEffectSelection[];
 }
 
 /** PUT .../events/{eventId}/optional-features 요청(CeremonyEventDto.Request.UpdateOptionalFeatures)과 맞춘다. */
@@ -1085,18 +1101,25 @@ export type CeremonyActorType = 'ADMIN' | 'SIGNER';
 export type CeremonyEventAction =
   | 'START_EVENT'
   | 'FINISH_EVENT'
+  | 'FORCE_FINISH_EVENT'
   | 'SIGNATURE_COMPLETE'
   | 'SIGNATURE_CLEAR'
   | 'SIGNATURE_REPLACE'
-  | 'GENERATE_RESULTS';
+  | 'GENERATE_RESULTS'
+  | 'EFFECT_AUTO_TRIGGERED'
+  | 'EFFECT_MANUAL_TRIGGERED'
+  | 'EFFECT_RUNTIME_CHANGED';
 
 /**
  * feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다.
  * `SIGNATURE_STROKE_SUBMITTED`는 행사제어/프로젝터 화면의 실시간 펜 궤적 렌더링 전용이다
  * (payload: signerId/templateFieldId/strokeSeq/rawData) — legacy처럼 "확정 이벤트만
  * 전파"하던 정책을 이번에 뒤집었다. `ALL_SIGNERS_COMPLETED`(payload 없음)는 그 이벤트의
- * 필수 서명자 전원이 방금 완료로 전환된 순간에만 온다 — 프로젝터의 폭죽(ALL_SIGNED_FIREWORKS)
- * 연출 트리거 전용이다(`pages/projectorEffects.ts`).
+ * 필수 서명자 전원이 방금 완료로 전환된 순간에만 온다 — 구 frontend 호환용 "사실" 이벤트라
+ * 신규 frontend는 이걸로 효과를 실행하지 않는다(`ceremony.effect.requested`만 재생한다,
+ * signstage-docs business/ceremony-event-effect-implementation-tasks.md PRE-04).
+ * `ceremony.effect.requested`/`ceremony.effect.setting.changed`는 이벤트 효과
+ * 전용(BE-RUNTIME) — 대문자 "사실" 이벤트와 다르게 점(dot) 표기를 쓴다.
  */
 export type RealtimeEventType =
   | 'EVENT_STATUS_CHANGED'
@@ -1104,19 +1127,106 @@ export type RealtimeEventType =
   | 'SIGNATURE_CLEARED'
   | 'SIGNATURE_REPLACED'
   | 'SIGNATURE_STROKE_SUBMITTED'
-  | 'ALL_SIGNERS_COMPLETED';
+  | 'ALL_SIGNERS_COMPLETED'
+  | 'ceremony.effect.requested'
+  | 'ceremony.effect.setting.changed';
 
 /**
  * WebSocket(STOMP) `/topic/events/{eventId}/state` 메시지 봉투(RealtimeEventDto)와 맞춘다.
  * `payload`는 `type`마다 모양이 달라(EVENT_STATUS_CHANGED: previousStatus/newStatus,
  * SIGNATURE_COMPLETED/REPLACED: signerId/signerName, SIGNATURE_CLEARED: signerId/
  * templateFieldId) 느슨하게 `Record<string, unknown>`으로 두고 처리부에서 타입 단언한다.
+ * `version`은 단조 증가 순번 — 효과 요청/runtime 변경/서명 완료는 그 사건의 감사 로그 id,
+ * 그 외 기존 "사실" 이벤트는 전환 기간 동안 `null`이다(PRE-04).
  */
 export interface RealtimeEventMessage {
   type: RealtimeEventType;
   eventId: number;
   occurredAt: string;
   payload: Record<string, unknown>;
+  version: number | null;
+}
+
+/**
+ * GET /api/ceremony-effects, GET/POST .../platform-admin/ceremony-effects(/{id}) 응답
+ * (CeremonyEffectDefinitionDto.Response.CeremonyEffectDefinitionSummary)과 맞춘다 —
+ * signstage-docs business/ceremony-event-effect-implementation-tasks.md BE-CATALOG/FE-CORE-01.
+ */
+export interface CeremonyEffectDefinition {
+  id: number;
+  code: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  requiredOptionalFeatureId: number;
+  displayName: string;
+  description: string | null;
+  rendererKey: string;
+  enabled: boolean;
+  userVisible: boolean;
+  manuallyTriggerable: boolean;
+  displayOrder: number;
+  configJson: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/**
+ * PUT .../events/{eventId}/effects/settings 요청 안의 항목 하나
+ * (CeremonyEventEffectSettingDto.Request.EffectSelection)와 맞춘다 —
+ * `CreateCeremonyEvent`/`UpdateCeremonyEvent` 요청의 `effectSelections`도 이 타입의 배열을
+ * 그대로 쓴다(BE-SETTING-02, 여러 요청이 공유하는 DTO). `effectId`가 null이면 이 분류를
+ * 해제(NONE)한다.
+ */
+export interface CeremonyEffectSelection {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectId: number | null;
+}
+
+/**
+ * GET .../events/{eventId}/effects/settings, GET /api/projector/events/{eventAccessKey}/effects/settings
+ * 응답(CeremonyEventEffectSettingDto.Response.EffectSettingSummary)과 맞춘다 — 조직 스코프
+ * 조회와 공개 프로젝터 snapshot이 같은 모양을 쓴다(PRE-04).
+ */
+export interface CeremonyEventEffectSetting {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectCode: string;
+  rendererKey: string;
+  displayName: string;
+  runtimeEnabled: boolean;
+  manuallyTriggerable: boolean;
+}
+
+/**
+ * 프로젝터 화면에서 문서 페이지 한 장이 실제로 화면에 그려진 위치·크기(px) — signstage-docs
+ * business/ceremony-event-effect-implementation-tasks.md FE-CORE-03. `ProjectorView`가 이미
+ * 갖고 있는 지역 `PageFrame` 개념과 같은 모양이라, FE-PROJECTOR에서 그대로 넘겨 쓸 수 있다.
+ */
+export interface ProjectorEffectPageFrame {
+  pageIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * `useCeremonyEffectScheduler`/`ProjectorEffects`가 다루는 재생 요청 하나 — signstage-docs
+ * business/ceremony-event-effect-implementation-tasks.md FE-CORE-02/03. `effectCode`는 항상
+ * 채워져 있다 — `useProjectorEffectsController`가 요청을 만드는 시점에 이미
+ * `CeremonyEventEffectSetting`으로 해석해 넣어 둔다(SIGNATURE_COMPLETED는 설정 스냅샷에서,
+ * ALL_SIGNATURES_COMPLETED는 `ceremony.effect.requested` payload에서). `ProjectorEffects`는
+ * 이 값이 로컬 Registry에 없으면 그 즉시 완료 처리하고 다음 큐로 넘어간다.
+ */
+export interface ProjectorEffectRequest {
+  kind: CeremonyEffectTrigger;
+  requestId: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectCode: string;
+  signerId?: number;
+  completionId?: string;
+  triggeredBy?: 'auto' | 'manual';
 }
 
 /**
