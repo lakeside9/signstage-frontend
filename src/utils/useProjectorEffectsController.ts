@@ -20,9 +20,13 @@ interface TriggerRuntimeSetting {
  * {@link applySettings}로 미리 받아 둔 스냅샷에서, `ceremony.effect.requested`는 그 payload
  * 자체에서 가져온다. `ProjectorEffects`(FE-CORE-03)는 그 값을 로컬 Registry에서 찾기만 하면
  * 된다 — 어떤 효과가 선택됐는지 다시 조회하지 않는다.
+ *
+ * <p>`initialEnabled`는 FE-PROJECTOR-03의 로컬 비상 스위치 — 서버 runtime 설정과 무관하게 "이
+ * 화면"에서만 켜고 끄는 값이라, `ProjectorView`가 자기 `localStorage`(기존 projector local
+ * setting 정책, `SETTINGS_TTL_MS`)에서 복구한 값을 그대로 넘겨줄 수 있게 초기값으로 받는다.
  */
-export const useProjectorEffectsController = () => {
-  const [enabled, setEnabled] = useState(true);
+export const useProjectorEffectsController = (initialEnabled = true) => {
+  const [enabled, setEnabled] = useState(initialEnabled);
   const [settingsByTrigger, setSettingsByTrigger] = useState<Partial<Record<CeremonyEffectTrigger, TriggerRuntimeSetting>>>({});
   const {
     activeRequest,

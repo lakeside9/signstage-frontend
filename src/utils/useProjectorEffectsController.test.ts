@@ -138,4 +138,13 @@ describe('useProjectorEffectsController', () => {
     expect(handled).toBe(false);
     expect(result.current.activeRequest).toBeNull();
   });
+
+  it('starts disabled when initialEnabled is false (로컬 비상 스위치 복구, FE-PROJECTOR-03)', () => {
+    const { result } = renderHook(() => useProjectorEffectsController(false));
+
+    expect(result.current.enabled).toBe(false);
+
+    act(() => result.current.toggle());
+    expect(result.current.enabled).toBe(true);
+  });
 });

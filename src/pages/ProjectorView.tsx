@@ -20,6 +20,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import type {
+  CeremonyEventEffectSetting,
   CeremonyEventStatus,
   CeremonyEventType,
   ProjectorContext,
@@ -28,6 +29,10 @@ import type {
   TemplateFieldSummary,
 } from '../types';
 import { resolveProjectorEffectActions } from './projectorEffects';
+import { ProjectorEffects } from '../components/effects/projector/ProjectorEffects';
+import { ProjectorEffectsBoundary } from '../components/effects/projector/ProjectorEffectsBoundary';
+import { ProjectorEffectToggleButton } from '../components/effects/projector/ProjectorEffectToggleButton';
+import { useProjectorEffectsController } from '../utils/useProjectorEffectsController';
 
 const API_BASE = '/api/projector/events';
 
@@ -86,6 +91,8 @@ interface ProjectorViewSettings {
   scrollLeft: number;
   scrollTop: number;
   isToolbarVisible: boolean;
+  /** 이 브라우저에서만 이벤트 효과를 켜고 끄는 로컬 비상 스위치(FE-PROJECTOR-03) — 서버 runtime 설정과 무관하다. */
+  effectsEnabled: boolean;
   savedAt: number;
 }
 
@@ -127,6 +134,7 @@ const readSettings = (eventAccessKey?: string): ProjectorViewSettings | null => 
       scrollLeft: Math.max(0, Number(parsed.scrollLeft) || 0),
       scrollTop: Math.max(0, Number(parsed.scrollTop) || 0),
       isToolbarVisible: typeof parsed.isToolbarVisible === 'boolean' ? parsed.isToolbarVisible : true,
+      effectsEnabled: typeof parsed.effectsEnabled === 'boolean' ? parsed.effectsEnabled : true,
       savedAt,
     };
   } catch {
@@ -399,6 +407,19 @@ export const ProjectorView: FC = () => {
     contextRef.current = context;
   }, [context]);
 
+  // 이벤트 효과(FE-CORE/FE-PROJECTOR) — 로컬 비상 스위치 초기값은 다른 화면 설정과 같은
+  // localStorage 정책(SETTINGS_TTL_MS)에서 복구한다. WebSocket 핸들러 안에서 최신 controller를
+  // 읽으려면 contextRef와 같은 이유로 ref를 따라가야 한다.
+  const effectsController = useProjectorEffectsController(initialSettings?.effectsEnabled ?? true);
+  const effectsControllerRef = useRef(effectsController);
+  useEffect(() => {
+    effectsControllerRef.current = effectsController;
+  }, [effectsController]);
+  // applySettings 자체는 안정적인 참조라(useProjectorEffectsController 내부에서 deps 없는
+  // useCallback으로 감싸져 있다), 아래 fetchEffectSettings의 exhaustive-deps에 effectsController
+  // 객체 전체 대신 이 값만 넣을 수 있게 미리 꺼내 둔다.
+  const { applySettings: applyEffectSettings } = effectsController;
+
   const exhibitionInfo = context?.exhibition
     ? {
         width: context.exhibition.width ?? DEFAULT_PAGE_SIZE.width,
@@ -570,9 +591,10 @@ export const ProjectorView: FC = () => {
         scrollLeft: scrollLeft ?? container?.scrollLeft ?? 0,
         scrollTop: scrollTop ?? container?.scrollTop ?? 0,
         isToolbarVisible,
+        effectsEnabled: effectsController.enabled,
       });
     },
-    [currentPage, eventAccessKey, isToolbarVisible, pageSpacingMode, visiblePageCount, zoom],
+    [currentPage, effectsController.enabled, eventAccessKey, isToolbarVisible, pageSpacingMode, visiblePageCount, zoom],
   );
 
   const handleScroll = useCallback(() => {
@@ -615,6 +637,24 @@ export const ProjectorView: FC = () => {
   }, [eventAccessKey]);
 
   /**
+   * 이벤트 효과 설정 snapshot(FE-PROJECTOR-01) — 효과는 부가 기능이라 실패해도 절대 던지지
+   * 않는다(문서/서명이라는 핵심 기능은 이 조회와 무관하게 계속 동작해야 한다). 조회 결과를
+   * 반영만 할 뿐 어떤 효과도 재생을 요청하지 않는다 — `applySettings`는 상태만 갱신하므로
+   * "초기 조회·복구 snapshot으로 과거 효과가 재생되지 않는다"가 그대로 보장된다.
+   */
+  const fetchEffectSettings = useCallback(async () => {
+    if (!eventAccessKey) return;
+    try {
+      const res = await fetch(`${API_BASE}/${eventAccessKey}/effects/settings`).then((r) => r.json());
+      if (res.code === 'SUCCESS') {
+        applyEffectSettings(res.data as CeremonyEventEffectSetting[]);
+      }
+    } catch {
+      // 조용히 무시 — 다음 재연결/폴링에서 다시 시도한다.
+    }
+  }, [applyEffectSettings, eventAccessKey]);
+
+  /**
    * 도구모음의 수동 새로고침 버튼(2026-08-27 legacy 포팅) — 자동 폴링/실시간 구독과 별개로
    * 사용자가 즉시 최신 상태를 당겨오고 싶을 때 쓴다. 실패는 조용히 무시한다(자동 폴링이
    * 다음 기회에 다시 시도하므로 화면을 에러로 바꾸지 않는다).
@@ -623,13 +663,13 @@ export const ProjectorView: FC = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      await Promise.all([fetchContext(), fetchStrokes()]);
+      await Promise.all([fetchContext(), fetchStrokes(), fetchEffectSettings()]);
     } catch {
       // 조용히 무시 — 다음 자동 폴링에서 다시 시도한다.
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchContext, fetchStrokes, isRefreshing]);
+  }, [fetchContext, fetchEffectSettings, fetchStrokes, isRefreshing]);
 
   useEffect(() => {
     if (!eventAccessKey) return;
@@ -637,7 +677,7 @@ export const ProjectorView: FC = () => {
 
     (async () => {
       try {
-        await Promise.all([fetchContext(), fetchStrokes()]);
+        await Promise.all([fetchContext(), fetchStrokes(), fetchEffectSettings()]);
       } catch {
         if (!cancelled) setError('행사 정보를 불러오지 못했습니다.');
       } finally {
@@ -662,7 +702,7 @@ export const ProjectorView: FC = () => {
 
     const retry = async () => {
       try {
-        await Promise.all([fetchContext(), fetchStrokes()]);
+        await Promise.all([fetchContext(), fetchStrokes(), fetchEffectSettings()]);
         if (!cancelled) setError(null);
       } catch {
         // 여전히 실패 — 다음 트리거(online 이벤트/폴링)를 기다린다.
@@ -676,7 +716,7 @@ export const ProjectorView: FC = () => {
       window.removeEventListener('online', retry);
       window.clearInterval(interval);
     };
-  }, [eventAccessKey, error, fetchContext, fetchStrokes]);
+  }, [eventAccessKey, error, fetchContext, fetchEffectSettings, fetchStrokes]);
 
   // WebSocket 실시간 구독 — 스트로크/서명지우기/재서명/상태변경을 전부 받는다.
   useEffect(() => {
@@ -699,8 +739,11 @@ export const ProjectorView: FC = () => {
         setIsRealtimeConnected(true);
         if (hasConnectedOnce) {
           // 재연결 시 끊긴 동안 놓친 이벤트를 따라잡는다(legacy `onReconnect: fetchData`와 같은 목적).
+          // 효과 runtime 설정도 같이 복구한다(FE-PROJECTOR-01) — fetchEffectSettings는 절대
+          // 던지지 않으므로 별도 .catch가 필요 없다.
           fetchContext().catch(() => undefined);
           fetchStrokes().catch(() => undefined);
+          fetchEffectSettings();
         }
         hasConnectedOnce = true;
 
@@ -737,7 +780,13 @@ export const ProjectorView: FC = () => {
               setContext((prev) => (prev ? { ...prev, eventStatus: payload.newStatus } : prev));
             }
 
-            // 선택옵션 연출 효과(서명 하이라이트 등) — 위 스트로크/상태 처리와 독립적으로, 이 하위
+            // 이벤트 효과(FE-CORE/FE-PROJECTOR) — SIGNATURE_COMPLETED와 ceremony.effect.*를
+            // 해석해 재생 큐에 넣는다. 위 스트로크/상태 타입과 서로 겹치지 않아 독립적으로 호출할
+            // 수 있다. ref로 최신 controller를 따라간다 — 이 구독 자체는 eventId가 바뀔 때만
+            // 다시 걸린다(contextRef와 같은 이유).
+            effectsControllerRef.current.consumeRealtimeEvent(event);
+
+            // 선택옵션 연출 효과(서명 하이라이트 등, 구 시스템) — 위 스트로크/상태 처리와 독립적으로, 이 하위
             // 행사에 적용된 옵션이 이 이벤트 타입에 반응하도록 등록돼 있으면 액션을 낸다.
             // projectorEffects.ts 문서 참고.
             const latestContext = contextRef.current;
@@ -777,15 +826,17 @@ export const ProjectorView: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context?.eventId, eventAccessKey]);
 
-  // 실시간 연결이 끊겼을 때의 폴백 — 5초마다 스트로크/상태를 다시 읽는다.
+  // 실시간 연결이 끊겼을 때의 폴백 — 5초마다 스트로크/상태/효과 runtime 설정을 다시 읽는다
+  // (FE-PROJECTOR-01).
   useEffect(() => {
     if (!context?.eventId || isRealtimeConnected) return;
     const interval = window.setInterval(() => {
       fetchStrokes().catch(() => undefined);
       fetchContext().catch(() => undefined);
+      fetchEffectSettings();
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [context?.eventId, isRealtimeConnected, fetchContext, fetchStrokes]);
+  }, [context?.eventId, isRealtimeConnected, fetchContext, fetchEffectSettings, fetchStrokes]);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -926,35 +977,60 @@ export const ProjectorView: FC = () => {
           onScroll={handleScroll}
           className={`h-full w-full overscroll-contain ${zoom >= 1 ? 'overflow-auto' : 'overflow-hidden'}`}
         >
-          <Stage width={stageLayout.width} height={stageLayout.height}>
-            <Layer>
-              {context.exhibition &&
-                stageLayout.frames.map((frame) => (
-                  <ProjectorPageLayer
-                    key={frame.pageIndex}
-                    eventAccessKey={eventAccessKey!}
-                    frame={frame}
-                    fieldById={fieldById}
-                    fieldBySignerId={fieldBySignerId}
-                    strokes={strokesByPage.get(frame.pageIndex) ?? []}
-                    highlightedFields={highlightsByPage.get(frame.pageIndex) ?? []}
-                    highlightNow={highlightNow}
+          {/* 이벤트 효과(FE-PROJECTOR-02) 레이어를 Stage와 같은 좌표계(stageLayout 픽셀 공간)를
+              공유하는 형제로 둔다 — 그래야 서명란 앵커 효과(HIGHLIGHT 등)의 절대좌표가 Konva
+              페이지와 정확히 겹치고, 스크롤/줌에도 함께 움직인다. */}
+          <div className="relative" style={{ width: stageLayout.width, height: stageLayout.height }}>
+            <Stage width={stageLayout.width} height={stageLayout.height}>
+              <Layer>
+                {context.exhibition &&
+                  stageLayout.frames.map((frame) => (
+                    <ProjectorPageLayer
+                      key={frame.pageIndex}
+                      eventAccessKey={eventAccessKey!}
+                      frame={frame}
+                      fieldById={fieldById}
+                      fieldBySignerId={fieldBySignerId}
+                      strokes={strokesByPage.get(frame.pageIndex) ?? []}
+                      highlightedFields={highlightsByPage.get(frame.pageIndex) ?? []}
+                      highlightNow={highlightNow}
+                    />
+                  ))}
+                {!context.exhibition && (
+                  <Text
+                    x={0}
+                    y={stageLayout.height / 2 - 14}
+                    width={stageLayout.width}
+                    align="center"
+                    fill="#ffffff"
+                    fontSize={20}
+                    fontStyle="bold"
+                    text="전시용 문서가 설정되지 않았습니다."
                   />
-                ))}
-              {!context.exhibition && (
-                <Text
-                  x={0}
-                  y={stageLayout.height / 2 - 14}
-                  width={stageLayout.width}
-                  align="center"
-                  fill="#ffffff"
-                  fontSize={20}
-                  fontStyle="bold"
-                  text="전시용 문서가 설정되지 않았습니다."
-                />
-              )}
-            </Layer>
-          </Stage>
+                )}
+              </Layer>
+            </Stage>
+
+            {/* signature 효과는 signerId 기반으로 전시용(EXHIBITION) 문서 필드를 직접 찾으므로
+                (SignatureHighlightEffect 등), context.exhibition.fields를 그대로 넘기면 이미
+                CONTRACT→EXHIBITION 폴백과 같은 결과가 된다 — 별도 변환이 필요 없다. 화면에 보이지
+                않는 페이지의 field는 frames에 그 페이지가 없어 조용히 아무것도 그리지 않는다
+                (자동 페이지 전환 없음). completion 효과는 portalTarget을 넘기지 않아 운영
+                viewport(document.body) 기준으로 뜬다. */}
+            <ProjectorEffectsBoundary
+              requestId={effectsController.activeRequest?.requestId}
+              onError={effectsController.completeActiveRequest}
+            >
+              <ProjectorEffects
+                enabled={effectsController.enabled}
+                eventStatus={context.eventStatus}
+                request={effectsController.activeRequest}
+                frames={stageLayout.frames}
+                fields={context.exhibition?.fields ?? []}
+                onComplete={effectsController.completeActiveRequest}
+              />
+            </ProjectorEffectsBoundary>
+          </div>
         </div>
       </div>
 
@@ -1086,6 +1162,10 @@ export const ProjectorView: FC = () => {
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
             {isFullscreen ? '창 모드' : '전체화면'}
           </button>
+
+          <div className="h-6 w-px shrink-0 bg-white/15" />
+
+          <ProjectorEffectToggleButton enabled={effectsController.enabled} visible onToggle={effectsController.toggle} />
 
           <div className="h-6 w-px shrink-0 bg-white/15" />
 
