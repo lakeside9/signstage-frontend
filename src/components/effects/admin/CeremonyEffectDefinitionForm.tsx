@@ -3,13 +3,12 @@ import type { FC, FormEvent } from 'react';
 import { Eye, Loader2, Save } from 'lucide-react';
 import { EffectPreviewDialog } from '../preview/EffectPreviewDialog';
 import type { EffectPreviewDefinition } from '../preview/EffectPreviewStage';
-import type { CeremonyEffectTarget, CeremonyEffectTrigger, OptionalFeatureSummary } from '../../../types';
+import type { CeremonyEffectTarget, CeremonyEffectTrigger } from '../../../types';
 
 export interface CeremonyEffectFormValue {
   code: string;
   targetType: CeremonyEffectTarget;
   triggerType: CeremonyEffectTrigger;
-  requiredOptionalFeatureId: number | null;
   displayName: string;
   description: string;
   rendererKey: string;
@@ -24,7 +23,6 @@ const EMPTY_VALUE: CeremonyEffectFormValue = {
   code: '',
   targetType: 'PROJECTOR',
   triggerType: 'SIGNATURE_COMPLETED',
-  requiredOptionalFeatureId: null,
   displayName: '',
   description: '',
   rendererKey: '',
@@ -37,7 +35,6 @@ const EMPTY_VALUE: CeremonyEffectFormValue = {
 interface Props {
   mode: 'create' | 'edit';
   initialValue?: CeremonyEffectFormValue;
-  optionalFeatures: OptionalFeatureSummary[];
   saving: boolean;
   onSubmit: (value: CeremonyEffectFormValue) => Promise<void>;
   onCancel: () => void;
@@ -47,17 +44,19 @@ const inputClass = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm o
 
 /**
  * 이벤트 효과 정의 등록/수정 공용 폼 — signstage-docs
- * business/ceremony-event-effect-implementation-tasks.md FE-ADMIN-02. 레거시
- * `components/effects/admin/CeremonyEffectDefinitionForm.tsx`를 이식하되, 이 백엔드에만 있는
- * `requiredOptionalFeatureId`(등록 후 불변) 필드를 추가했다 — 레거시는 이 효과 카탈로그가
- * 과금 entitlement에 안 묶여 있어 이 개념 자체가 없었다.
+ * business/ceremony-event-effect-implementation-tasks.md FE-ADMIN-02.
  *
- * code/대상/실행시점/Renderer 키/필요 선택옵션은 `mode === 'edit'`이면 비활성 입력으로
- * 그대로 보여주기만 한다(값을 지우지 않는다) — 서버도 `UpdateCeremonyEffectDefinition`
- * 요청 자체에 이 필드들을 받지 않으므로, 화면에서 바꿔도 전송되지 않아 안전하지만, 애초에
- * "바꿀 수 있어 보이는" 입력을 안 만드는 편이 낫다.
+ * 이 효과를 여는 선택옵션(묶음) 구성은 이 폼이 갖지 않는다(2026-09-08 재설계) — 예전에는
+ * `requiredOptionalFeatureId` 단일 FK를 등록 시점에 여기서 골랐지만, 이제는 "이벤트 효과
+ * 묶음"이 여러 효과를 자유롭게 겹쳐 담는 N:M 구조라 반대쪽(과금 카탈로그 관리 화면,
+ * `AdminBillingCatalog.tsx`)에서 묶음이 담을 효과 목록을 고르는 방식으로 바뀌었다.
+ *
+ * code/대상/실행시점/Renderer 키는 `mode === 'edit'`이면 비활성 입력으로 그대로 보여주기만
+ * 한다(값을 지우지 않는다) — 서버도 `UpdateCeremonyEffectDefinition` 요청 자체에 이 필드들을
+ * 받지 않으므로, 화면에서 바꿔도 전송되지 않아 안전하지만, 애초에 "바꿀 수 있어 보이는"
+ * 입력을 안 만드는 편이 낫다.
  */
-export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, optionalFeatures, saving, onSubmit, onCancel }) => {
+export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, saving, onSubmit, onCancel }) => {
   const [value, setValue] = useState<CeremonyEffectFormValue>(initialValue ?? EMPTY_VALUE);
   const [error, setError] = useState('');
   const [previewEffect, setPreviewEffect] = useState<EffectPreviewDefinition | null>(null);
@@ -80,10 +79,6 @@ export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, op
       setError('Renderer 키를 입력해주세요.');
       return;
     }
-    if (mode === 'create' && value.requiredOptionalFeatureId == null) {
-      setError('필요 선택옵션을 골라주세요.');
-      return;
-    }
     if (value.configJsonDraft.trim()) {
       try {
         const parsed = JSON.parse(value.configJsonDraft);
@@ -104,8 +99,6 @@ export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, op
       configJsonDraft: value.configJsonDraft.trim(),
     });
   };
-
-  const requiredFeatureName = optionalFeatures.find((f) => f.id === value.requiredOptionalFeatureId)?.name;
 
   return (
     <form onSubmit={submit} className="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -161,25 +154,6 @@ export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, op
             <option value="ALL_SIGNATURES_COMPLETED">전체 서명 완료</option>
             <option value="EVENT_FINISHED">행사 종료</option>
           </select>
-        </label>
-
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-xs font-bold text-gray-700">필요 선택옵션 *</span>
-          {immutable ? (
-            <input disabled value={requiredFeatureName ?? `#${value.requiredOptionalFeatureId}`} className={inputClass} />
-          ) : (
-            <select
-              value={value.requiredOptionalFeatureId ?? ''}
-              onChange={(e) => update({ requiredOptionalFeatureId: e.target.value ? Number(e.target.value) : null })}
-              className={inputClass}
-            >
-              <option value="">선택</option>
-              {optionalFeatures.map((feature) => (
-                <option key={feature.id} value={feature.id}>{feature.name}</option>
-              ))}
-            </select>
-          )}
-          <p className="text-[11px] text-gray-500">이 선택옵션이 적용된 행사만 이 효과를 고를 수 있습니다. 등록 후에는 바꿀 수 없습니다.</p>
         </label>
 
         <label className="space-y-2 md:col-span-2">

@@ -230,7 +230,6 @@ export const UserCeremonyEventCreate: FC = () => {
         </div>
 
         <CeremonyEventEffectSelectionFields
-          availableFeatures={availableFeatures}
           selectedFeatureIds={selectedFeatureIds}
           value={effectSelections}
           onChange={setEffectSelections}

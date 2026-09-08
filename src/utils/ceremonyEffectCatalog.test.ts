@@ -57,7 +57,7 @@ describe('resolveSignatureEffectTargetType / resolveCompletionEffectTargetType',
     code: 'HIGHLIGHT',
     targetType: 'PROJECTOR',
     triggerType: 'SIGNATURE_COMPLETED',
-    requiredOptionalFeatureId: 10,
+    optionalFeatureIds: [10],
     displayName: '하이라이트',
     description: null,
     rendererKey: 'projector-signature-highlight',
@@ -92,8 +92,8 @@ describe('resolveSignatureEffectTargetType / resolveCompletionEffectTargetType',
 describe('intersectDefinitionsWithRegistry', () => {
   it('keeps only definitions whose code exists in the local registry', () => {
     const definitions: CeremonyEffectDefinition[] = [
-      { id: 1, code: 'HIGHLIGHT', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', requiredOptionalFeatureId: 10, displayName: '하이라이트', description: null, rendererKey: 'projector-signature-highlight', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 10, configJson: null, createdAt: '2026-09-07T00:00:00' },
-      { id: 2, code: 'NOT_YET_SHIPPED', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', requiredOptionalFeatureId: 10, displayName: '아직 없음', description: null, rendererKey: 'projector-not-yet-shipped', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 20, configJson: null, createdAt: '2026-09-07T00:00:00' },
+      { id: 1, code: 'HIGHLIGHT', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', optionalFeatureIds: [10], displayName: '하이라이트', description: null, rendererKey: 'projector-signature-highlight', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 10, configJson: null, createdAt: '2026-09-07T00:00:00' },
+      { id: 2, code: 'NOT_YET_SHIPPED', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', optionalFeatureIds: [10], displayName: '아직 없음', description: null, rendererKey: 'projector-not-yet-shipped', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 20, configJson: null, createdAt: '2026-09-07T00:00:00' },
     ];
     const registry = { HIGHLIGHT: {} };
 
@@ -102,7 +102,7 @@ describe('intersectDefinitionsWithRegistry', () => {
 
   it('returns an empty array when nothing in the registry matches', () => {
     const definitions: CeremonyEffectDefinition[] = [
-      { id: 1, code: 'UNKNOWN', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', requiredOptionalFeatureId: 10, displayName: '?', description: null, rendererKey: 'x', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 10, configJson: null, createdAt: '2026-09-07T00:00:00' },
+      { id: 1, code: 'UNKNOWN', targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', optionalFeatureIds: [10], displayName: '?', description: null, rendererKey: 'x', enabled: true, userVisible: true, manuallyTriggerable: false, displayOrder: 10, configJson: null, createdAt: '2026-09-07T00:00:00' },
     ];
     expect(intersectDefinitionsWithRegistry(definitions, {})).toEqual([]);
   });
