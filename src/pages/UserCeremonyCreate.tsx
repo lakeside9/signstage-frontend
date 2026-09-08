@@ -175,32 +175,31 @@ export const UserCeremonyCreate: FC = () => {
                         <span className="font-bold text-gray-950">{plan.name}</span>
                         {isSelected && <CheckCircle2 size={18} className="text-gray-950" />}
                       </div>
-                      <p className="mt-1 text-sm text-gray-950">
-                        {formatPrice(plan.salePrice, plan.currencyCode)}
-                        {plan.discountValue > 0 && (
-                          <span className="ml-1.5 text-xs text-gray-400 line-through">{formatPrice(plan.supplyPrice, plan.currencyCode)}</span>
-                        )}
-                      </p>
+                      {/* 공급가(원가)는 내부 전용이라 사용자 화면에 노출하지 않는다(signstage-docs
+                          business/billing-catalog-operations-review.md 4장) — 이전엔 여기서
+                          plan.supplyPrice를 "정가" 취급해 취소선으로 잘못 보여주고 있었다
+                          (2026-09-08 발견·수정). */}
+                      <p className="mt-1 text-sm text-gray-950">{formatPrice(plan.salePrice, plan.currencyCode)}</p>
                       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
                         <div className="flex justify-between">
                           <dt>서명자</dt>
-                          <dd className="text-gray-700">{plan.maxSigners}명</dd>
+                          <dd className="text-gray-700">{plan.capacities.SIGNERS}명</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>템플릿</dt>
-                          <dd className="text-gray-700">{plan.maxTemplates}개</dd>
+                          <dd className="text-gray-700">{plan.capacities.TEMPLATES}개</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>테스트 행사</dt>
-                          <dd className="text-gray-700">{plan.maxTestEvents}회</dd>
+                          <dd className="text-gray-700">{plan.capacities.TEST_EVENTS}회</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>리허설 행사</dt>
-                          <dd className="text-gray-700">{plan.maxRehearsalEvents}회</dd>
+                          <dd className="text-gray-700">{plan.capacities.REHEARSAL_EVENTS}회</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>본행사</dt>
-                          <dd className="text-gray-700">{plan.maxMainEvents}회</dd>
+                          <dd className="text-gray-700">{plan.capacities.MAIN_EVENTS}회</dd>
                         </div>
                       </dl>
                     </button>

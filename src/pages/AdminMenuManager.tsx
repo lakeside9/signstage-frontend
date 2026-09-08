@@ -14,9 +14,11 @@ import {
   FileSignature,
   Loader2,
   Package,
+  Percent,
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Tag,
   User,
   Users,
 } from 'lucide-react';
@@ -46,6 +48,8 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Calculator: <Calculator size={14} />,
   ShoppingCart: <ShoppingCart size={14} />,
   ClipboardList: <ClipboardList size={14} />,
+  Percent: <Percent size={14} />,
+  Tag: <Tag size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;

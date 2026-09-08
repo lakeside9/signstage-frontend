@@ -4,8 +4,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus, Users, UserPlus, X } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
-import { OrganizationDiscountPanel } from '../components/OrganizationDiscountPanel';
-import { CeremonyFinalDiscountPanel } from '../components/CeremonyFinalDiscountPanel';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -701,12 +699,12 @@ export const AdminOrganizationDetail: FC = () => {
         )}
       </div>
 
-      {organizationId && (
-        <>
-          <CeremonyFinalDiscountPanel organizationId={organizationId} canManage={canManage} showSnackbar={showSnackbar} />
-          <OrganizationDiscountPanel organizationId={organizationId} canManage={canManage} showSnackbar={showSnackbar} />
-        </>
-      )}
+      {/*
+        행사 건별 재량 할인/파트너별 할인 오버라이드 패널은 별도 화면(/admin/ceremony-discounts,
+        /admin/organization-discount-overrides)으로 분리됐다 — signstage-docs
+        business/discount-management-screen-separation-review.md 결정 #5(2026-09-08, 조직
+        상세에서 완전히 제거, 요약도 남기지 않음).
+      */}
 
       <Modal open={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} title="파트너 정보 변경 이력" widthClassName="max-w-lg">
         {isHistoryLoading ? (

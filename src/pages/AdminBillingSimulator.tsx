@@ -23,10 +23,12 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 /**
  * 선택옵션/용량 추가구매 코드를 장비·인력·애플리케이션 3분류로 묶어 보여주기 위한
  * 화면 전용 매핑 — signstage-docs business/ceremony-support-services-billing-review.md
- * 3.3절의 "(안 A) 매핑 테이블" 방식을 그대로 구현한다. 백엔드 스키마 변경 없이 프런트
- * 코드만으로 분류를 표시한다. 아직 카탈로그에 인력 카테고리 상품(현장지원/온라인지원)이
- * 없는 건 정상이다 — 같은 문서 4장 결정이 나고 OptionalFeatureCode/CapacityType에 실제
- * 값이 추가되면 이 매핑에 한 줄만 추가하면 된다.
+ * 3.3절의 "(안 A) 매핑 테이블" 방식으로 시작했으나, 4.3절에서 실제로는 안 B(백엔드
+ * `OptionalFeature.category` 컬럼)로 결정됐다(2026-09-08). `OptionalFeatureSummary.category`가
+ * 진짜 소스이고, 이 매핑은 이 시뮬레이터 화면이 "용량 추가구매"까지 포함해 4번째 버킷
+ * (필수옵션 상향)을 표시하기 위한 화면 전용 보조 표라 그대로 둔다 — `CapacityAddOn`은
+ * `category` 컬럼이 없어(짝이 되는 `OptionalFeature.category`를 재사용하는 게 결정이지만,
+ * 이 화면은 짝 조회 없이 단순 표시로 충분해 기존 매핑을 유지한다).
  */
 const OPTION_CATEGORY_BY_CODE: Record<OptionalFeatureCode, string> = {
   SIGNER_FIELD_ZOOM: '애플리케이션',
@@ -34,6 +36,8 @@ const OPTION_CATEGORY_BY_CODE: Record<OptionalFeatureCode, string> = {
   EVENT_EFFECT_BUNDLE: '애플리케이션',
   VIDEO_ATTENDANCE: '애플리케이션',
   TABLET_RENTAL: '장비',
+  ONSITE_SUPPORT: '인력',
+  ONLINE_SUPPORT: '인력',
 };
 
 const OPTION_CATEGORY_ORDER = ['장비', '인력', '애플리케이션'];
@@ -45,6 +49,8 @@ const ADDON_CATEGORY_BY_TYPE: Record<CapacityType, string> = {
   REHEARSAL_EVENTS: '필수옵션 상향',
   MAIN_EVENTS: '필수옵션 상향',
   TABLETS: '장비',
+  ONSITE_SUPPORT: '인력',
+  ONLINE_SUPPORT: '인력',
 };
 
 const ADDON_CATEGORY_ORDER = ['필수옵션 상향', '장비', '인력'];
@@ -56,6 +62,8 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   REHEARSAL_EVENTS: '리허설 행사',
   MAIN_EVENTS: '본행사',
   TABLETS: '태블릿',
+  ONSITE_SUPPORT: '현장지원',
+  ONLINE_SUPPORT: '온라인지원',
 };
 
 const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
@@ -218,10 +226,15 @@ export const AdminBillingSimulator: FC = () => {
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
 
-  const { lines, subtotal, finalDiscountAmount, total, clamped, marginSale, marginSupply } = useMemo(() => {
+  const { lines, subtotal, finalDiscountAmount, total, clamped, marginSale, marginSupply, marginSupplyUnknown } = useMemo(() => {
     const resultLines: LedgerLine[] = [];
     let sale = 0;
     let supply = 0;
+    // 공급가는 nullable이다("원가 미상") — signstage-docs
+    // business/billing-catalog-zero-base-schema-redesign-review.md 결정(2026-09-08, 항목 G).
+    // 미상인 품목은 마진 합계에 0으로 반영하고(그래야 계산이 깨지지 않는다), 대신 이 플래그로
+    // "실제 마진은 이보다 낮을 수 있다"는 걸 화면에 알린다.
+    let hasUnknownSupply = false;
 
     if (selectedPlan) {
       const override = orgOverview?.billingPlanDiscounts.find((d) => d.billingPlanId === selectedPlan.id);
@@ -235,7 +248,11 @@ export const AdminBillingSimulator: FC = () => {
         overridden: resolved.overridden,
       });
       sale += applied;
-      supply += selectedPlan.supplyPrice;
+      if (selectedPlan.supplyPrice === null) {
+        hasUnknownSupply = true;
+      } else {
+        supply += selectedPlan.supplyPrice;
+      }
     }
 
     options
@@ -252,7 +269,11 @@ export const AdminBillingSimulator: FC = () => {
           overridden: resolved.overridden,
         });
         sale += applied;
-        supply += o.supplyPrice;
+        if (o.supplyPrice === null) {
+          hasUnknownSupply = true;
+        } else {
+          supply += o.supplyPrice;
+        }
       });
 
     addOns
@@ -274,7 +295,11 @@ export const AdminBillingSimulator: FC = () => {
           overridden: resolved.overridden,
         });
         sale += lineTotal;
-        supply += a.supplyPrice * quantity;
+        if (a.supplyPrice === null) {
+          hasUnknownSupply = true;
+        } else {
+          supply += a.supplyPrice * quantity;
+        }
       });
 
     const subtotalValue = resultLines.reduce((s, l) => s + l.amount, 0);
@@ -292,6 +317,7 @@ export const AdminBillingSimulator: FC = () => {
       clamped: rawTotal < 0,
       marginSale: sale,
       marginSupply: supply,
+      marginSupplyUnknown: hasUnknownSupply,
     };
   }, [selectedPlan, options, selectedOptionIds, addOns, addOnQuantities, orgOverview, finalDiscountType, finalDiscountValue]);
 
@@ -397,8 +423,9 @@ export const AdminBillingSimulator: FC = () => {
                         {resolved.overridden && <OrgOverrideBadge />}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
-                        서명자 {plan.maxSigners}/템플릿 {plan.maxTemplates}/테스트 {plan.maxTestEvents}/리허설{' '}
-                        {plan.maxRehearsalEvents}/본행사 {plan.maxMainEvents}
+                        서명자 {plan.capacities.SIGNERS}/템플릿 {plan.capacities.TEMPLATES}/테스트{' '}
+                        {plan.capacities.TEST_EVENTS}/리허설 {plan.capacities.REHEARSAL_EVENTS}/본행사{' '}
+                        {plan.capacities.MAIN_EVENTS}
                       </p>
                     </label>
                   );
@@ -561,6 +588,7 @@ export const AdminBillingSimulator: FC = () => {
           clamped={clamped}
           marginSale={marginSale}
           marginSupply={marginSupply}
+          marginSupplyUnknown={marginSupplyUnknown}
         />
       </div>
     </div>
@@ -668,6 +696,8 @@ interface LedgerProps {
   clamped: boolean;
   marginSale: number;
   marginSupply: number;
+  /** 마진 계산에 포함된 품목 중 공급가(원가)가 미상인 것이 있으면 true — 실제 마진은 이보다 낮을 수 있다. */
+  marginSupplyUnknown: boolean;
 }
 
 const Ledger: FC<LedgerProps> = ({
@@ -680,6 +710,7 @@ const Ledger: FC<LedgerProps> = ({
   clamped,
   marginSale,
   marginSupply,
+  marginSupplyUnknown,
 }) => (
   <aside className="bg-white border border-gray-200 rounded-lg overflow-hidden sticky top-4">
     <div className="px-4 py-3 border-b border-gray-100">
@@ -739,6 +770,11 @@ const Ledger: FC<LedgerProps> = ({
           <span>마진</span>
           <span className="tabular-nums">{formatPrice(marginSale - marginSupply)}</span>
         </div>
+        {marginSupplyUnknown && (
+          <p className="text-amber-700 bg-amber-50 rounded px-2 py-1 mt-1">
+            공급가가 미상인 품목이 포함돼 있습니다 — 실제 마진은 이보다 낮을 수 있습니다.
+          </p>
+        )}
       </div>
     </details>
   </aside>

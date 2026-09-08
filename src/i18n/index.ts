@@ -16,6 +16,7 @@ const resources = {
         partners: '파트너관리', partnerRequests: '파트너등록요청관리', users: '회원 관리',
         adminAccounts: '관리자 계정', billingCatalog: '과금 카탈로그', billingSimulator: '과금 시뮬레이터',
         purchaseRequests: '추가구매 요청', auditLogs: '감사 로그',
+        ceremonyDiscounts: '행사 건별 재량 할인', organizationDiscountOverrides: '파트너별 할인 오버라이드',
       },
       permission: {
         management: '권한 관리',
@@ -24,6 +25,8 @@ const resources = {
           userForceWithdraw: '회원 강제 탈퇴', memberForceControl: '회원 상태 제어(상태 변경/잠금 해제/비밀번호 재설정)',
           partnerCreate: '파트너 등록', partnerStatusChange: '파트너 상태 변경', partnerInfoEdit: '파트너 정보 수정',
           billingCatalogManage: '과금 카탈로그 등록/수정',
+          organizationDiscountManage: '조직×품목 할인 오버라이드 관리', ceremonyFinalDiscountManage: '행사 건별 재량 할인 관리',
+          ceremonyStatusControl: '행사 상태 강제 변경', purchaseApproval: '추가구매 요청 승인/반려',
         },
       },
       auth: {
@@ -80,6 +83,7 @@ const resources = {
         partners: 'Partners', partnerRequests: 'Partner requests', users: 'Users', adminAccounts: 'Admin accounts',
         billingCatalog: 'Billing catalog', billingSimulator: 'Billing simulator', purchaseRequests: 'Purchase requests',
         auditLogs: 'Audit logs',
+        ceremonyDiscounts: 'Ceremony discounts', organizationDiscountOverrides: 'Organization discount overrides',
       },
       permission: {
         management: 'Permission management',
@@ -88,6 +92,9 @@ const resources = {
           userForceWithdraw: 'Force withdraw user', memberForceControl: 'Control member status (status change / unlock / password reset)',
           partnerCreate: 'Create partner', partnerStatusChange: 'Change partner status', partnerInfoEdit: 'Edit partner info',
           billingCatalogManage: 'Manage billing catalog',
+          organizationDiscountManage: 'Manage organization x item discount overrides',
+          ceremonyFinalDiscountManage: 'Manage per-ceremony discretionary discount',
+          ceremonyStatusControl: 'Force-change ceremony status', purchaseApproval: 'Approve/reject purchase requests',
         },
       },
       auth: {
