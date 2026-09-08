@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
+import { Eye } from 'lucide-react';
 import { api } from '../../../utils/api';
 import { intersectDefinitionsWithRegistry } from '../../../utils/ceremonyEffectCatalog';
 import { completionEffectRegistry, signatureEffectRegistry } from '../projector/projectorEffectRegistry';
+import { EffectPreviewDialog } from '../preview/EffectPreviewDialog';
+import type { EffectPreviewDefinition } from '../preview/EffectPreviewStage';
 import type {
   CeremonyEffectDefinition,
   CeremonyEffectSelection,
@@ -45,13 +48,14 @@ interface Props {
 /**
  * 하위 행사 등록/수정 화면의 "개별/전체 완료 효과 선택" 필드. 레거시
  * `ProjectorEffectSettingsFields.tsx`를 이 백엔드의 계약(선택옵션 종속, effectId 기반 선택,
- * DRAFT/READY 잠금)에 맞게 다시 작성했다 — 미리보기 버튼은 이식하지 않았다(FE-ADMIN 몫,
- * `EffectPreviewErrorBoundary`만 먼저 이식돼 있고 아직 호출부가 없다).
+ * DRAFT/READY 잠금)에 맞게 다시 작성했다. 미리보기는 FE-ADMIN-03에서 만든 공용
+ * `EffectPreviewDialog`를 그대로 재사용한다(목록/등록·수정 draft와 같은 컴포넌트).
  */
 export const CeremonyEventEffectSelectionFields: FC<Props> = ({
   availableFeatures, selectedFeatureIds, value, onChange, disabled = false, dense = false,
 }) => {
   const [definitions, setDefinitions] = useState<CeremonyEffectDefinition[] | null>(null);
+  const [previewEffect, setPreviewEffect] = useState<EffectPreviewDefinition | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,23 +121,43 @@ export const CeremonyEventEffectSelectionFields: FC<Props> = ({
             group.registry,
           );
         const selectedId = value.find((selection) => selection.triggerType === group.triggerType)?.effectId ?? null;
+        const selectedDefinition = options?.find((effect) => effect.id === selectedId) ?? null;
         return (
           <div key={group.triggerType}>
             <label className={labelClass}>{group.label} 효과</label>
-            <select
-              disabled={disabled || options == null || options.length === 0}
-              value={selectedId != null ? String(selectedId) : NONE_VALUE}
-              onChange={(e) => handleSelect(group.triggerType, e.target.value)}
-              className={selectClass}
-            >
-              <option value={NONE_VALUE}>사용 안 함</option>
-              {options?.map((effect) => (
-                <option key={effect.id} value={String(effect.id)}>{effect.displayName}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                disabled={disabled || options == null || options.length === 0}
+                value={selectedId != null ? String(selectedId) : NONE_VALUE}
+                onChange={(e) => handleSelect(group.triggerType, e.target.value)}
+                className={selectClass}
+              >
+                <option value={NONE_VALUE}>사용 안 함</option>
+                {options?.map((effect) => (
+                  <option key={effect.id} value={String(effect.id)}>{effect.displayName}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!selectedDefinition}
+                onClick={() => selectedDefinition && setPreviewEffect({
+                  code: selectedDefinition.code,
+                  displayName: selectedDefinition.displayName,
+                  targetType: selectedDefinition.targetType,
+                  triggerType: selectedDefinition.triggerType,
+                  rendererKey: selectedDefinition.rendererKey,
+                  configJson: selectedDefinition.configJson ? JSON.stringify(selectedDefinition.configJson) : null,
+                })}
+                title="선택한 효과 미리보기"
+                className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Eye size={13} />
+              </button>
+            </div>
           </div>
         );
       })}
+      <EffectPreviewDialog open={previewEffect != null} effect={previewEffect} onClose={() => setPreviewEffect(null)} />
     </div>
   );
 };

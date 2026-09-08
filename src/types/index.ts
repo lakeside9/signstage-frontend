@@ -196,7 +196,10 @@ export type PlatformAdminAction =
   | 'APPROVE_CAPACITY_PURCHASE'
   | 'REJECT_CAPACITY_PURCHASE'
   | 'APPROVE_OPTIONAL_FEATURE_PURCHASE'
-  | 'REJECT_OPTIONAL_FEATURE_PURCHASE';
+  | 'REJECT_OPTIONAL_FEATURE_PURCHASE'
+  | 'CREATE_CEREMONY_EFFECT_DEFINITION'
+  | 'UPDATE_CEREMONY_EFFECT_DEFINITION'
+  | 'REORDER_CEREMONY_EFFECT_DEFINITIONS';
 
 /**
  * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.
@@ -1167,6 +1170,46 @@ export interface CeremonyEffectDefinition {
   displayOrder: number;
   configJson: Record<string, unknown> | null;
   createdAt: string;
+}
+
+/**
+ * POST /api/platform-admin/ceremony-effects 요청
+ * (CeremonyEffectDefinitionDto.Request.CreateCeremonyEffectDefinition)과 맞춘다.
+ * `code`/`targetType`/`triggerType`/`rendererKey`/`requiredOptionalFeatureId`는 등록 후
+ * 불변이라 이 요청에만 있고 아래 Update 요청에는 없다.
+ */
+export interface CreateCeremonyEffectDefinitionRequest {
+  code: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  requiredOptionalFeatureId: number;
+  displayName: string;
+  description: string | null;
+  rendererKey: string;
+  manuallyTriggerable?: boolean;
+  configJson?: Record<string, unknown> | null;
+}
+
+/** PUT /api/platform-admin/ceremony-effects/{id} 요청(CeremonyEffectDefinitionDto.Request.UpdateCeremonyEffectDefinition)과 맞춘다. */
+export interface UpdateCeremonyEffectDefinitionRequest {
+  displayName: string;
+  description: string | null;
+  enabled: boolean;
+  userVisible: boolean;
+  manuallyTriggerable: boolean;
+  configJson?: Record<string, unknown> | null;
+}
+
+/**
+ * PUT /api/platform-admin/ceremony-effects/order 요청
+ * (CeremonyEffectDefinitionDto.Request.ReorderCeremonyEffectDefinitions)과 맞춘다. `orderedIds`는
+ * 이 (targetType, triggerType) 그룹의 id 전체 집합과 정확히 같아야 한다(서버가 크기·포함
+ * 여부를 모두 검사한다 — 일부만 보내면 EFFECT_DEFINITION_ORDER_GROUP_MISMATCH).
+ */
+export interface ReorderCeremonyEffectDefinitionsRequest {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  orderedIds: number[];
 }
 
 /**

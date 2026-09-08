@@ -41,6 +41,9 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   REJECT_CAPACITY_PURCHASE: '용량 추가구매 반려',
   APPROVE_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 승인',
   REJECT_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 반려',
+  CREATE_CEREMONY_EFFECT_DEFINITION: '이벤트 효과 정의 등록',
+  UPDATE_CEREMONY_EFFECT_DEFINITION: '이벤트 효과 정의 수정',
+  REORDER_CEREMONY_EFFECT_DEFINITIONS: '이벤트 효과 정의 순서 변경',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [

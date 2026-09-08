@@ -16,6 +16,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
   User,
   Users,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   ShoppingCart: <ShoppingCart size={20} />,
   ClipboardList: <ClipboardList size={20} />,
   User: <User size={20} />,
+  Sparkles: <Sparkles size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
