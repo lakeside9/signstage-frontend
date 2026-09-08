@@ -22,9 +22,12 @@ import {
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { MappedDocumentPreview } from '../components/MappedDocumentPreview';
+import { EventEffectRuntimeControls } from '../components/effects/settings/EventEffectRuntimeControls';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { parseUtcDate } from '../utils/internationalization';
 import type {
+  CeremonyEventEffectSetting,
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
@@ -135,6 +138,8 @@ export const UserCeremonyEventControl: FC = () => {
   const [results, setResults] = useState<CeremonyResultSummary[]>([]);
   const [isGeneratingResults, setIsGeneratingResults] = useState(false);
 
+  const [effectSettings, setEffectSettings] = useState<CeremonyEventEffectSetting[]>([]);
+
   const basePath = `/ceremonies/${organizationId}/${ceremonyId}`;
   const apiBasePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}/events/${eventId}`;
 
@@ -153,17 +158,23 @@ export const UserCeremonyEventControl: FC = () => {
     return response.data as SignerSummary[];
   };
 
+  const fetchEffectSettings = async () => {
+    const response = await api.get(`${apiBasePath}/effects/settings`);
+    return response.data as CeremonyEventEffectSetting[];
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const [eventData, mappedRes, signersData, strokesRes, signatureStatusData] = await Promise.all([
+        const [eventData, mappedRes, signersData, strokesRes, signatureStatusData, effectSettingsData] = await Promise.all([
           fetchEvent(),
           api.get(`${apiBasePath}/templates`),
           fetchSigners(),
           api.get(`${apiBasePath}/strokes`),
           fetchSignatureStatus(),
+          fetchEffectSettings(),
         ]);
         if (cancelled) return;
 
@@ -171,6 +182,7 @@ export const UserCeremonyEventControl: FC = () => {
         setSigners(signersData);
         setStrokes(strokesRes.data as StrokeSummary[]);
         setSignatureStatuses(signatureStatusData);
+        setEffectSettings(effectSettingsData);
         const mapped = mappedRes.data as CeremonyTemplateSummary[];
         setMappedTemplates(mapped);
 
@@ -254,7 +266,7 @@ export const UserCeremonyEventControl: FC = () => {
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const client = new Client({
-      brokerURL: `${wsProtocol}://${window.location.hostname}:8080/ws-signstage`,
+      brokerURL: `${wsProtocol}://${window.location.hostname}:8050/ws-signstage`,
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe(
@@ -304,6 +316,21 @@ export const UserCeremonyEventControl: FC = () => {
                 .catch(() => {
                   // 실시간 알림은 왔는데 재조회만 실패한 것 — 새로고침하면 되므로 무시한다.
                 });
+            } else if (realtimeEvent.type === 'ceremony.effect.setting.changed') {
+              // FE-EVENT-02 — 다른 관리자 탭에서 runtime을 바꿔도 이 화면 패널이 함께
+              // 동기화된다. 이 메시지는 targetType/triggerType/effectCode/runtimeEnabled만
+              // 담고 있어(displayName 등은 바뀌지 않으므로) 기존 행을 부분 갱신한다.
+              const payload = realtimeEvent.payload as {
+                targetType: string;
+                triggerType: string;
+                effectCode: string;
+                runtimeEnabled: boolean;
+              };
+              setEffectSettings((prev) => prev.map((setting) => (
+                setting.targetType === payload.targetType && setting.triggerType === payload.triggerType
+                  ? { ...setting, runtimeEnabled: payload.runtimeEnabled }
+                  : setting
+              )));
             }
 
             // 완료 상태에 영향을 줄 수 있는 이벤트가 오면 행사 종료 판정과 같은 기준으로
@@ -344,7 +371,7 @@ export const UserCeremonyEventControl: FC = () => {
   useEffect(() => {
     if (!event?.actualStartAt || event.status !== 'STARTED') return;
 
-    const start = new Date(event.actualStartAt).getTime();
+    const start = parseUtcDate(event.actualStartAt).getTime();
     const timer = setInterval(() => {
       const diff = Math.floor((Date.now() - start) / 1000);
       const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -568,6 +595,11 @@ export const UserCeremonyEventControl: FC = () => {
               )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">행사 실시간 제어 및 모니터링</p>
+            {event.status === 'STARTED' && (
+              <div className="mt-2">
+                <EventEffectRuntimeControls apiBasePath={apiBasePath} settings={effectSettings} onSettingsChange={setEffectSettings} />
+              </div>
+            )}
           </div>
         </div>
 

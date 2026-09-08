@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PlatformAdminInfo } from '../types';
+import { useTranslation } from 'react-i18next';
 
 /**
  * signstage-docs business/login-security.md 5장의 로그인 흐름을 구현한다.
@@ -34,6 +35,7 @@ interface LoginResponseData {
 type Step = 'login' | 'change-password';
 
 export const LoginView: FC = () => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>('login');
 
   const [loginId, setLoginId] = useState('');
@@ -54,7 +56,7 @@ export const LoginView: FC = () => {
     e.preventDefault();
 
     if (!loginId || !password) {
-      showSnackbar('아이디와 비밀번호를 입력해주세요.', 'error');
+      showSnackbar(t('auth.enterCredentials'), 'error');
       return;
     }
 
@@ -66,17 +68,17 @@ export const LoginView: FC = () => {
       if (data.passwordChangeRequired) {
         setPasswordResetToken(data.passwordResetToken ?? '');
         setStep('change-password');
-        showSnackbar('최초 로그인입니다. 비밀번호를 변경해주세요.', 'info', null);
+        showSnackbar(t('auth.firstLogin'), 'info', null);
         return;
       }
 
       if (data.accessToken) {
         login(data.accessToken, data.platformAdmin);
-        showSnackbar('로그인되었습니다.', 'success');
+        showSnackbar(t('auth.signedIn'), 'success');
         navigate(data.platformAdmin ? '/admin' : '/', { replace: true });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : '서버와의 통신 중 오류가 발생했습니다.';
+      const message = err instanceof Error ? err.message : t('auth.communicationFailed');
       showSnackbar(message, 'error');
       setPassword('');
     } finally {
@@ -88,11 +90,11 @@ export const LoginView: FC = () => {
     e.preventDefault();
 
     if (!newPassword || !newPasswordConfirm) {
-      showSnackbar('새 비밀번호를 입력해주세요.', 'error');
+      showSnackbar(t('auth.enterNewPassword'), 'error');
       return;
     }
     if (newPassword !== newPasswordConfirm) {
-      showSnackbar('새 비밀번호가 일치하지 않습니다.', 'error');
+      showSnackbar(t('auth.passwordMismatch'), 'error');
       return;
     }
 
@@ -103,14 +105,14 @@ export const LoginView: FC = () => {
         currentPassword: password,
         newPassword,
       });
-      showSnackbar('비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해주세요.', 'success');
+      showSnackbar(t('auth.passwordChanged'), 'success');
       setStep('login');
       setPassword('');
       setPasswordResetToken('');
       setNewPassword('');
       setNewPasswordConfirm('');
     } catch (err) {
-      const message = err instanceof Error ? err.message : '비밀번호 변경에 실패했습니다.';
+      const message = err instanceof Error ? err.message : t('auth.passwordChangeFailed');
       showSnackbar(message, 'error');
     } finally {
       setIsLoading(false);
@@ -126,14 +128,14 @@ export const LoginView: FC = () => {
           </div>
           <h1 className="text-lg font-bold text-gray-950">SignStage</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {step === 'login' ? '관리자 계정으로 로그인하세요' : '처음 로그인 시 비밀번호를 변경해야 합니다'}
+            {t(step === 'login' ? 'auth.signInGuide' : 'auth.changePasswordGuide')}
           </p>
         </div>
 
         {step === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">아이디</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.loginId')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-gray-400">
                   <User size={18} />
@@ -145,13 +147,13 @@ export const LoginView: FC = () => {
                   disabled={isLoading}
                   autoComplete="username"
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                  placeholder="아이디"
+                  placeholder={t('auth.loginId')}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.password')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-gray-400">
                   <Lock size={18} />
@@ -171,7 +173,7 @@ export const LoginView: FC = () => {
                   disabled={isLoading}
                   tabIndex={-1}
                   className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                  aria-label={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -183,20 +185,20 @@ export const LoginView: FC = () => {
               disabled={isLoading}
               className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
             >
-              {isLoading ? '로그인 중...' : '로그인'}
+              {t(isLoading ? 'auth.signingIn' : 'auth.signIn')}
             </button>
 
             <p className="text-center text-sm text-gray-500">
-              계정이 없으신가요?{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/signup" className="text-gray-950 font-medium hover:underline">
-                회원가입
+                {t('auth.signUp')}
               </Link>
             </p>
           </form>
         ) : (
           <form onSubmit={handleChangePassword} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.newPassword')}</label>
               <input
                 type="password"
                 value={newPassword}
@@ -204,12 +206,12 @@ export const LoginView: FC = () => {
                 disabled={isLoading}
                 autoComplete="new-password"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                placeholder="새 비밀번호"
+                placeholder={t('auth.newPassword')}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호 확인</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('auth.confirmNewPassword')}</label>
               <input
                 type="password"
                 value={newPasswordConfirm}
@@ -217,7 +219,7 @@ export const LoginView: FC = () => {
                 disabled={isLoading}
                 autoComplete="new-password"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-                placeholder="새 비밀번호 확인"
+                placeholder={t('auth.confirmNewPassword')}
               />
             </div>
 
@@ -226,7 +228,7 @@ export const LoginView: FC = () => {
               disabled={isLoading}
               className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
             >
-              {isLoading ? '변경 중...' : '비밀번호 변경'}
+              {t(isLoading ? 'auth.changingPassword' : 'auth.changePassword')}
             </button>
 
             <button
@@ -235,7 +237,7 @@ export const LoginView: FC = () => {
               disabled={isLoading}
               className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
             >
-              로그인으로 돌아가기
+              {t('auth.backToSignIn')}
             </button>
           </form>
         )}

@@ -5,6 +5,7 @@ import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type { PageResponse, PlatformAdminAction, PlatformAdminAuditLogEntry } from '../types';
 
 const PAGE_SIZE = 20;
@@ -40,6 +41,9 @@ const ACTION_LABELS: Record<PlatformAdminAction, string> = {
   REJECT_CAPACITY_PURCHASE: '용량 추가구매 반려',
   APPROVE_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 승인',
   REJECT_OPTIONAL_FEATURE_PURCHASE: '선택옵션 구매 반려',
+  CREATE_CEREMONY_EFFECT_DEFINITION: '이벤트 효과 정의 등록',
+  UPDATE_CEREMONY_EFFECT_DEFINITION: '이벤트 효과 정의 수정',
+  REORDER_CEREMONY_EFFECT_DEFINITIONS: '이벤트 효과 정의 순서 변경',
 };
 
 const ACTION_OPTIONS: Array<{ value: PlatformAdminAction | 'ALL'; label: string }> = [
@@ -185,7 +189,7 @@ export const AdminAuditLogList: FC = () => {
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                  {new Date(entry.createdAt).toLocaleString('ko-KR')}
+                  {formatDateTime(entry.createdAt)}
                 </td>
                 <td className="px-4 py-3 text-gray-950 font-medium">
                   {entry.adminLoginId ?? `#${entry.adminUserId}`}

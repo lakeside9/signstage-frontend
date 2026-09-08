@@ -26,11 +26,16 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EventDateTimeInput } from '../components/EventDateTimeInput';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
+import { CeremonyEventEffectSelectionFields } from '../components/effects/settings/CeremonyEventEffectSelectionFields';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import type {
   BillingPlanSummary,
   CapacityStatus,
+  CeremonyEffectDefinition,
+  CeremonyEffectSelection,
+  CeremonyEventEffectSetting,
   CeremonyEventStatus,
   CeremonyEventSummary,
   CeremonyEventType,
@@ -238,6 +243,7 @@ export const UserCeremonyDetail: FC = () => {
   const [editEventScheduledEnd, setEditEventScheduledEnd] = useState('');
   const [editEventDescription, setEditEventDescription] = useState('');
   const [editEventFeatureIds, setEditEventFeatureIds] = useState<number[]>([]);
+  const [editEventEffectSelections, setEditEventEffectSelections] = useState<CeremonyEffectSelection[]>([]);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
 
   // "하위 행사 수정" 모달의 적용 선택옵션 체크박스용 — 이 행사 마스터가 실제로 쓸 수 있는
@@ -372,7 +378,48 @@ export const UserCeremonyDetail: FC = () => {
     setEditEventScheduledEnd(toDateTimeLocalValue(event.scheduledEndAt));
     setEditEventDescription(event.description ?? '');
     setEditEventFeatureIds(event.optionalFeatureIds);
+    setEditEventEffectSelections([]);
   };
+
+  /**
+   * 수정 모달을 열 때 이 행사의 현재 효과 선택을 불러온다. `/effects/settings`는 `effectCode`만
+   * 주므로(BE-SETTING), 화면 select가 쓰는 `effectId`로 되돌리려면 전역 카탈로그(`/ceremony-effects`)와
+   * code+분류로 다시 매칭해야 한다 — 매칭 실패(카탈로그에 없는 code)는 조용히 건너뛴다.
+   */
+  useEffect(() => {
+    if (editingEventId === null) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [settingsResponse, definitionsResponse] = await Promise.all([
+          api.get(`${basePath}/events/${editingEventId}/effects/settings`),
+          api.get('/ceremony-effects'),
+        ]);
+        if (cancelled) return;
+        const settings = settingsResponse.data as CeremonyEventEffectSetting[];
+        const definitions = definitionsResponse.data as CeremonyEffectDefinition[];
+        const selections = settings.reduce<CeremonyEffectSelection[]>((acc, setting) => {
+          const definition = definitions.find((d) => (
+            d.code === setting.effectCode
+            && d.targetType === setting.targetType
+            && d.triggerType === setting.triggerType
+          ));
+          if (definition) {
+            acc.push({ targetType: setting.targetType, triggerType: setting.triggerType, effectId: definition.id });
+          }
+          return acc;
+        }, []);
+        setEditEventEffectSelections(selections);
+      } catch {
+        // 현재 선택을 못 불러와도 처음부터("사용 안 함") 다시 고를 수 있으면 충분하다.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingEventId, basePath]);
 
   /**
    * exclusivityGroup이 있는 옵션을 고르면 같은 그룹의 다른 선택을 자동 해제한다 — 라디오
@@ -405,6 +452,7 @@ export const UserCeremonyDetail: FC = () => {
         scheduledEndAt: editEventScheduledEnd || null,
         description: editEventDescription.trim() || null,
         optionalFeatureIds: editEventFeatureIds,
+        effectSelections: editEventEffectSelections,
       });
       showSnackbar('하위 행사를 저장했습니다.', 'success');
       setEditingEventId(null);
@@ -1863,11 +1911,11 @@ export const UserCeremonyDetail: FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1">실제 시작</p>
-                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualStartAt) ?? '-'}</p>
+                <p className="text-sm text-gray-950">{viewingEvent.actualStartAt ? formatDateTime(viewingEvent.actualStartAt) : '-'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1">실제 종료</p>
-                <p className="text-sm text-gray-950">{formatEventDateTime(viewingEvent.actualEndAt) ?? '-'}</p>
+                <p className="text-sm text-gray-950">{viewingEvent.actualEndAt ? formatDateTime(viewingEvent.actualEndAt) : '-'}</p>
               </div>
             </div>
             <div>
@@ -1970,6 +2018,14 @@ export const UserCeremonyDetail: FC = () => {
               </ul>
             )}
           </div>
+          <CeremonyEventEffectSelectionFields
+            availableFeatures={availableEventFeatures}
+            selectedFeatureIds={editEventFeatureIds}
+            value={editEventEffectSelections}
+            onChange={setEditEventEffectSelections}
+            disabled={processingEventId === editingEventId}
+            dense
+          />
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={() => setEditingEventId(null)}

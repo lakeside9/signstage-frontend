@@ -7,6 +7,7 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import type {
   OrganizationCreationRequestStatus,
@@ -277,12 +278,12 @@ export const AdminOrganizationRequestList: FC = () => {
                     )}
                     {request.status !== 'PENDING' && request.reviewerLoginId && request.reviewedAt && (
                       <p className="mt-1 text-xs text-gray-400">
-                        {request.reviewerLoginId} · {new Date(request.reviewedAt).toLocaleString('ko-KR')}
+                        {request.reviewerLoginId} · {formatDateTime(request.reviewedAt)}
                       </p>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {new Date(request.createdAt).toLocaleString('ko-KR')}
+                    {formatDateTime(request.createdAt)}
                   </td>
                   {canManage && (
                     <td className="px-4 py-3 text-right">

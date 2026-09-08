@@ -5,7 +5,8 @@ import { ArrowLeft, SquareCheckBig } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { EventDateTimeInput } from '../components/EventDateTimeInput';
-import type { CeremonyEventSummary, CeremonyEventType, OptionalFeatureSummary } from '../types';
+import { CeremonyEventEffectSelectionFields } from '../components/effects/settings/CeremonyEventEffectSelectionFields';
+import type { CeremonyEffectSelection, CeremonyEventSummary, CeremonyEventType, OptionalFeatureSummary } from '../types';
 
 /**
  * 하위 행사(CeremonyEvent) 등록 화면. TEST/MAIN 두 유형이 있고(signstage-docs
@@ -33,6 +34,7 @@ export const UserCeremonyEventCreate: FC = () => {
   const [availableFeatures, setAvailableFeatures] = useState<OptionalFeatureSummary[]>([]);
   const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<number[]>([]);
+  const [effectSelections, setEffectSelections] = useState<CeremonyEffectSelection[]>([]);
 
   const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
 
@@ -102,6 +104,7 @@ export const UserCeremonyEventCreate: FC = () => {
         scheduledEndAt: scheduledEndAt || null,
         description: description.trim() || null,
         optionalFeatureIds: selectedFeatureIds,
+        effectSelections,
       });
       const created = response.data as CeremonyEventSummary;
       showSnackbar('하위 행사가 등록되었습니다.', 'success');
@@ -225,6 +228,14 @@ export const UserCeremonyEventCreate: FC = () => {
             </ul>
           )}
         </div>
+
+        <CeremonyEventEffectSelectionFields
+          availableFeatures={availableFeatures}
+          selectedFeatureIds={selectedFeatureIds}
+          value={effectSelections}
+          onChange={setEffectSelections}
+          disabled={isLoading}
+        />
 
         <button
           type="submit"

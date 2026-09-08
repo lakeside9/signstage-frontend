@@ -1,45 +1,28 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactElement } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  FileSignature,
-  Key,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Settings,
-  User,
-} from 'lucide-react';
+import type { FC, ReactNode } from 'react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Building2, ChevronLeft, FileSignature, Key, LayoutDashboard, LogOut, Menu, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
+import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
-import type { UserProfile } from '../types';
-
-interface NavLeaf {
-  to: string;
-  end: boolean;
-  icon: ReactElement;
-  label: string;
-}
-
-const TOP_NAV_ITEMS: NavLeaf[] = [
-  { to: '/', end: true, icon: <LayoutDashboard size={20} />, label: '대시보드' },
-  { to: '/ceremonies', end: false, icon: <FileSignature size={20} />, label: '행사 관리' },
-];
+import type { MenuNode, UserProfile } from '../types';
+import { setInternationalizationPreferences } from '../utils/internationalization';
+import { useTranslation } from 'react-i18next';
 
 /**
- * "설정" 하위 메뉴 — "회사정보관리"(구 "조직 관리")와 "내 정보"를 여기로 옮겼다(2026-08-30
- * 요청). "회사등록요청"(구 "조직 요청")은 당분간 이 메뉴 어디에도 없다 — 지금은 플랫폼 관리자가
- * 직접 파트너(조직)를 등록하고, 사용자 셀프서비스 등록 요청 흐름은 다시 열 때까지 보류한다.
- * 화면(`UserOrganizationRequests`, `/organization-requests`)과 라우트는 그대로 남아 있어서,
- * 나중에 재개하면 이 배열에 항목 하나만 추가하면 된다.
+ * iconKey(서버 `menus.icon_key`) 문자열 → lucide 컴포넌트 — `AdminLayout`과 같은 방식
+ * (signstage-docs business/menu-and-action-permission-management-review.md 7.1절).
  */
-const SETTINGS_NAV_ITEMS: NavLeaf[] = [
-  { to: '/organizations', end: false, icon: <Building2 size={20} />, label: '회사정보관리' },
-  { to: '/profile', end: false, icon: <User size={20} />, label: '내 정보' },
-];
+const ICON_BY_KEY: Record<string, ReactNode> = {
+  LayoutDashboard: <LayoutDashboard size={20} />,
+  FileSignature: <FileSignature size={20} />,
+  Settings: <Settings size={20} />,
+  Building2: <Building2 size={20} />,
+  User: <User size={20} />,
+};
+
+const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
 
 /**
  * 조직 사용자 화면군의 레이아웃 셸(루트 경로). 플랫폼 관리자는 조직에 소속될 수 없고
@@ -56,15 +39,13 @@ const SETTINGS_NAV_ITEMS: NavLeaf[] = [
  * 아직 없다.
  */
 export const UserLayout: FC = () => {
+  const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [menuNodes, setMenuNodes] = useState<MenuNode[]>([]);
   const navigate = useNavigate();
-  const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
-
-  const isSettingsActive = SETTINGS_NAV_ITEMS.some((item) => location.pathname.startsWith(item.to));
-  const [isSettingsOpenByUser, setIsSettingsOpenByUser] = useState(false);
-  const isSettingsOpen = isSettingsOpenByUser || isSettingsActive;
+  const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +54,13 @@ export const UserLayout: FC = () => {
       try {
         const response = await api.get('/identity/me');
         if (!cancelled) {
-          setDisplayName((response.data as UserProfile).name);
+          const profile = response.data as UserProfile;
+          setDisplayName(profile.name);
+          setInternationalizationPreferences({
+            languageCode: profile.languageCode,
+            formatLocale: profile.locale,
+            timeZoneId: profile.timeZoneId,
+          });
         }
       } catch {
         // 헤더에 이름을 못 띄우는 정도라 실패해도 화면을 막지 않는다.
@@ -84,6 +71,13 @@ export const UserLayout: FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    api.get('/organizations/me/menus').then((response) => {
+      setMenuNodes(response.data as MenuNode[]);
+    }).catch(() => undefined);
+    loadMyPermissions('/organizations/me/permissions');
+  }, [loadMyPermissions]);
 
   const handleLogout = () => {
     logout();
@@ -103,14 +97,14 @@ export const UserLayout: FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">{displayName ?? '사용자'}</span>
+            <span className="text-sm font-medium text-gray-700">{displayName ?? t('common.user')}</span>
           </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
           >
             <LogOut size={18} />
-            <span className="hidden sm:block">로그아웃</span>
+            <span className="hidden sm:block">{t('common.logout')}</span>
           </button>
         </div>
       </header>
@@ -122,79 +116,7 @@ export const UserLayout: FC = () => {
           }`}
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-            {TOP_NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'
-                  }`
-                }
-              >
-                <span className="shrink-0">{item.icon}</span>
-                <span
-                  className={`transition-opacity duration-300 whitespace-nowrap ${
-                    isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpenByUser((value) => !value)}
-              className={`flex w-full items-center gap-3 p-3 rounded-xl transition-all ${
-                isSettingsActive ? 'text-gray-950 font-bold' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <span className="shrink-0">
-                <Settings size={20} />
-              </span>
-              <span
-                className={`flex-1 text-left transition-opacity duration-300 whitespace-nowrap ${
-                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                }`}
-              >
-                설정
-              </span>
-              <span
-                className={`shrink-0 transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''} ${
-                  isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                }`}
-              >
-                <ChevronDown size={16} />
-              </span>
-            </button>
-
-            {isSettingsOpen && (
-              <div className="space-y-2">
-                {SETTINGS_NAV_ITEMS.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                        isSidebarOpen ? 'ml-6' : ''
-                      } ${isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'}`
-                    }
-                  >
-                    <span className="shrink-0">{item.icon}</span>
-                    <span
-                      className={`transition-opacity duration-300 whitespace-nowrap ${
-                        isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </NavLink>
-                ))}
-              </div>
-            )}
+            <SidebarMenuTree nodes={menuNodes} isSidebarOpen={isSidebarOpen} iconFor={iconFor} />
           </nav>
 
           <div className="border-t border-gray-100 p-4">
@@ -204,7 +126,7 @@ export const UserLayout: FC = () => {
               className={`flex w-full items-center rounded-xl p-3 text-gray-600 transition-colors hover:bg-gray-100 ${
                 isSidebarOpen ? 'justify-start gap-3' : 'justify-center'
               }`}
-              title={isSidebarOpen ? '사이드바 접기' : '사이드바 펼치기'}
+              title={t(isSidebarOpen ? 'common.collapseSidebar' : 'common.expandSidebar')}
             >
               {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
               <span
@@ -212,7 +134,7 @@ export const UserLayout: FC = () => {
                   isSidebarOpen ? 'opacity-100' : 'hidden opacity-0'
                 }`}
               >
-                사이드바 접기
+                {t('common.collapseSidebar')}
               </span>
             </button>
           </div>

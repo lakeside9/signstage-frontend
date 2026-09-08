@@ -17,6 +17,7 @@ import {
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import type {
   BillingPlanSummary,
   CapacityAddOnSummary,
@@ -63,7 +64,7 @@ const PURCHASE_STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
 };
 
-const formatPrice = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 const formatDiscount = (discountType: string, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
 
@@ -526,6 +527,7 @@ export const UserCeremonyEdit: FC = () => {
   const plan = planSnapshot
     ? {
         name: planSnapshot.planName,
+        currencyCode: planSnapshot.currencyCode,
         supplyPrice: planSnapshot.planSupplyPrice,
         salePrice: planSnapshot.planSalePrice,
         discountType: planSnapshot.planDiscountType,
@@ -733,7 +735,7 @@ export const UserCeremonyEdit: FC = () => {
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">공급가/판매가</span>
               <span className="text-gray-950">
-                {formatPrice(plan.supplyPrice)} / {formatPrice(plan.salePrice)}
+                {formatPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
@@ -778,7 +780,7 @@ export const UserCeremonyEdit: FC = () => {
                   .filter((candidate) => candidate.id !== ceremony.billingPlanId && candidate.active)
                   .map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} — {formatPrice(candidate.salePrice)}
+                      {candidate.name} — {formatPrice(candidate.salePrice, candidate.currencyCode)}
                     </option>
                   ))}
               </select>
@@ -815,19 +817,19 @@ export const UserCeremonyEdit: FC = () => {
           <div className="divide-y divide-gray-100 text-sm">
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">플랜</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.planAppliedPrice)}</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.planAppliedPrice, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">용량 추가구매(승인분)</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.capacityPurchasesTotal)}</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.capacityPurchasesTotal, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">선택옵션 추가구매(승인분)</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.optionalFeaturePurchasesTotal)}</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.optionalFeaturePurchasesTotal, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">소계</span>
-              <span className="text-gray-950 font-medium">{formatPrice(estimatedTotal.subtotal)}</span>
+              <span className="text-gray-950 font-medium">{formatPrice(estimatedTotal.subtotal, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">행사 건별 할인</span>
@@ -837,9 +839,17 @@ export const UserCeremonyEdit: FC = () => {
                   : '없음'}
               </span>
             </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">공급가액</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.netAmount, estimatedTotal.currencyCode)}</span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-500">부가세</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.taxAmount, estimatedTotal.currencyCode)}</span>
+            </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-950 font-bold">최종 금액</span>
-              <span className="text-gray-950 font-bold">{formatPrice(estimatedTotal.finalTotal)}</span>
+              <span className="text-gray-950 font-bold">최종 금액(부가세 포함)</span>
+              <span className="text-gray-950 font-bold">{formatPrice(estimatedTotal.grossAmount, estimatedTotal.currencyCode)}</span>
             </div>
           </div>
         )}
@@ -932,7 +942,7 @@ export const UserCeremonyEdit: FC = () => {
                         </>
                       )}
                     </p>
-                    <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
+                    <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
                     {purchase.status === 'REJECTED' && purchase.rejectionReason && (
                       <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
                     )}
@@ -1025,7 +1035,7 @@ export const UserCeremonyEdit: FC = () => {
                   <div>
                     {/* 구매 시점 이름 스냅샷을 쓴다 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */}
                     <p className="text-sm text-gray-950">{purchase.purchasedName}</p>
-                    <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleString('ko-KR')}</p>
+                    <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
                     {purchase.status === 'REJECTED' && purchase.rejectionReason && (
                       <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
                     )}
@@ -1056,7 +1066,7 @@ export const UserCeremonyEdit: FC = () => {
                   {history.planMaxTemplates}건 · 테스트 {history.planMaxTestEvents}건 · 본행사{' '}
                   {history.planMaxMainEvents}건
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(history.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
             ))}
           </ul>

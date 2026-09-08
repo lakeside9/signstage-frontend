@@ -13,10 +13,10 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
     ],
     server: {
-      port: parseInt(env.VITE_PORT) || 3300,
+      port: parseInt(env.VITE_PORT) || 3200,
       proxy: {
         '/api': {
-          target: env.VITE_API_TARGET || 'http://localhost:8080',
+          target: env.VITE_API_TARGET || 'http://localhost:8050',
           changeOrigin: true,
         },
       },
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       environmentOptions: {
         jsdom: {
-          url: 'http://localhost:3300/',
+          url: 'http://localhost:3200/',
         },
       },
       setupFiles: './src/test/setup.ts',

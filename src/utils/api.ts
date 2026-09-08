@@ -1,10 +1,69 @@
 import { useAuthStore } from '../store/useAuthStore';
+import i18n from '../i18n';
+import { getInternationalizationPreferences } from './internationalization';
 
 const BASE_URL = '/api';
 
 interface RequestOptions extends RequestInit {
   data?: unknown;
 }
+
+export interface ApiFieldError {
+  field: string;
+  code: string;
+  messageKey?: string | null;
+  messageArgs?: Record<string, unknown>;
+  message?: string | null;
+}
+
+interface ApiErrorResponse {
+  code?: string;
+  message?: string;
+  messageKey?: string;
+  messageArgs?: Record<string, unknown>;
+  fieldErrors?: ApiFieldError[];
+  traceId?: string;
+}
+
+const translatedMessage = (error: ApiErrorResponse, fallbackKey: string) => {
+  if (error.messageKey && i18n.exists(error.messageKey)) {
+    return i18n.t(error.messageKey, error.messageArgs ?? {});
+  }
+  return error.message || i18n.t(fallbackKey);
+};
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly messageKey: string | null;
+  readonly messageArgs: Record<string, unknown>;
+  readonly fieldErrors: ApiFieldError[];
+  readonly traceId: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string,
+    messageKey: string | null,
+    messageArgs: Record<string, unknown>,
+    fieldErrors: ApiFieldError[],
+    traceId: string | null,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.messageKey = messageKey;
+    this.messageArgs = messageArgs;
+    this.fieldErrors = fieldErrors;
+    this.traceId = traceId;
+  }
+}
+
+const toApiError = (status: number, error: ApiErrorResponse, fallbackKey: string) => new ApiError(
+  translatedMessage(error, fallbackKey), status, error.code ?? 'UNKNOWN_ERROR', error.messageKey ?? null,
+  error.messageArgs ?? {}, error.fieldErrors ?? [], error.traceId ?? null,
+);
 
 const buildAuthHeaders = (data?: unknown): Record<string, string> => {
   const headers: Record<string, string> = {};
@@ -16,6 +75,7 @@ const buildAuthHeaders = (data?: unknown): Record<string, string> => {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  headers['Accept-Language'] = getInternationalizationPreferences().languageCode;
   return headers;
 };
 
@@ -44,15 +104,17 @@ export const apiFetch = async (endpoint: string, options: RequestOptions = {}) =
   // 로그인 요청 자체의 401(아이디/비밀번호 불일치)은 세션 만료가 아니므로
   // 강제 로그아웃/리다이렉트 없이 실제 에러 메시지를 그대로 호출자에게 전달한다.
   // signstage-docs business/login-security.md 4.3절 참고.
-  if (response.status === 401 && endpoint !== '/identity/login') {
-    useAuthStore.getState().logout();
-    window.location.href = '/login';
-    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
-  }
-
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || '요청 처리에 실패했습니다.');
+    const errorData: ApiErrorResponse = await response.json().catch(() => ({}));
+    if (response.status === 401 && endpoint !== '/identity/login') {
+      useAuthStore.getState().logout();
+      window.location.href = '/login';
+      throw new ApiError(
+        i18n.t('common.sessionExpired'), 401, errorData.code ?? 'SESSION_EXPIRED',
+        errorData.messageKey ?? null, errorData.messageArgs ?? {}, errorData.fieldErrors ?? [], errorData.traceId ?? null,
+      );
+    }
+    throw toApiError(response.status, errorData, 'common.requestFailed');
   }
 
   if (response.status === 204) {
@@ -70,15 +132,17 @@ export const apiFetch = async (endpoint: string, options: RequestOptions = {}) =
 export const apiFetchBlob = async (endpoint: string): Promise<Blob> => {
   const response = await fetch(`${BASE_URL}${endpoint}`, { headers: buildAuthHeaders() });
 
-  if (response.status === 401) {
-    useAuthStore.getState().logout();
-    window.location.href = '/login';
-    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
-  }
-
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || '파일을 불러오지 못했습니다.');
+    const errorData: ApiErrorResponse = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      useAuthStore.getState().logout();
+      window.location.href = '/login';
+      throw new ApiError(
+        i18n.t('common.sessionExpired'), 401, errorData.code ?? 'SESSION_EXPIRED',
+        errorData.messageKey ?? null, errorData.messageArgs ?? {}, errorData.fieldErrors ?? [], errorData.traceId ?? null,
+      );
+    }
+    throw toApiError(response.status, errorData, 'common.fileLoadFailed');
   }
 
   return response.blob();

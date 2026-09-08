@@ -4,8 +4,10 @@ import { Link, useParams } from 'react-router-dom';
 import { FileSignature, Plus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { formatDate } from '../utils/internationalization';
 import type { BillingPlanSummary, CeremonyStatus, CeremonySummary, PageResponse } from '../types';
 
 const PAGE_SIZE = 20;
@@ -57,6 +59,7 @@ export const UserCeremonyList: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const canCreate = usePermissionStore((state) => state.hasPermission('ACTION_CEREMONY_CREATE'));
 
   useEffect(() => {
     let cancelled = false;
@@ -129,13 +132,15 @@ export const UserCeremonyList: FC = () => {
           <h1 className="text-xl font-bold text-gray-950">행사 관리</h1>
           <p className="mt-1 text-sm text-gray-500">행사 마스터(Ceremony) 목록입니다. 하나의 행사 아래 여러 하위 행사(TEST/MAIN)를 둘 수 있습니다.</p>
         </div>
-        <Link
-          to={`/ceremonies/${organizationId}/new`}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-        >
-          <Plus size={16} />
-          새 행사
-        </Link>
+        {canCreate && (
+          <Link
+            to={`/ceremonies/${organizationId}/new`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            <Plus size={16} />
+            새 행사
+          </Link>
+        )}
       </div>
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
@@ -215,7 +220,7 @@ export const UserCeremonyList: FC = () => {
                 <td className="px-4 py-3 text-gray-600">{ceremony.organizingDepartment || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{ceremony.contactName || '-'}</td>
                 <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
-                  {new Date(ceremony.createdAt).toLocaleDateString('ko-KR')}
+                  {formatDate(ceremony.createdAt)}
                 </td>
               </tr>
             ))}

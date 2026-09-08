@@ -287,7 +287,7 @@ export const SignerPortalView: FC = () => {
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const client = new Client({
-      brokerURL: `${wsProtocol}://${window.location.hostname}:8080/ws-signstage`,
+      brokerURL: `${wsProtocol}://${window.location.hostname}:8050/ws-signstage`,
       reconnectDelay: 5000,
       onConnect: () => {
         setIsRealtimeConnected(true);

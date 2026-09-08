@@ -1,3 +1,15 @@
+import type {
+  CeremonyEffectTarget,
+  CeremonyEffectTrigger,
+} from '../utils/ceremonyEffectCatalog';
+
+export type {
+  AllSignaturesCompleteEffect,
+  CeremonyEffectTarget,
+  CeremonyEffectTrigger,
+  SignatureCompleteEffect,
+} from '../utils/ceremonyEffectCatalog';
+
 /**
  * signstage-docs business/user-organization-design.md 7장의 platformRole 값과 맞춘다.
  */
@@ -20,7 +32,9 @@ export interface UserProfile {
   name: string;
   email: string;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   platformRole: PlatformRole | null;
 }
 
@@ -43,7 +57,10 @@ export interface OrganizationSummary {
   name: string;
   code: string;
   status: string;
+  defaultLanguageCode: string;
   defaultLocale: string;
+  defaultTimeZoneId: string;
+  billingCurrencyCode: string;
   createdAt: string;
   /** 호출한 사용자가 이 조직에서 가진 역할. OWNER만 조직 정보를 수정할 수 있다. */
   myRole: MemberRole;
@@ -59,7 +76,10 @@ export interface OrganizationHistorySummary {
   name: string;
   code: string;
   status: OrganizationStatus;
+  defaultLanguageCode: string;
   defaultLocale: string;
+  defaultTimeZoneId: string;
+  billingCurrencyCode: string;
   createdBy: number | null;
   createdAt: string;
 }
@@ -125,7 +145,9 @@ export interface PlatformAdminUserSummary {
   /** 탈퇴 처리된 계정은 PII 마스킹으로 null이다(user-organization-design.md 8.2절). */
   email: string | null;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   status: UserStatus;
   platformRole: PlatformRole | null;
   locked: boolean;
@@ -174,7 +196,10 @@ export type PlatformAdminAction =
   | 'APPROVE_CAPACITY_PURCHASE'
   | 'REJECT_CAPACITY_PURCHASE'
   | 'APPROVE_OPTIONAL_FEATURE_PURCHASE'
-  | 'REJECT_OPTIONAL_FEATURE_PURCHASE';
+  | 'REJECT_OPTIONAL_FEATURE_PURCHASE'
+  | 'CREATE_CEREMONY_EFFECT_DEFINITION'
+  | 'UPDATE_CEREMONY_EFFECT_DEFINITION'
+  | 'REORDER_CEREMONY_EFFECT_DEFINITIONS';
 
 /**
  * GET /api/platform-admin/audit-logs 응답(PlatformAdminAuditLogDto.Response.AuditLogEntry)과 맞춘다.
@@ -192,6 +217,65 @@ export interface PlatformAdminAuditLogEntry {
   detail: string | null;
   requestPath: string | null;
   createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/menus 응답 하나(MenuDto.Response.MenuNode)와 맞춘다 — signstage-docs
+ * business/menu-and-action-permission-management-review.md 7.1/10장. 호출자의 역할이 허용하지
+ * 않는 메뉴는 서버가 이미 걸러 응답에서 뺀다.
+ */
+export interface MenuNode {
+  id: number;
+  menuKey: string;
+  labelKey: string;
+  label: string;
+  path: string | null;
+  iconKey: string | null;
+  displayOrder: number;
+  children: MenuNode[];
+}
+
+/**
+ * GET /api/platform-admin/menus/admin?console= 응답 하나(MenuDto.Response.MenuAdminRow)와
+ * 맞춘다 — 메뉴 관리 화면 전용, 역할 필터링 없이 평면 목록으로 내려온다.
+ */
+export interface MenuAdminRow {
+  id: number;
+  parentMenuId: number | null;
+  menuKey: string;
+  labelKey: string;
+  label: string;
+  path: string | null;
+  iconKey: string | null;
+  displayOrder: number;
+  active: boolean;
+}
+
+/**
+ * GET /api/platform-admin/permissions/me 또는 GET /api/organizations/me/permissions
+ * 응답(PermissionDto.Response.MyPermissions)과 맞춘다. roleValue는 축에 따라 PlatformRole
+ * 또는 MemberRole 값을 담아 string으로 둔다(조직 멤버십이 없으면 null).
+ */
+export interface MyPermissions {
+  roleAxis: string;
+  roleValue: string | null;
+  permissionKeys: string[];
+}
+
+/** 관리 화면의 역할×권한 매트릭스 한 행(PermissionDto.Response.PermissionMatrixRow)과 맞춘다. */
+export interface PermissionMatrixRow {
+  permissionDefinitionId: number;
+  permissionKey: string;
+  permissionType: 'MENU' | 'ACTION';
+  labelKey: string;
+  displayOrder: number;
+  roleAllowances: PermissionRoleAllowance[];
+}
+
+/** roleValue는 축에 따라 PlatformRole 또는 MemberRole 값이다. */
+export interface PermissionRoleAllowance {
+  roleValue: string;
+  allowed: boolean;
 }
 
 /** signstage-docs business/user-organization-design.md 3.2절의 organizations.status 값과 맞춘다. */
@@ -259,7 +343,9 @@ export interface PlatformAdminUserHistorySummary {
   name: string;
   email: string | null;
   phone: string | null;
+  languageCode: string;
   locale: string;
+  timeZoneId: string;
   status: UserStatus;
   platformRole: PlatformRole | null;
   passwordResetRequired: boolean;
@@ -318,10 +404,12 @@ export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
 export interface BillingPlanSummary {
   id: number;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -349,10 +437,12 @@ export interface BillingPlanSummary {
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -370,10 +460,12 @@ export interface BillingPlanHistorySummary {
  */
 export interface CreateBillingPlanRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -387,10 +479,12 @@ export interface CreateBillingPlanRequest {
 /** PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다. */
 export interface UpdateBillingPlanRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   maxSigners: number;
   maxTemplates: number;
   maxTestEvents: number;
@@ -415,13 +509,21 @@ export interface OptionalFeatureSummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
-  /** 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제 동작은 projectorEffects.ts에 코드별로 구현돼 있어야 한다. */
+  /**
+   * 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제
+   * 동작은 이 옵션이 여는 `CeremonyEffectDefinition`(효과 카탈로그)과
+   * `components/effects/projector/projectorEffectRegistry.ts`(Renderer 등록)에 있다
+   * (CUTOVER-03 — 예전엔 `pages/projectorEffects.ts`의 옵션→액션 직접 매핑이 이 역할을
+   * 했었다).
+   */
   projectorEffect: boolean;
   /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
@@ -438,10 +540,12 @@ export interface OptionalFeatureHistorySummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
@@ -453,10 +557,12 @@ export interface OptionalFeatureHistorySummary {
 export interface CreateOptionalFeatureRequest {
   code: OptionalFeatureCode;
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   /** 생략하면(undefined) 백엔드 기본값 true. */
   projectorEffect?: boolean;
   exclusivityGroup?: string | null;
@@ -468,10 +574,12 @@ export interface CreateOptionalFeatureRequest {
  */
 export interface UpdateOptionalFeatureRequest {
   name: string;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
@@ -491,10 +599,12 @@ export interface CapacityAddOnSummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
   /** 이 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
@@ -512,10 +622,12 @@ export interface CapacityAddOnHistorySummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
+  currencyCode: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode: string;
   active: boolean;
   createdBy: number;
   createdAt: string;
@@ -528,10 +640,12 @@ export interface CreateCapacityAddOnRequest {
   /** 묶음 상품일 때만 지정한다(예: "서명자+태블릿"). 없으면 단일 상품. */
   secondaryCapacityType?: CapacityType | null;
   secondaryUnitAmount?: number | null;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
 }
 
 /**
@@ -542,10 +656,12 @@ export interface CreateCapacityAddOnRequest {
 export interface UpdateCapacityAddOnRequest {
   unitAmount: number;
   secondaryUnitAmount?: number | null;
+  currencyCode?: string;
   supplyPrice: number;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
+  taxCode?: string;
   active: boolean;
 }
 
@@ -671,6 +787,9 @@ export interface CeremonySummary {
   id: number;
   organizationId: number;
   billingPlanId: number;
+  currencyCode: string;
+  currencyFractionDigits: number;
+  timeZoneId: string;
   title: string;
   description: string | null;
   status: CeremonyStatus;
@@ -707,6 +826,11 @@ export interface EstimatedTotal {
   subtotal: number;
   finalDiscountType: DiscountType;
   finalDiscountValue: number;
+  currencyCode: string;
+  fractionDigits: number;
+  netAmount: number;
+  taxAmount: number;
+  grossAmount: number;
   finalTotal: number;
 }
 
@@ -741,10 +865,12 @@ export interface CeremonyPlanHistorySummary {
   id: number;
   billingPlanId: number;
   planName: string;
+  currencyCode: string;
   planSupplyPrice: number;
   planSalePrice: number;
   planDiscountType: DiscountType;
   planDiscountValue: number;
+  taxCode: string;
   planMaxSigners: number;
   planMaxTemplates: number;
   planMaxTestEvents: number;
@@ -779,9 +905,11 @@ export interface CapacityPurchaseSummary {
   purchasedUnitAmount: number;
   /** 묶음 상품(예: "서명자+태블릿")이었을 때만 값이 있다 — 구매 시점 보조 용량 단가 스냅샷. */
   purchasedSecondaryUnitAmount: number | null;
+  currencyCode: string;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  purchasedTaxCode: string;
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
@@ -816,9 +944,11 @@ export interface OptionalFeaturePurchaseSummary {
   optionalFeatureId: number;
   /** 구매 시점 이름 스냅샷 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */
   purchasedName: string;
+  currencyCode: string;
   purchasedSalePrice: number;
   purchasedDiscountType: DiscountType;
   purchasedDiscountValue: number;
+  purchasedTaxCode: string;
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
@@ -892,6 +1022,8 @@ export interface CreateCeremonyEventRequest {
   scheduledEndAt: string | null;
   description: string | null;
   optionalFeatureIds?: number[];
+  /** 생략하면(undefined) 아무 효과도 선택하지 않는다(BE-SETTING-02). */
+  effectSelections?: CeremonyEffectSelection[];
 }
 
 /**
@@ -906,6 +1038,8 @@ export interface UpdateCeremonyEventRequest {
   scheduledEndAt: string | null;
   description: string | null;
   optionalFeatureIds?: number[];
+  /** 생략하면(undefined) 기존 선택을 그대로 두고, 빈 배열을 명시적으로 보내면 전부 해제한다. */
+  effectSelections?: CeremonyEffectSelection[];
 }
 
 /** PUT .../events/{eventId}/optional-features 요청(CeremonyEventDto.Request.UpdateOptionalFeatures)과 맞춘다. */
@@ -976,18 +1110,25 @@ export type CeremonyActorType = 'ADMIN' | 'SIGNER';
 export type CeremonyEventAction =
   | 'START_EVENT'
   | 'FINISH_EVENT'
+  | 'FORCE_FINISH_EVENT'
   | 'SIGNATURE_COMPLETE'
   | 'SIGNATURE_CLEAR'
   | 'SIGNATURE_REPLACE'
-  | 'GENERATE_RESULTS';
+  | 'GENERATE_RESULTS'
+  | 'EFFECT_AUTO_TRIGGERED'
+  | 'EFFECT_MANUAL_TRIGGERED'
+  | 'EFFECT_RUNTIME_CHANGED';
 
 /**
  * feature.ceremony.service.CeremonyRealtimeNotifier가 보내는 "type" 값과 맞춘다.
  * `SIGNATURE_STROKE_SUBMITTED`는 행사제어/프로젝터 화면의 실시간 펜 궤적 렌더링 전용이다
  * (payload: signerId/templateFieldId/strokeSeq/rawData) — legacy처럼 "확정 이벤트만
  * 전파"하던 정책을 이번에 뒤집었다. `ALL_SIGNERS_COMPLETED`(payload 없음)는 그 이벤트의
- * 필수 서명자 전원이 방금 완료로 전환된 순간에만 온다 — 프로젝터의 폭죽(ALL_SIGNED_FIREWORKS)
- * 연출 트리거 전용이다(`pages/projectorEffects.ts`).
+ * 필수 서명자 전원이 방금 완료로 전환된 순간에만 온다 — 구 frontend 호환용 "사실" 이벤트라
+ * 신규 frontend는 이걸로 효과를 실행하지 않는다(`ceremony.effect.requested`만 재생한다,
+ * signstage-docs business/ceremony-event-effect-implementation-tasks.md PRE-04).
+ * `ceremony.effect.requested`/`ceremony.effect.setting.changed`는 이벤트 효과
+ * 전용(BE-RUNTIME) — 대문자 "사실" 이벤트와 다르게 점(dot) 표기를 쓴다.
  */
 export type RealtimeEventType =
   | 'EVENT_STATUS_CHANGED'
@@ -995,19 +1136,146 @@ export type RealtimeEventType =
   | 'SIGNATURE_CLEARED'
   | 'SIGNATURE_REPLACED'
   | 'SIGNATURE_STROKE_SUBMITTED'
-  | 'ALL_SIGNERS_COMPLETED';
+  | 'ALL_SIGNERS_COMPLETED'
+  | 'ceremony.effect.requested'
+  | 'ceremony.effect.setting.changed';
 
 /**
  * WebSocket(STOMP) `/topic/events/{eventId}/state` 메시지 봉투(RealtimeEventDto)와 맞춘다.
  * `payload`는 `type`마다 모양이 달라(EVENT_STATUS_CHANGED: previousStatus/newStatus,
  * SIGNATURE_COMPLETED/REPLACED: signerId/signerName, SIGNATURE_CLEARED: signerId/
  * templateFieldId) 느슨하게 `Record<string, unknown>`으로 두고 처리부에서 타입 단언한다.
+ * `version`은 단조 증가 순번 — 효과 요청/runtime 변경/서명 완료는 그 사건의 감사 로그 id,
+ * 그 외 기존 "사실" 이벤트는 전환 기간 동안 `null`이다(PRE-04).
  */
 export interface RealtimeEventMessage {
   type: RealtimeEventType;
   eventId: number;
   occurredAt: string;
   payload: Record<string, unknown>;
+  version: number | null;
+}
+
+/**
+ * GET /api/ceremony-effects, GET/POST .../platform-admin/ceremony-effects(/{id}) 응답
+ * (CeremonyEffectDefinitionDto.Response.CeremonyEffectDefinitionSummary)과 맞춘다 —
+ * signstage-docs business/ceremony-event-effect-implementation-tasks.md BE-CATALOG/FE-CORE-01.
+ */
+export interface CeremonyEffectDefinition {
+  id: number;
+  code: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  requiredOptionalFeatureId: number;
+  displayName: string;
+  description: string | null;
+  rendererKey: string;
+  enabled: boolean;
+  userVisible: boolean;
+  manuallyTriggerable: boolean;
+  displayOrder: number;
+  configJson: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/**
+ * POST /api/platform-admin/ceremony-effects 요청
+ * (CeremonyEffectDefinitionDto.Request.CreateCeremonyEffectDefinition)과 맞춘다.
+ * `code`/`targetType`/`triggerType`/`rendererKey`/`requiredOptionalFeatureId`는 등록 후
+ * 불변이라 이 요청에만 있고 아래 Update 요청에는 없다.
+ */
+export interface CreateCeremonyEffectDefinitionRequest {
+  code: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  requiredOptionalFeatureId: number;
+  displayName: string;
+  description: string | null;
+  rendererKey: string;
+  manuallyTriggerable?: boolean;
+  configJson?: Record<string, unknown> | null;
+}
+
+/** PUT /api/platform-admin/ceremony-effects/{id} 요청(CeremonyEffectDefinitionDto.Request.UpdateCeremonyEffectDefinition)과 맞춘다. */
+export interface UpdateCeremonyEffectDefinitionRequest {
+  displayName: string;
+  description: string | null;
+  enabled: boolean;
+  userVisible: boolean;
+  manuallyTriggerable: boolean;
+  configJson?: Record<string, unknown> | null;
+}
+
+/**
+ * PUT /api/platform-admin/ceremony-effects/order 요청
+ * (CeremonyEffectDefinitionDto.Request.ReorderCeremonyEffectDefinitions)과 맞춘다. `orderedIds`는
+ * 이 (targetType, triggerType) 그룹의 id 전체 집합과 정확히 같아야 한다(서버가 크기·포함
+ * 여부를 모두 검사한다 — 일부만 보내면 EFFECT_DEFINITION_ORDER_GROUP_MISMATCH).
+ */
+export interface ReorderCeremonyEffectDefinitionsRequest {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  orderedIds: number[];
+}
+
+/**
+ * PUT .../events/{eventId}/effects/settings 요청 안의 항목 하나
+ * (CeremonyEventEffectSettingDto.Request.EffectSelection)와 맞춘다 —
+ * `CreateCeremonyEvent`/`UpdateCeremonyEvent` 요청의 `effectSelections`도 이 타입의 배열을
+ * 그대로 쓴다(BE-SETTING-02, 여러 요청이 공유하는 DTO). `effectId`가 null이면 이 분류를
+ * 해제(NONE)한다.
+ */
+export interface CeremonyEffectSelection {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectId: number | null;
+}
+
+/**
+ * GET .../events/{eventId}/effects/settings, GET /api/projector/events/{eventAccessKey}/effects/settings
+ * 응답(CeremonyEventEffectSettingDto.Response.EffectSettingSummary)과 맞춘다 — 조직 스코프
+ * 조회와 공개 프로젝터 snapshot이 같은 모양을 쓴다(PRE-04).
+ */
+export interface CeremonyEventEffectSetting {
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectCode: string;
+  rendererKey: string;
+  displayName: string;
+  runtimeEnabled: boolean;
+  manuallyTriggerable: boolean;
+}
+
+/**
+ * 프로젝터 화면에서 문서 페이지 한 장이 실제로 화면에 그려진 위치·크기(px) — signstage-docs
+ * business/ceremony-event-effect-implementation-tasks.md FE-CORE-03. `ProjectorView`가 이미
+ * 갖고 있는 지역 `PageFrame` 개념과 같은 모양이라, FE-PROJECTOR에서 그대로 넘겨 쓸 수 있다.
+ */
+export interface ProjectorEffectPageFrame {
+  pageIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * `useCeremonyEffectScheduler`/`ProjectorEffects`가 다루는 재생 요청 하나 — signstage-docs
+ * business/ceremony-event-effect-implementation-tasks.md FE-CORE-02/03. `effectCode`는 항상
+ * 채워져 있다 — `useProjectorEffectsController`가 요청을 만드는 시점에 이미
+ * `CeremonyEventEffectSetting`으로 해석해 넣어 둔다(SIGNATURE_COMPLETED는 설정 스냅샷에서,
+ * ALL_SIGNATURES_COMPLETED는 `ceremony.effect.requested` payload에서). `ProjectorEffects`는
+ * 이 값이 로컬 Registry에 없으면 그 즉시 완료 처리하고 다음 큐로 넘어간다.
+ */
+export interface ProjectorEffectRequest {
+  kind: CeremonyEffectTrigger;
+  requestId: string;
+  targetType: CeremonyEffectTarget;
+  triggerType: CeremonyEffectTrigger;
+  effectCode: string;
+  signerId?: number;
+  completionId?: string;
+  triggeredBy?: 'auto' | 'manual';
 }
 
 /**
@@ -1296,7 +1564,13 @@ export interface ProjectorContext {
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
-  /** 이 하위 행사에 적용된 선택옵션 코드 — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출 효과의 on/off 판단에 쓴다. */
+  /**
+   * 이 하위 행사에 적용된 선택옵션 코드. **CUTOVER-03 이후 프런트에서는 더 이상 읽지
+   * 않는다** — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출은 이제 이벤트 효과 설정
+   * (`CeremonyEventEffectSetting`)과 `useProjectorEffectsController`가 대신 판단한다.
+   * 백엔드 `ProjectorService`가 이 필드를 여전히 내려주므로(구 이벤트 adapter 정리
+   * 전이라 아직 지우지 않았다) 타입만 남겨 배선(wire) 형태를 그대로 반영해 둔다.
+   */
   appliedOptionalFeatureCodes: OptionalFeatureCode[];
 }
 
