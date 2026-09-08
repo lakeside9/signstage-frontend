@@ -15,6 +15,10 @@ import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { AdminBillingCatalog } from './pages/AdminBillingCatalog';
 import { AdminBillingSimulator } from './pages/AdminBillingSimulator';
 import { AdminCeremonyPurchaseRequests } from './pages/AdminCeremonyPurchaseRequests';
+import { AdminCeremonyDiscounts } from './pages/AdminCeremonyDiscounts';
+import { AdminCeremonyDiscountDetail } from './pages/AdminCeremonyDiscountDetail';
+import { AdminOrganizationDiscountOverrides } from './pages/AdminOrganizationDiscountOverrides';
+import { AdminOrganizationDiscountOverrideDetail } from './pages/AdminOrganizationDiscountOverrideDetail';
 import { AdminPermissionMatrix } from './pages/AdminPermissionMatrix';
 import { AdminMenuManager } from './pages/AdminMenuManager';
 import { CeremonyEffectManagement } from './pages/CeremonyEffectManagement';
@@ -116,6 +120,13 @@ function App() {
           <Route path="billing-catalog" element={<AdminBillingCatalog />} />
           <Route path="billing-simulator" element={<AdminBillingSimulator />} />
           <Route path="purchase-requests" element={<AdminCeremonyPurchaseRequests />} />
+          <Route path="ceremony-discounts" element={<AdminCeremonyDiscounts />} />
+          <Route path="ceremony-discounts/:organizationId/:ceremonyId" element={<AdminCeremonyDiscountDetail />} />
+          <Route path="organization-discount-overrides" element={<AdminOrganizationDiscountOverrides />} />
+          <Route
+            path="organization-discount-overrides/:organizationId/:itemType/:itemId"
+            element={<AdminOrganizationDiscountOverrideDetail />}
+          />
           <Route path="permissions" element={<AdminPermissionMatrix />} />
           <Route path="menus" element={<AdminMenuManager />} />
           <Route path="effects" element={<CeremonyEffectManagement />} />

@@ -38,6 +38,8 @@ const CAPACITY_TYPE_LABEL: Record<string, string> = {
   REHEARSAL_EVENTS: '리허설 행사 수',
   MAIN_EVENTS: '본행사 수',
   TABLETS: '태블릿 수',
+  ONSITE_SUPPORT: '현장지원 건수',
+  ONLINE_SUPPORT: '온라인지원 건수',
 };
 
 /** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
@@ -532,11 +534,13 @@ export const UserCeremonyEdit: FC = () => {
         salePrice: planSnapshot.planSalePrice,
         discountType: planSnapshot.planDiscountType,
         discountValue: planSnapshot.planDiscountValue,
-        maxSigners: planSnapshot.planMaxSigners,
-        maxTemplates: planSnapshot.planMaxTemplates,
-        maxTestEvents: planSnapshot.planMaxTestEvents,
-        maxRehearsalEvents: planSnapshot.planMaxRehearsalEvents,
-        maxMainEvents: planSnapshot.planMaxMainEvents,
+        capacities: {
+          SIGNERS: planSnapshot.planMaxSigners,
+          TEMPLATES: planSnapshot.planMaxTemplates,
+          TEST_EVENTS: planSnapshot.planMaxTestEvents,
+          REHEARSAL_EVENTS: planSnapshot.planMaxRehearsalEvents,
+          MAIN_EVENTS: planSnapshot.planMaxMainEvents,
+        },
       }
     : (plans.find((p) => p.id === ceremony.billingPlanId) ?? null);
 
@@ -732,11 +736,12 @@ export const UserCeremonyEdit: FC = () => {
               <span className="text-gray-500">플랜명</span>
               <span className="text-gray-950 font-medium">{plan.name}</span>
             </div>
+            {/* 공급가(원가)는 내부 전용이라 사용자 화면에 노출하지 않는다(signstage-docs
+                business/billing-catalog-operations-review.md 4장) — 이전엔 여기서
+                "공급가/판매가"로 같이 보여주고 있었다(2026-09-08 발견·수정). */}
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">공급가/판매가</span>
-              <span className="text-gray-950">
-                {formatPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
-              </span>
+              <span className="text-gray-500">판매가</span>
+              <span className="text-gray-950">{formatPrice(plan.salePrice, plan.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">할인</span>
@@ -744,23 +749,23 @@ export const UserCeremonyEdit: FC = () => {
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">서명자 한도</span>
-              <span className="text-gray-950">{plan.maxSigners}명</span>
+              <span className="text-gray-950">{plan.capacities.SIGNERS}명</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">템플릿 한도</span>
-              <span className="text-gray-950">{plan.maxTemplates}건</span>
+              <span className="text-gray-950">{plan.capacities.TEMPLATES}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">테스트 행사 한도</span>
-              <span className="text-gray-950">{plan.maxTestEvents}건</span>
+              <span className="text-gray-950">{plan.capacities.TEST_EVENTS}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">리허설 행사 한도</span>
-              <span className="text-gray-950">{plan.maxRehearsalEvents}건</span>
+              <span className="text-gray-950">{plan.capacities.REHEARSAL_EVENTS}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">본행사 한도</span>
-              <span className="text-gray-950">{plan.maxMainEvents}건</span>
+              <span className="text-gray-950">{plan.capacities.MAIN_EVENTS}건</span>
             </div>
           </div>
         )}

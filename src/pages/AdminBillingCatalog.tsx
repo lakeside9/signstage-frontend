@@ -18,6 +18,7 @@ import type {
   CreateCapacityAddOnRequest,
   CreateOptionalFeatureRequest,
   DiscountType,
+  OptionalFeatureCategory,
   OptionalFeatureCode,
   OptionalFeatureHistorySummary,
   OptionalFeatureSummary,
@@ -40,8 +41,13 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 // 등록하지 않는다(2026-09-08) — signstage-docs
 // business/ceremony-event-effect-implementation-tasks.md 참고. 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL
 // 등)에는 이미 등록된 행/이력을 계속 정상 표시해야 해서 남겨둔다.
+// ONSITE_SUPPORT(현장지원)/ONLINE_SUPPORT(온라인지원)는 태블릿 대여와 같은 "표시용 옵션 + 수량
+// 추가구매" 패턴의 신규 품목이다(2026-09-08 결정) — signstage-docs
+// business/ceremony-support-services-billing-review.md 참고.
 const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = [
   'EVENT_EFFECT_BUNDLE',
+  'ONSITE_SUPPORT',
+  'ONLINE_SUPPORT',
 ];
 
 const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
@@ -49,6 +55,8 @@ const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
   ALL_SIGNED_FIREWORKS: '폭죽 효과',
   EVENT_EFFECT_BUNDLE: '이벤트 효과 묶음',
   TABLET_RENTAL: '태블릿 대여',
+  ONSITE_SUPPORT: '현장지원',
+  ONLINE_SUPPORT: '온라인지원',
 };
 
 /** 코드별 기본 프로젝터 효과값 — 새로 만들기 폼에서 코드를 고를 때 자동으로 맞춰준다(그래도 수동으로 바꿀 수 있다). */
@@ -57,6 +65,39 @@ const DEFAULT_PROJECTOR_EFFECT_BY_CODE: Record<string, boolean> = {
   ALL_SIGNED_FIREWORKS: true,
   EVENT_EFFECT_BUNDLE: true,
   TABLET_RENTAL: false,
+  ONSITE_SUPPORT: false,
+  ONLINE_SUPPORT: false,
+};
+
+const OPTIONAL_FEATURE_CATEGORY_OPTIONS: Array<{ value: OptionalFeatureCategory; label: string }> = [
+  { value: 'EQUIPMENT', label: '장비' },
+  { value: 'PERSONNEL', label: '인력' },
+  { value: 'APPLICATION', label: '애플리케이션' },
+];
+
+const OPTIONAL_FEATURE_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+/** 코드별 기본 카테고리 — signstage-docs business/ceremony-support-services-billing-review.md 4.3/4.5절. */
+const DEFAULT_CATEGORY_BY_CODE: Record<string, OptionalFeatureCategory> = {
+  SIGNER_FIELD_ZOOM: 'APPLICATION',
+  ALL_SIGNED_FIREWORKS: 'APPLICATION',
+  EVENT_EFFECT_BUNDLE: 'APPLICATION',
+  TABLET_RENTAL: 'EQUIPMENT',
+  ONSITE_SUPPORT: 'PERSONNEL',
+  ONLINE_SUPPORT: 'PERSONNEL',
+};
+
+/**
+ * 코드별 기본 짝 용량 종류 — 표시용 옵션(태블릿 대여/현장지원/온라인지원)만 값이 있다. 완결형
+ * (이벤트 효과 묶음)은 짝이 없다(undefined) — signstage-docs
+ * business/optional-feature-capacity-addon-pairing-review.md 결정(2026-09-08).
+ */
+const DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE: Record<string, CapacityType> = {
+  TABLET_RENTAL: 'TABLETS',
+  ONSITE_SUPPORT: 'ONSITE_SUPPORT',
+  ONLINE_SUPPORT: 'ONLINE_SUPPORT',
 };
 
 /** 효과 하나를 "targetType/triggerType 코드" 형태로 간단히 보여준다(예: "PROJECTOR · SIGNATURE_COMPLETED"). */
@@ -116,13 +157,35 @@ const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
   { value: 'REHEARSAL_EVENTS', label: '리허설 행사' },
   { value: 'MAIN_EVENTS', label: '본행사' },
   { value: 'TABLETS', label: '태블릿' },
+  { value: 'ONSITE_SUPPORT', label: '현장지원' },
+  { value: 'ONLINE_SUPPORT', label: '온라인지원' },
 ];
 
 const CAPACITY_TYPE_LABEL: Record<string, string> = Object.fromEntries(
   CAPACITY_TYPE_OPTIONS.map((option) => [option.value, option.label]),
 );
 
+/**
+ * 플랜이 기본 포함할 수 있는 용량 종류 — 백엔드 CapacityType.isPlanIncludable()과 같은 집합이다
+ * (signstage-docs business/billing-catalog-zero-base-schema-redesign-review.md 결정, 2026-09-08,
+ * 항목 B). TABLETS/ONSITE_SUPPORT/ONLINE_SUPPORT는 플랜 기본 포함 개념이 없어(항상 0에서 시작,
+ * 용량 추가구매로만 증가) 제외한다. 새 용량 종류가 플랜 기본 포함 대상이 되면 여기(그리고
+ * 백엔드 CapacityType.isPlanIncludable())만 같이 고치면 된다.
+ */
+const PLAN_NON_INCLUDABLE_CAPACITY_TYPES: CapacityType[] = ['TABLETS', 'ONSITE_SUPPORT', 'ONLINE_SUPPORT'];
+const PLAN_CAPACITY_TYPE_OPTIONS = CAPACITY_TYPE_OPTIONS.filter(
+  (option) => !PLAN_NON_INCLUDABLE_CAPACITY_TYPES.includes(option.value),
+);
+
+/** 새 플랜 초안의 한도 기본값 — 등록 가능한 용량 종류 전부를 0으로 채워 시작한다. */
+const emptyPlanCapacities = (): Record<string, number> =>
+  Object.fromEntries(PLAN_CAPACITY_TYPE_OPTIONS.map((option) => [option.value, 0]));
+
 const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
+
+/** 공급가는 nullable이다("원가 미상") — signstage-docs business/billing-catalog-zero-base-schema-redesign-review.md 결정(2026-09-08, 항목 G). */
+const formatSupplyPrice = (value: number | null, currencyCode = 'KRW') =>
+  value === null ? '미상' : formatPrice(value, currencyCode);
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
@@ -234,16 +297,12 @@ interface SectionProps {
 const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
   name: '',
   currencyCode: 'KRW',
-  supplyPrice: 0,
+  supplyPrice: null,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
-  maxSigners: 0,
-  maxTemplates: 0,
-  maxTestEvents: 0,
-  maxRehearsalEvents: 0,
-  maxMainEvents: 0,
+  capacities: emptyPlanCapacities(),
   optionalFeatureIds: [],
   capacityAddOnIds: [],
 };
@@ -359,11 +418,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       discountType: plan.discountType,
       discountValue: plan.discountValue,
       taxCode: plan.taxCode,
-      maxSigners: plan.maxSigners,
-      maxTemplates: plan.maxTemplates,
-      maxTestEvents: plan.maxTestEvents,
-      maxRehearsalEvents: plan.maxRehearsalEvents,
-      maxMainEvents: plan.maxMainEvents,
+      capacities: { ...plan.capacities },
       active: plan.active,
       optionalFeatureIds: plan.optionalFeatureIds,
       capacityAddOnIds: plan.capacityAddOnIds,
@@ -442,8 +497,9 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
+                value={createDraft.supplyPrice === null ? '' : createDraft.supplyPrice}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="미상"
                 disabled={isCreating}
                 className={inputClass}
               />
@@ -485,56 +541,23 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <Field label="서명자 한도">
-              <input
-                type="number"
-                min={0}
-                value={createDraft.maxSigners === 0 ? '' : createDraft.maxSigners}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxSigners: Number(e.target.value) }))}
-                disabled={isCreating}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="템플릿 한도">
-              <input
-                type="number"
-                min={0}
-                value={createDraft.maxTemplates === 0 ? '' : createDraft.maxTemplates}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxTemplates: Number(e.target.value) }))}
-                disabled={isCreating}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="테스트 행사 한도">
-              <input
-                type="number"
-                min={0}
-                value={createDraft.maxTestEvents === 0 ? '' : createDraft.maxTestEvents}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxTestEvents: Number(e.target.value) }))}
-                disabled={isCreating}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="리허설 행사 한도">
-              <input
-                type="number"
-                min={0}
-                value={createDraft.maxRehearsalEvents === 0 ? '' : createDraft.maxRehearsalEvents}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxRehearsalEvents: Number(e.target.value) }))}
-                disabled={isCreating}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="본행사 한도">
-              <input
-                type="number"
-                min={0}
-                value={createDraft.maxMainEvents === 0 ? '' : createDraft.maxMainEvents}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, maxMainEvents: Number(e.target.value) }))}
-                disabled={isCreating}
-                className={inputClass}
-              />
-            </Field>
+            {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => (
+              <Field key={option.value} label={`${option.label} 한도`}>
+                <input
+                  type="number"
+                  min={0}
+                  value={createDraft.capacities[option.value] === 0 ? '' : createDraft.capacities[option.value]}
+                  onChange={(e) =>
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      capacities: { ...prev.capacities, [option.value]: Number(e.target.value) },
+                    }))
+                  }
+                  disabled={isCreating}
+                  className={inputClass}
+                />
+              </Field>
+            ))}
           </div>
 
           <div>
@@ -648,8 +671,9 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
+                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
+                          placeholder="미상"
                           disabled={isSavingEdit}
                           className={inputClass}
                         />
@@ -692,56 +716,25 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                       </Field>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
-                      <Field label="서명자 한도">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.maxSigners === 0 ? '' : editDraft.maxSigners}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxSigners: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="템플릿 한도">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.maxTemplates === 0 ? '' : editDraft.maxTemplates}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxTemplates: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="테스트 행사 한도">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.maxTestEvents === 0 ? '' : editDraft.maxTestEvents}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxTestEvents: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="리허설 행사 한도">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.maxRehearsalEvents === 0 ? '' : editDraft.maxRehearsalEvents}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxRehearsalEvents: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="본행사 한도">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.maxMainEvents === 0 ? '' : editDraft.maxMainEvents}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, maxMainEvents: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
+                      {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => (
+                        <Field key={option.value} label={`${option.label} 한도`}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editDraft.capacities[option.value] === 0 ? '' : editDraft.capacities[option.value]}
+                            onChange={(e) =>
+                              setEditDraft((prev) =>
+                                prev && {
+                                  ...prev,
+                                  capacities: { ...prev.capacities, [option.value]: Number(e.target.value) },
+                                }
+                              )
+                            }
+                            disabled={isSavingEdit}
+                            className={inputClass}
+                          />
+                        </Field>
+                      ))}
                       <ActiveField
                         active={editDraft.active}
                         disabled={isSavingEdit}
@@ -830,11 +823,11 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 <tr key={plan.id}>
                   <td className="py-2 px-4 text-gray-950 font-medium">{plan.name}</td>
                   <td className="py-2">
-                    {formatPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
+                    {formatSupplyPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(plan.discountType, plan.discountValue)}</td>
                   <td className="py-2 text-gray-600">
-                    {plan.maxSigners}/{plan.maxTemplates}/{plan.maxTestEvents}/{plan.maxRehearsalEvents}/{plan.maxMainEvents}
+                    {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => plan.capacities[option.value]).join('/')}
                   </td>
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
                   <td className="py-2 text-gray-600">{plan.capacityAddOnIds.map(addOnLabel).join(', ') || '-'}</td>
@@ -891,8 +884,9 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                   <ActiveBadge active={history.active} />
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.salePrice, history.currencyCode)} · 서명자 {history.maxSigners}명 · 템플릿 {history.maxTemplates}건 ·
-                  테스트 {history.maxTestEvents}건 · 리허설 {history.maxRehearsalEvents}건 · 본행사 {history.maxMainEvents}건
+                  {formatPrice(history.salePrice, history.currencyCode)} · 서명자 {history.capacities.SIGNERS}명 · 템플릿{' '}
+                  {history.capacities.TEMPLATES}건 · 테스트 {history.capacities.TEST_EVENTS}건 · 리허설{' '}
+                  {history.capacities.REHEARSAL_EVENTS}건 · 본행사 {history.capacities.MAIN_EVENTS}건
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
@@ -908,13 +902,15 @@ const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   code: 'EVENT_EFFECT_BUNDLE',
   name: '',
   currencyCode: 'KRW',
-  supplyPrice: 0,
+  supplyPrice: null,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
   projectorEffect: true,
   exclusivityGroup: '',
+  category: 'APPLICATION',
+  pairedCapacityType: null,
   effectDefinitionIds: [],
 };
 
@@ -928,6 +924,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
+  // 표시용 옵션(pairedCapacityType 있음)의 짝이 카탈로그에 있는지 확인하는 데 쓴다 —
+  // signstage-docs business/optional-feature-capacity-addon-pairing-review.md 결정(2026-09-08).
+  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
 
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<CreateOptionalFeatureRequest>(EMPTY_FEATURE_DRAFT);
@@ -948,14 +947,21 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     );
   };
 
+  const fetchAddOns = async () => (await api.get('/capacity-addons')).data as CapacityAddOnSummary[];
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [featuresData, effectsRes] = await Promise.all([fetchFeatures(), api.get('/ceremony-effects')]);
+        const [featuresData, effectsRes, addOnsData] = await Promise.all([
+          fetchFeatures(),
+          api.get('/ceremony-effects'),
+          fetchAddOns(),
+        ]);
         if (!cancelled) {
           setFeatures(featuresData);
           setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
+          setAddOns(addOnsData);
         }
       } catch (err) {
         if (!cancelled) {
@@ -976,14 +982,27 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   // 몇 개든 계속 추가할 수 있어야 한다. 그래서 availableCodes는 등록 여부로 거르지 않는다.
   const availableCodes = MANAGEABLE_OPTIONAL_FEATURE_CODES;
 
-  const handleOpenCreateForm = () => {
+  /** 이 용량 종류를 짝으로 쓰는 활성 용량 추가구매 상품 목록 — 짝 누락 경고·인라인 표시에 쓴다. */
+  const pairedAddOns = (capacityType: CapacityType | null) =>
+    capacityType === null ? [] : addOns.filter((a) => a.capacityType === capacityType && a.active);
+
+  const handleOpenCreateForm = async () => {
     const code = availableCodes[0];
     setCreateDraft({
       ...EMPTY_FEATURE_DRAFT,
       code,
       projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? true,
+      category: DEFAULT_CATEGORY_BY_CODE[code] ?? 'APPLICATION',
+      pairedCapacityType: DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE[code] ?? null,
     });
     setIsCreateFormOpen(true);
+    // 다른 섹션(용량 추가구매)에서 방금 만든 상품이 짝 후보에 바로 보이도록 새로 불러온다
+    // (BillingPlanSection.handleOpenCreateForm과 같은 이유, 라인 320 주석 참고).
+    try {
+      setAddOns(await fetchAddOns());
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '용량 추가구매 상품 목록을 불러오지 못했습니다.', 'error');
+    }
   };
 
   const handleCreate = async (e: FormEvent) => {
@@ -1023,6 +1042,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
       active: feature.active,
       projectorEffect: feature.projectorEffect,
       exclusivityGroup: feature.exclusivityGroup ?? '',
+      category: feature.category,
+      pairedCapacityType: feature.pairedCapacityType,
       effectDefinitionIds: feature.effectDefinitionIds,
     });
   };
@@ -1099,6 +1120,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                     ...prev,
                     code,
                     projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? prev.projectorEffect,
+                    category: DEFAULT_CATEGORY_BY_CODE[code] ?? prev.category,
+                    pairedCapacityType: DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE[code] ?? null,
                   }));
                 }}
                 disabled={isCreating}
@@ -1129,8 +1152,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
+                value={createDraft.supplyPrice === null ? '' : createDraft.supplyPrice}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="미상"
                 disabled={isCreating}
                 className={inputClass}
               />
@@ -1184,6 +1208,40 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 className={inputClass}
               />
             </Field>
+            <Field label="카테고리">
+              <select
+                value={createDraft.category}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, category: e.target.value as OptionalFeatureCategory }))}
+                disabled={isCreating}
+                className={inputClass}
+              >
+                {OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="짝이 되는 용량 추가구매 종류">
+              <select
+                value={createDraft.pairedCapacityType ?? ''}
+                onChange={(e) =>
+                  setCreateDraft((prev) => ({
+                    ...prev,
+                    pairedCapacityType: e.target.value === '' ? null : (e.target.value as CapacityType),
+                  }))
+                }
+                disabled={isCreating}
+                className={inputClass}
+              >
+                <option value="">없음(완결형)</option>
+                {CAPACITY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             {createDraft.code === 'EVENT_EFFECT_BUNDLE' && (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
@@ -1195,8 +1253,16 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           </div>
           <p className="text-xs text-gray-400">
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예:
-            서명 하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
+            서명 하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때). 짝이 되는 용량 추가구매 종류를
+            고르면 이 옵션은 "표시 전용"이 됩니다 — 실제 수량은 그 종류의 용량 추가구매 상품이 담당합니다
+            (예: 태블릿 대여 → 태블릿).
           </p>
+          {createDraft.pairedCapacityType != null && pairedAddOns(createDraft.pairedCapacityType).length === 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              짝이 되는 용량 추가구매 상품({CAPACITY_TYPE_LABEL[createDraft.pairedCapacityType] ?? createDraft.pairedCapacityType})이
+              아직 카탈로그에 없습니다 — 등록은 막지 않지만, 아래 용량 추가구매 섹션에서 짝 상품도 함께 만들어주세요.
+            </p>
+          )}
           <FormActions
             isSaving={isCreating}
             savingLabel="등록 중..."
@@ -1255,8 +1321,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
+                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
+                          placeholder="미상"
                           disabled={isSavingEdit}
                           className={inputClass}
                         />
@@ -1317,6 +1384,42 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           className={inputClass}
                         />
                       </Field>
+                      <Field label="카테고리">
+                        <select
+                          value={editDraft.category}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, category: e.target.value as OptionalFeatureCategory })}
+                          disabled={isSavingEdit}
+                          className={inputClass}
+                        >
+                          {OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="짝이 되는 용량 추가구매 종류">
+                        <select
+                          value={editDraft.pairedCapacityType ?? ''}
+                          onChange={(e) =>
+                            setEditDraft((prev) =>
+                              prev && {
+                                ...prev,
+                                pairedCapacityType: e.target.value === '' ? null : (e.target.value as CapacityType),
+                              }
+                            )
+                          }
+                          disabled={isSavingEdit}
+                          className={inputClass}
+                        >
+                          <option value="">없음(완결형)</option>
+                          {CAPACITY_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
                       {feature.code === 'EVENT_EFFECT_BUNDLE' && (
                         <EffectDefinitionPicker
                           definitions={effectDefinitions}
@@ -1326,6 +1429,12 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         />
                       )}
                     </div>
+                    {(editDraft.pairedCapacityType ?? null) !== null && pairedAddOns(editDraft.pairedCapacityType ?? null).length === 0 && (
+                      <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                        짝이 되는 용량 추가구매 상품({CAPACITY_TYPE_LABEL[editDraft.pairedCapacityType ?? ''] ?? editDraft.pairedCapacityType})이
+                        아직 카탈로그에 없습니다 — 저장은 막지 않지만, 아래 용량 추가구매 섹션에서 짝 상품도 함께 만들어주세요.
+                      </p>
+                    )}
                     <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
                     <FormActions
                       isSaving={isSavingEdit}
@@ -1344,7 +1453,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <td className="py-2 px-4 text-gray-600">{OPTIONAL_FEATURE_CODE_LABEL[feature.code] ?? feature.code}</td>
                   <td className="py-2 text-gray-950 font-medium">{feature.name}</td>
                   <td className="py-2">
-                    {formatPrice(feature.supplyPrice, feature.currencyCode)} / {formatPrice(feature.salePrice, feature.currencyCode)}
+                    {formatSupplyPrice(feature.supplyPrice, feature.currencyCode)} / {formatPrice(feature.salePrice, feature.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(feature.discountType, feature.discountValue)}</td>
                   <td className="py-2">
@@ -1352,12 +1461,25 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                     <span className="ml-1.5 text-xs text-gray-400">사용 {feature.usageCount}건</span>
                   </td>
                   <td className="py-2 text-xs">
-                    <div className="text-gray-600">{feature.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}</div>
+                    <div className="text-gray-600">
+                      {OPTIONAL_FEATURE_CATEGORY_LABEL[feature.category] ?? feature.category} ·{' '}
+                      {feature.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
+                    </div>
                     {feature.code === 'EVENT_EFFECT_BUNDLE' && (
                       <div className="mt-0.5 text-gray-400">효과 {feature.effectDefinitionIds.length}종</div>
                     )}
                     {feature.exclusivityGroup && (
                       <div className="mt-0.5 text-gray-400">배타 그룹: {feature.exclusivityGroup}</div>
+                    )}
+                    {feature.pairedCapacityType && (
+                      <div className="mt-0.5 text-gray-400">
+                        → 연결된 용량 추가구매:{' '}
+                        {pairedAddOns(feature.pairedCapacityType).length > 0
+                          ? pairedAddOns(feature.pairedCapacityType)
+                              .map((a) => `+${a.unitAmount}`)
+                              .join(', ')
+                          : '없음(짝 상품 등록 필요)'}
+                      </div>
                     )}
                   </td>
                   <td className="py-2 px-4 text-right">
@@ -1413,7 +1535,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   할인 {formatDiscount(history.discountType, history.discountValue)}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
+                  {OPTIONAL_FEATURE_CATEGORY_LABEL[history.category] ?? history.category} ·{' '}
                   {history.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
+                  {history.pairedCapacityType && ` · 짝: ${CAPACITY_TYPE_LABEL[history.pairedCapacityType] ?? history.pairedCapacityType}`}
                   {history.exclusivityGroup && ` · 배타 그룹: ${history.exclusivityGroup}`}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
@@ -1432,7 +1556,7 @@ const EMPTY_ADDON_DRAFT: CreateCapacityAddOnRequest = {
   secondaryCapacityType: null,
   secondaryUnitAmount: null,
   currencyCode: 'KRW',
-  supplyPrice: 0,
+  supplyPrice: null,
   salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
@@ -1651,8 +1775,9 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               <input
                 type="number"
                 min={0}
-                value={createDraft.supplyPrice === 0 ? '' : createDraft.supplyPrice}
-                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: Number(e.target.value) }))}
+                value={createDraft.supplyPrice === null ? '' : createDraft.supplyPrice}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="미상"
                 disabled={isCreating}
                 className={inputClass}
               />
@@ -1778,8 +1903,9 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                         <input
                           type="number"
                           min={0}
-                          value={editDraft.supplyPrice === 0 ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: Number(e.target.value) })}
+                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
+                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
+                          placeholder="미상"
                           disabled={isSavingEdit}
                           className={inputClass}
                         />
@@ -1851,7 +1977,7 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                     {addOn.secondaryCapacityType && addOn.secondaryUnitAmount != null && ` / +${addOn.secondaryUnitAmount}`}
                   </td>
                   <td className="py-2">
-                    {formatPrice(addOn.supplyPrice, addOn.currencyCode)} / {formatPrice(addOn.salePrice, addOn.currencyCode)}
+                    {formatSupplyPrice(addOn.supplyPrice, addOn.currencyCode)} / {formatPrice(addOn.salePrice, addOn.currencyCode)}
                   </td>
                   <td className="py-2">{formatDiscount(addOn.discountType, addOn.discountValue)}</td>
                   <td className="py-2">

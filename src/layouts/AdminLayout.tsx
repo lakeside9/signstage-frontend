@@ -14,9 +14,11 @@ import {
   LogOut,
   Menu,
   Package,
+  Percent,
   ShieldCheck,
   ShoppingCart,
   Sparkles,
+  Tag,
   User,
   Users,
 } from 'lucide-react';
@@ -45,6 +47,8 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   ClipboardList: <ClipboardList size={20} />,
   User: <User size={20} />,
   Sparkles: <Sparkles size={20} />,
+  Percent: <Percent size={20} />,
+  Tag: <Tag size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

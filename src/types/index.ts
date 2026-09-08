@@ -405,16 +405,20 @@ export interface BillingPlanSummary {
   id: number;
   name: string;
   currencyCode: string;
-  supplyPrice: number;
+  /** 원가(내부 전용, 마진 계산용) — 계산식에는 관여하지 않는다. null이면 "원가 미상"(2026-09-08, 항목 G). */
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
   taxCode: string;
-  maxSigners: number;
-  maxTemplates: number;
-  maxTestEvents: number;
-  maxRehearsalEvents: number;
-  maxMainEvents: number;
+  /**
+   * 이 플랜이 기본 포함하는 용량 한도 — CapacityType 이름을 키로 하는 맵(예:
+   * `{SIGNERS: 100, TEMPLATES: 10, TEST_EVENTS: 3, REHEARSAL_EVENTS: 3, MAIN_EVENTS: 1}`).
+   * 예전엔 maxSigners 등 고정 필드 5개였는데, BillingPlanCapacity 일반화로 맵이 됐다
+   * (signstage-docs business/billing-catalog-zero-base-schema-redesign-review.md 결정,
+   * 2026-09-08, 항목 B). 키는 항상 PLAN_CAPACITY_TYPE_OPTIONS와 같은 집합이다(TABLETS 제외).
+   */
+  capacities: Record<string, number>;
   /** 사용여부. false면 새 행사 생성/플랜 변경 대상에서 제외된다. */
   active: boolean;
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
@@ -438,16 +442,12 @@ export interface BillingPlanHistorySummary {
   id: number;
   name: string;
   currencyCode: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
   taxCode: string;
-  maxSigners: number;
-  maxTemplates: number;
-  maxTestEvents: number;
-  maxRehearsalEvents: number;
-  maxMainEvents: number;
+  capacities: Record<string, number>;
   active: boolean;
   createdBy: number;
   createdAt: string;
@@ -461,16 +461,13 @@ export interface BillingPlanHistorySummary {
 export interface CreateBillingPlanRequest {
   name: string;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
-  maxSigners: number;
-  maxTemplates: number;
-  maxTestEvents: number;
-  maxRehearsalEvents: number;
-  maxMainEvents: number;
+  /** 정확히 PLAN_CAPACITY_TYPE_OPTIONS와 같은 키 집합이어야 한다(누락/여분 모두 서버가 거부). */
+  capacities: Record<string, number>;
   optionalFeatureIds: number[];
   /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
   capacityAddOnIds: number[];
@@ -480,16 +477,12 @@ export interface CreateBillingPlanRequest {
 export interface UpdateBillingPlanRequest {
   name: string;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
-  maxSigners: number;
-  maxTemplates: number;
-  maxTestEvents: number;
-  maxRehearsalEvents: number;
-  maxMainEvents: number;
+  capacities: Record<string, number>;
   active: boolean;
   /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
   optionalFeatureIds: number[];
@@ -511,7 +504,12 @@ export type OptionalFeatureCode =
   | 'ALL_SIGNED_FIREWORKS'
   | 'EVENT_EFFECT_BUNDLE'
   | 'VIDEO_ATTENDANCE'
-  | 'TABLET_RENTAL';
+  | 'TABLET_RENTAL'
+  | 'ONSITE_SUPPORT'
+  | 'ONLINE_SUPPORT';
+
+/** feature.ceremony.entity.OptionalFeatureCategory 값과 맞춘다(2026-09-08 결정). */
+export type OptionalFeatureCategory = 'EQUIPMENT' | 'PERSONNEL' | 'APPLICATION';
 
 /** GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다. */
 export interface OptionalFeatureSummary {
@@ -519,7 +517,7 @@ export interface OptionalFeatureSummary {
   code: OptionalFeatureCode;
   name: string;
   currencyCode: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -536,6 +534,14 @@ export interface OptionalFeatureSummary {
   projectorEffect: boolean;
   /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
+  /** 상위 분류(장비/인력/애플리케이션, 2026-09-08 결정). */
+  category: OptionalFeatureCategory;
+  /**
+   * 짝이 되는 용량 추가구매 종류 — null이면 완결형(그 자체로 끝나는 상품). 값이 있으면 표시
+   * 전용 상품이며 이 CapacityType의 용량 추가구매가 실제 수량을 담당한다(2026-09-08 결정,
+   * business/optional-feature-capacity-addon-pairing-review.md).
+   */
+  pairedCapacityType: CapacityType | null;
   /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   /** 이 묶음이 여는 이벤트 효과 id 목록. `code`가 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
@@ -552,7 +558,7 @@ export interface OptionalFeatureHistorySummary {
   code: OptionalFeatureCode;
   name: string;
   currencyCode: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -560,6 +566,8 @@ export interface OptionalFeatureHistorySummary {
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
+  category: OptionalFeatureCategory;
+  pairedCapacityType: CapacityType | null;
   createdBy: number;
   createdAt: string;
 }
@@ -569,7 +577,7 @@ export interface CreateOptionalFeatureRequest {
   code: OptionalFeatureCode;
   name: string;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -577,6 +585,9 @@ export interface CreateOptionalFeatureRequest {
   /** 생략하면(undefined) 백엔드 기본값 true. */
   projectorEffect?: boolean;
   exclusivityGroup?: string | null;
+  category: OptionalFeatureCategory;
+  /** 완결형이면 null(짝 없음). 짝이 되는 용량 추가구매 상품이 아직 카탈로그에 없어도 저장은 막히지 않는다. */
+  pairedCapacityType?: CapacityType | null;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록 — `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가
    * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
@@ -591,7 +602,7 @@ export interface CreateOptionalFeatureRequest {
 export interface UpdateOptionalFeatureRequest {
   name: string;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -599,6 +610,8 @@ export interface UpdateOptionalFeatureRequest {
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
+  category: OptionalFeatureCategory;
+  pairedCapacityType?: CapacityType | null;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —
    * `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가 있다. 생략하면(undefined) 기존 구성을
@@ -608,7 +621,15 @@ export interface UpdateOptionalFeatureRequest {
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
-export type CapacityType = 'SIGNERS' | 'TEMPLATES' | 'TEST_EVENTS' | 'REHEARSAL_EVENTS' | 'MAIN_EVENTS' | 'TABLETS';
+export type CapacityType =
+  | 'SIGNERS'
+  | 'TEMPLATES'
+  | 'TEST_EVENTS'
+  | 'REHEARSAL_EVENTS'
+  | 'MAIN_EVENTS'
+  | 'TABLETS'
+  | 'ONSITE_SUPPORT'
+  | 'ONLINE_SUPPORT';
 
 /**
  * GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다.
@@ -622,7 +643,7 @@ export interface CapacityAddOnSummary {
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
   currencyCode: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -645,7 +666,7 @@ export interface CapacityAddOnHistorySummary {
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
   currencyCode: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -663,7 +684,7 @@ export interface CreateCapacityAddOnRequest {
   secondaryCapacityType?: CapacityType | null;
   secondaryUnitAmount?: number | null;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -679,7 +700,7 @@ export interface UpdateCapacityAddOnRequest {
   unitAmount: number;
   secondaryUnitAmount?: number | null;
   currencyCode?: string;
-  supplyPrice: number;
+  supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
@@ -691,43 +712,68 @@ export interface UpdateCapacityAddOnRequest {
 // business/organization-event-discount-pricing-review.md 4.1절(2026-08-21 재검토) 참고.
 // 오버라이드 행이 없으면(조직별 할인 화면에 안 나타나면) 카탈로그 자체 할인값을 그대로 쓴다.
 
-/** PUT .../billing-discounts/{plans|optional-features|capacity-addons}/{id} 요청과 맞춘다. */
+/**
+ * POST/PUT .../billing-discounts/{plans|optional-features|capacity-addons}/{id}[/periods/{periodId}]
+ * 요청과 맞춘다 — 행 하나가 기간 하나(다중 버전, 안 B). effectiveFrom은 결정 #5(오늘 판단
+ * 타임존)가 유보라 자동 기본값이 없다 — 항상 명시적으로 보낸다. signstage-docs
+ * business/organization-discount-override-security-and-validity-period-review.md 결정
+ * #4(2026-09-08).
+ */
 export interface SetOrganizationDiscountRequest {
   discountType: DiscountType;
   discountValue: number;
+  /** yyyy-MM-dd */
+  effectiveFrom: string;
+  /** yyyy-MM-dd, null이면 무기한 */
+  effectiveTo: string | null;
 }
 
-/** GET .../billing-discounts 응답 중 플랜 오버라이드 한 건(OrganizationDiscountDto.Response.BillingPlanDiscountSummary)과 맞춘다. */
+/** PENDING(예정)/ACTIVE(적용 중)/EXPIRED(만료됨) — 서버가 계산해 내려준다. */
+export type OrganizationDiscountPeriodStatus = 'PENDING' | 'ACTIVE' | 'EXPIRED';
+
+/** GET .../billing-discounts 응답 중 플랜 오버라이드 기간 한 건(OrganizationDiscountDto.Response.BillingPlanDiscountSummary)과 맞춘다. */
 export interface OrganizationBillingPlanDiscountSummary {
   id: number;
   organizationId: number;
+  organizationName: string;
   billingPlanId: number;
   billingPlanName: string;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  status: OrganizationDiscountPeriodStatus;
   createdAt: string;
 }
 
-/** 선택옵션 오버라이드 한 건(OrganizationDiscountDto.Response.OptionalFeatureDiscountSummary)과 맞춘다. */
+/** 선택옵션 오버라이드 기간 한 건(OrganizationDiscountDto.Response.OptionalFeatureDiscountSummary)과 맞춘다. */
 export interface OrganizationOptionalFeatureDiscountSummary {
   id: number;
   organizationId: number;
+  organizationName: string;
   optionalFeatureId: number;
   optionalFeatureName: string;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  status: OrganizationDiscountPeriodStatus;
   createdAt: string;
 }
 
-/** 용량 추가구매 오버라이드 한 건(OrganizationDiscountDto.Response.CapacityAddOnDiscountSummary)과 맞춘다. */
+/** 용량 추가구매 오버라이드 기간 한 건(OrganizationDiscountDto.Response.CapacityAddOnDiscountSummary)과 맞춘다. */
 export interface OrganizationCapacityAddOnDiscountSummary {
   id: number;
   organizationId: number;
+  organizationName: string;
   capacityAddOnId: number;
   capacityType: CapacityType;
   unitAmount: number;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  status: OrganizationDiscountPeriodStatus;
   createdAt: string;
 }
 
@@ -754,6 +800,8 @@ export interface OrganizationBillingPlanDiscountHistorySummary {
   billingPlanName: string;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
   removed: boolean;
   createdBy: number;
   createdAt: string;
@@ -766,6 +814,8 @@ export interface OrganizationOptionalFeatureDiscountHistorySummary {
   optionalFeatureName: string;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
   removed: boolean;
   createdBy: number;
   createdAt: string;
@@ -779,8 +829,26 @@ export interface OrganizationCapacityAddOnDiscountHistorySummary {
   unitAmount: number;
   discountType: DiscountType;
   discountValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
   removed: boolean;
   createdBy: number;
+  createdAt: string;
+}
+
+/**
+ * GET /api/platform-admin/ceremonies(조직 횡단 목록) 응답 한 건
+ * (PlatformAdminCeremonyDiscountDto.Response.CeremonyDiscountSummary)과 맞춘다 —
+ * signstage-docs business/discount-management-screen-separation-review.md.
+ */
+export interface CeremonyDiscountSummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  title: string;
+  status: CeremonyStatus;
+  finalDiscountType: DiscountType;
+  finalDiscountValue: number;
   createdAt: string;
 }
 

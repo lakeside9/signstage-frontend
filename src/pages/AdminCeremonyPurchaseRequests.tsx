@@ -41,6 +41,8 @@ const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
   REHEARSAL_EVENTS: '리허설 행사',
   MAIN_EVENTS: '본행사',
   TABLETS: '태블릿',
+  ONSITE_SUPPORT: '현장지원',
+  ONLINE_SUPPORT: '온라인지원',
 };
 
 /** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
