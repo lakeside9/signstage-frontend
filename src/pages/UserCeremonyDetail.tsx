@@ -2019,7 +2019,6 @@ export const UserCeremonyDetail: FC = () => {
             )}
           </div>
           <CeremonyEventEffectSelectionFields
-            availableFeatures={availableEventFeatures}
             selectedFeatureIds={editEventFeatureIds}
             value={editEventEffectSelections}
             onChange={setEditEventEffectSelections}

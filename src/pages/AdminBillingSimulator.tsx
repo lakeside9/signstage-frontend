@@ -31,6 +31,7 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 const OPTION_CATEGORY_BY_CODE: Record<OptionalFeatureCode, string> = {
   SIGNER_FIELD_ZOOM: '애플리케이션',
   ALL_SIGNED_FIREWORKS: '애플리케이션',
+  EVENT_EFFECT_BUNDLE: '애플리케이션',
   VIDEO_ATTENDANCE: '애플리케이션',
   TABLET_RENTAL: '장비',
 };

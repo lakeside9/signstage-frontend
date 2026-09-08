@@ -86,7 +86,6 @@ export const CeremonyEffectEdit: FC = () => {
     code: definition.code,
     targetType: definition.targetType,
     triggerType: definition.triggerType,
-    requiredOptionalFeatureId: definition.requiredOptionalFeatureId,
     displayName: definition.displayName,
     description: definition.description ?? '',
     rendererKey: definition.rendererKey,
@@ -95,6 +94,9 @@ export const CeremonyEffectEdit: FC = () => {
     manuallyTriggerable: definition.manuallyTriggerable,
     configJsonDraft: definition.configJson ? JSON.stringify(definition.configJson, null, 2) : '',
   };
+
+  const belongingBundleNames = definition.optionalFeatureIds
+    .map((featureId) => optionalFeatures.find((f) => f.id === featureId)?.name ?? `#${featureId}`);
 
   return (
     <div>
@@ -107,10 +109,17 @@ export const CeremonyEffectEdit: FC = () => {
         <p className="mt-1 text-sm text-gray-500">{definition.displayName}</p>
       </div>
 
+      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        <span className="font-bold text-gray-700">속한 선택옵션(묶음): </span>
+        {belongingBundleNames.length > 0 ? belongingBundleNames.join(', ') : '없음'}
+        <p className="mt-1 text-[11px] text-gray-500">
+          이 효과를 여는 묶음 구성은 과금 카탈로그 관리 화면(선택 옵션)에서 바꿀 수 있습니다.
+        </p>
+      </div>
+
       <CeremonyEffectDefinitionForm
         mode="edit"
         initialValue={initialValue}
-        optionalFeatures={optionalFeatures}
         saving={isSaving}
         onSubmit={handleSubmit}
         onCancel={() => navigate('/admin/effects')}

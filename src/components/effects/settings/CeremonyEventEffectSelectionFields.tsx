@@ -10,8 +10,6 @@ import type {
   CeremonyEffectDefinition,
   CeremonyEffectSelection,
   CeremonyEffectTrigger,
-  OptionalFeatureCode,
-  OptionalFeatureSummary,
 } from '../../../types';
 
 /**
@@ -20,22 +18,30 @@ import type {
  * (`V202609071100__seed_and_backfill_ceremony_event_effects.sql`)가 이 두 (target=PROJECTOR,
  * trigger) 분류에만 정의를 심으므로, 화면도 이 두 그룹만 고정으로 다룬다 — 관리자가 나중에
  * `EVENT_FINISHED`/`SIGNER` 대상 정의를 추가해도(PRE-02) 이 화면은 아직 그 UI가 없다.
+ *
+ * 어느 선택옵션이 필요한지는 더 이상 이 화면이 고정으로 알지 못한다(2026-09-08 결정) —
+ * "이벤트 효과 묶음"이 관리자가 계속 추가하는 상품이라 코드에 특정 code를 박아둘 수 없다.
+ * 대신 각 `CeremonyEffectDefinition.optionalFeatureIds`(그 효과를 여는 묶음 id 목록)와
+ * `selectedFeatureIds`(이 행사가 실제로 적용한 옵션 id 목록)의 교집합 유무로 판단한다 —
+ * 백엔드 `CeremonyEventEffectSettingService`의 entitlement 판정(합집합)과 같은 규칙이다.
  */
 const EFFECT_GROUPS: {
   triggerType: CeremonyEffectTrigger;
   label: string;
-  requiredFeatureCode: OptionalFeatureCode;
   registry: Partial<Record<string, unknown>>;
 }[] = [
-  { triggerType: 'SIGNATURE_COMPLETED', label: '개별 서명 확인', requiredFeatureCode: 'SIGNER_FIELD_ZOOM', registry: signatureEffectRegistry },
-  { triggerType: 'ALL_SIGNATURES_COMPLETED', label: '전체 서명 완료', requiredFeatureCode: 'ALL_SIGNED_FIREWORKS', registry: completionEffectRegistry },
+  { triggerType: 'SIGNATURE_COMPLETED', label: '개별 서명 확인', registry: signatureEffectRegistry },
+  { triggerType: 'ALL_SIGNATURES_COMPLETED', label: '전체 서명 완료', registry: completionEffectRegistry },
 ];
 
 const NONE_VALUE = 'NONE';
 
+/** 이 효과가 열어주는 묶음 중 하나라도 지금 적용돼 있으면 entitled다(합집합 판정). */
+const isEntitled = (definition: CeremonyEffectDefinition, selectedFeatureIds: number[]): boolean => (
+  definition.optionalFeatureIds.some((featureId) => selectedFeatureIds.includes(featureId))
+);
+
 interface Props {
-  /** 이 행사 마스터가 실제로 쓸 수 있는 선택옵션 목록(등록/수정 화면이 이미 불러온 값을 그대로 넘긴다). */
-  availableFeatures: OptionalFeatureSummary[];
   /** 폼에서 지금 체크돼 있는 선택옵션 id 목록 — 이 값이 바뀌면(옵션 해제) 종속 프리셋도 즉시 해제한다. */
   selectedFeatureIds: number[];
   value: CeremonyEffectSelection[];
@@ -52,7 +58,7 @@ interface Props {
  * `EffectPreviewDialog`를 그대로 재사용한다(목록/등록·수정 draft와 같은 컴포넌트).
  */
 export const CeremonyEventEffectSelectionFields: FC<Props> = ({
-  availableFeatures, selectedFeatureIds, value, onChange, disabled = false, dense = false,
+  selectedFeatureIds, value, onChange, disabled = false, dense = false,
 }) => {
   const [definitions, setDefinitions] = useState<CeremonyEffectDefinition[] | null>(null);
   const [previewEffect, setPreviewEffect] = useState<EffectPreviewDefinition | null>(null);
@@ -77,10 +83,11 @@ export const CeremonyEventEffectSelectionFields: FC<Props> = ({
     };
   }, []);
 
-  const visibleGroups = EFFECT_GROUPS.filter((group) => {
-    const feature = availableFeatures.find((f) => f.code === group.requiredFeatureCode);
-    return feature != null && selectedFeatureIds.includes(feature.id);
-  });
+  const visibleGroups = EFFECT_GROUPS.filter((group) => (
+    definitions?.some((d) => (
+      d.targetType === 'PROJECTOR' && d.triggerType === group.triggerType && isEntitled(d, selectedFeatureIds)
+    )) ?? false
+  ));
 
   /**
    * 옵션을 해제하면(더 이상 selectedFeatureIds에 없으면) 그 그룹의 선택도 화면에서 즉시
@@ -94,7 +101,7 @@ export const CeremonyEventEffectSelectionFields: FC<Props> = ({
       onChange(pruned);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFeatureIds, availableFeatures]);
+  }, [selectedFeatureIds, definitions]);
 
   if (visibleGroups.length === 0) return null;
 
@@ -117,7 +124,9 @@ export const CeremonyEventEffectSelectionFields: FC<Props> = ({
         const options = definitions == null
           ? null
           : intersectDefinitionsWithRegistry(
-            definitions.filter((d) => d.targetType === 'PROJECTOR' && d.triggerType === group.triggerType),
+            definitions.filter((d) => (
+              d.targetType === 'PROJECTOR' && d.triggerType === group.triggerType && isEntitled(d, selectedFeatureIds)
+            )),
             group.registry,
           );
         const selectedId = value.find((selection) => selection.triggerType === group.triggerType)?.effectId ?? null;

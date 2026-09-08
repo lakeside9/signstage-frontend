@@ -497,10 +497,19 @@ export interface UpdateBillingPlanRequest {
   capacityAddOnIds: number[];
 }
 
-/** feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다. */
+/**
+ * feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다.
+ *
+ * `EVENT_EFFECT_BUNDLE`은 예외다(2026-09-08 결정) — 이 코드 하나를 "프로젝터 화면 이벤트
+ * 효과 3종/5종"처럼 여러 `OptionalFeatureSummary` 행이 공유한다. 묶음이 실제로 여는 효과
+ * 목록은 각 행의 `effectDefinitionIds`가 갖는다. `SIGNER_FIELD_ZOOM`/`ALL_SIGNED_FIREWORKS`는
+ * 더 이상 신규 등록하지 않지만(통합됨), 이미 등록된 행/이력/구매 스냅샷을 역직렬화해야 해서
+ * 값 자체는 남겨둔다.
+ */
 export type OptionalFeatureCode =
   | 'SIGNER_FIELD_ZOOM'
   | 'ALL_SIGNED_FIREWORKS'
+  | 'EVENT_EFFECT_BUNDLE'
   | 'VIDEO_ATTENDANCE'
   | 'TABLET_RENTAL';
 
@@ -529,6 +538,8 @@ export interface OptionalFeatureSummary {
   exclusivityGroup: string | null;
   /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
+  /** 이 묶음이 여는 이벤트 효과 id 목록. `code`가 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
+  effectDefinitionIds: number[];
   createdAt: string;
 }
 
@@ -566,6 +577,11 @@ export interface CreateOptionalFeatureRequest {
   /** 생략하면(undefined) 백엔드 기본값 true. */
   projectorEffect?: boolean;
   exclusivityGroup?: string | null;
+  /**
+   * 이 묶음이 열어주는 이벤트 효과 목록 — `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가
+   * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
+   */
+  effectDefinitionIds?: number[];
 }
 
 /**
@@ -583,6 +599,12 @@ export interface UpdateOptionalFeatureRequest {
   active: boolean;
   projectorEffect: boolean;
   exclusivityGroup: string | null;
+  /**
+   * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —
+   * `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가 있다. 생략하면(undefined) 기존 구성을
+   * 그대로 둔다. 빈 배열을 명시적으로 보내면 전부 해제한다.
+   */
+  effectDefinitionIds?: number[];
 }
 
 /** feature.ceremony.entity.CapacityType 값과 맞춘다. */
@@ -1166,7 +1188,8 @@ export interface CeremonyEffectDefinition {
   code: string;
   targetType: CeremonyEffectTarget;
   triggerType: CeremonyEffectTrigger;
-  requiredOptionalFeatureId: number;
+  /** 이 효과를 포함한 선택옵션(묶음) id 목록 — 여러 묶음에 겹쳐 속할 수 있다(2026-09-08). */
+  optionalFeatureIds: number[];
   displayName: string;
   description: string | null;
   rendererKey: string;
@@ -1181,14 +1204,14 @@ export interface CeremonyEffectDefinition {
 /**
  * POST /api/platform-admin/ceremony-effects 요청
  * (CeremonyEffectDefinitionDto.Request.CreateCeremonyEffectDefinition)과 맞춘다.
- * `code`/`targetType`/`triggerType`/`rendererKey`/`requiredOptionalFeatureId`는 등록 후
- * 불변이라 이 요청에만 있고 아래 Update 요청에는 없다.
+ * `code`/`targetType`/`triggerType`/`rendererKey`는 등록 후 불변이라 이 요청에만 있고
+ * 아래 Update 요청에는 없다. 이 효과를 여는 선택옵션(묶음) 구성은 이 요청이 갖지 않는다 —
+ * `OptionalFeatureService` 쪽에서 `effectDefinitionIds`로 관리한다(2026-09-08 결정).
  */
 export interface CreateCeremonyEffectDefinitionRequest {
   code: string;
   targetType: CeremonyEffectTarget;
   triggerType: CeremonyEffectTrigger;
-  requiredOptionalFeatureId: number;
   displayName: string;
   description: string | null;
   rendererKey: string;

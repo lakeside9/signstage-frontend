@@ -13,6 +13,7 @@ import type {
   CapacityAddOnHistorySummary,
   CapacityAddOnSummary,
   CapacityType,
+  CeremonyEffectDefinition,
   CreateBillingPlanRequest,
   CreateCapacityAddOnRequest,
   CreateOptionalFeatureRequest,
@@ -35,15 +36,18 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
 // TABLET_RENTAL(태블릿 대여)은 프로젝터 효과가 없는 순수 안내/표시용 옵션이라, 선택옵션 카탈로그를
 // 전시화면/서명화면에 실제 효과를 내는 항목으로 좁히면서 신규 등록 대상에서 뺐다(2026-08-30) —
 // signstage-docs business/optional-feature-display-scope-and-plan-capacity-addon-review.md 3장.
-// 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL 등)에는 이미 등록된 행을 계속 정상 표시해야 해서 남겨둔다.
+// SIGNER_FIELD_ZOOM/ALL_SIGNED_FIREWORKS는 EVENT_EFFECT_BUNDLE로 통합되면서 더 이상 신규
+// 등록하지 않는다(2026-09-08) — signstage-docs
+// business/ceremony-event-effect-implementation-tasks.md 참고. 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL
+// 등)에는 이미 등록된 행/이력을 계속 정상 표시해야 해서 남겨둔다.
 const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = [
-  'SIGNER_FIELD_ZOOM',
-  'ALL_SIGNED_FIREWORKS',
+  'EVENT_EFFECT_BUNDLE',
 ];
 
 const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
   SIGNER_FIELD_ZOOM: '서명 하이라이트',
   ALL_SIGNED_FIREWORKS: '폭죽 효과',
+  EVENT_EFFECT_BUNDLE: '이벤트 효과 묶음',
   TABLET_RENTAL: '태블릿 대여',
 };
 
@@ -51,7 +55,58 @@ const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
 const DEFAULT_PROJECTOR_EFFECT_BY_CODE: Record<string, boolean> = {
   SIGNER_FIELD_ZOOM: true,
   ALL_SIGNED_FIREWORKS: true,
+  EVENT_EFFECT_BUNDLE: true,
   TABLET_RENTAL: false,
+};
+
+/** 효과 하나를 "targetType/triggerType 코드" 형태로 간단히 보여준다(예: "PROJECTOR · SIGNATURE_COMPLETED"). */
+const EFFECT_TRIGGER_LABEL: Record<string, string> = {
+  SIGNATURE_COMPLETED: '개별 서명 완료',
+  ALL_SIGNATURES_COMPLETED: '전체 서명 완료',
+  EVENT_FINISHED: '행사 종료',
+};
+
+/**
+ * "이벤트 효과 묶음"(EVENT_EFFECT_BUNDLE) 상품이 열어줄 효과를 고르는 체크박스 목록 —
+ * signstage-docs business/ceremony-event-effect-implementation-tasks.md, 2026-09-08 결정.
+ * 같은 효과가 여러 묶음에 겹쳐 들어가도 된다(자유 N:M 구성) — capacity_addons.capacity_type이
+ * 유일 제약 없이 여러 상품에 공유되는 것과 같은 패턴을, 선택옵션 쪽에서 이 화면으로 관리한다.
+ */
+const EffectDefinitionPicker: FC<{
+  definitions: CeremonyEffectDefinition[];
+  selectedIds: number[];
+  disabled: boolean;
+  onChange: (ids: number[]) => void;
+}> = ({ definitions, selectedIds, disabled, onChange }) => {
+  const toggle = (id: number, checked: boolean) => {
+    onChange(checked ? [...selectedIds, id] : selectedIds.filter((existing) => existing !== id));
+  };
+
+  return (
+    <div className="sm:col-span-2 md:col-span-3">
+      <span className="block text-xs font-medium text-gray-500 mb-1">이 묶음이 여는 이벤트 효과</span>
+      {definitions.length === 0 ? (
+        <p className="text-xs text-gray-400">등록된 이벤트 효과가 없습니다. 먼저 이벤트 효과 관리 화면에서 효과를 등록해주세요.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 rounded-md border border-gray-200 bg-white p-3 max-h-48 overflow-y-auto">
+          {definitions.map((definition) => (
+            <label key={definition.id} className="flex items-center gap-1.5 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(definition.id)}
+                disabled={disabled}
+                onChange={(e) => toggle(definition.id, e.target.checked)}
+              />
+              <span className="truncate" title={definition.displayName}>
+                {definition.displayName}
+                <span className="text-gray-400"> · {EFFECT_TRIGGER_LABEL[definition.triggerType] ?? definition.triggerType}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
@@ -850,7 +905,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
 };
 
 const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
-  code: 'SIGNER_FIELD_ZOOM',
+  code: 'EVENT_EFFECT_BUNDLE',
   name: '',
   currencyCode: 'KRW',
   supplyPrice: 0,
@@ -860,6 +915,7 @@ const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   taxCode: 'KR_VAT_STANDARD',
   projectorEffect: true,
   exclusivityGroup: '',
+  effectDefinitionIds: [],
 };
 
 /** 빈 문자열 입력을 "그룹 없음"(null)으로 정규화한다 — 폼 입력값은 항상 문자열로 다루는 게 controlled input에 편해서다. */
@@ -871,6 +927,7 @@ const normalizeExclusivityGroup = (value: string | null | undefined): string | n
 const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
 
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<CreateOptionalFeatureRequest>(EMPTY_FEATURE_DRAFT);
@@ -895,8 +952,11 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchFeatures();
-        if (!cancelled) setFeatures(data);
+        const [featuresData, effectsRes] = await Promise.all([fetchFeatures(), api.get('/ceremony-effects')]);
+        if (!cancelled) {
+          setFeatures(featuresData);
+          setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
+        }
       } catch (err) {
         if (!cancelled) {
           showSnackbar(err instanceof Error ? err.message : '선택옵션 목록을 불러오지 못했습니다.', 'error');
@@ -911,9 +971,10 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const availableCodes = MANAGEABLE_OPTIONAL_FEATURE_CODES.filter(
-    (code) => !features.some((f) => f.code === code),
-  );
+  // EVENT_EFFECT_BUNDLE은 여러 행이 코드를 공유할 수 있는 묶음 상품이라(capacity_addons.capacity_type과
+  // 같은 패턴, 2026-09-08) 이미 등록된 코드라도 계속 "새로 만들기" 대상이다 — "3종", "5종"처럼
+  // 몇 개든 계속 추가할 수 있어야 한다. 그래서 availableCodes는 등록 여부로 거르지 않는다.
+  const availableCodes = MANAGEABLE_OPTIONAL_FEATURE_CODES;
 
   const handleOpenCreateForm = () => {
     const code = availableCodes[0];
@@ -962,6 +1023,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
       active: feature.active,
       projectorEffect: feature.projectorEffect,
       exclusivityGroup: feature.exclusivityGroup ?? '',
+      effectDefinitionIds: feature.effectDefinitionIds,
     });
   };
 
@@ -1122,6 +1184,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 className={inputClass}
               />
             </Field>
+            {createDraft.code === 'EVENT_EFFECT_BUNDLE' && (
+              <EffectDefinitionPicker
+                definitions={effectDefinitions}
+                selectedIds={createDraft.effectDefinitionIds ?? []}
+                disabled={isCreating}
+                onChange={(effectDefinitionIds) => setCreateDraft((prev) => ({ ...prev, effectDefinitionIds }))}
+              />
+            )}
           </div>
           <p className="text-xs text-gray-400">
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예:
@@ -1247,6 +1317,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           className={inputClass}
                         />
                       </Field>
+                      {feature.code === 'EVENT_EFFECT_BUNDLE' && (
+                        <EffectDefinitionPicker
+                          definitions={effectDefinitions}
+                          selectedIds={editDraft.effectDefinitionIds ?? []}
+                          disabled={isSavingEdit}
+                          onChange={(effectDefinitionIds) => setEditDraft((prev) => prev && { ...prev, effectDefinitionIds })}
+                        />
+                      )}
                     </div>
                     <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
                     <FormActions
@@ -1275,6 +1353,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   </td>
                   <td className="py-2 text-xs">
                     <div className="text-gray-600">{feature.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}</div>
+                    {feature.code === 'EVENT_EFFECT_BUNDLE' && (
+                      <div className="mt-0.5 text-gray-400">효과 {feature.effectDefinitionIds.length}종</div>
+                    )}
                     {feature.exclusivityGroup && (
                       <div className="mt-0.5 text-gray-400">배타 그룹: {feature.exclusivityGroup}</div>
                     )}
