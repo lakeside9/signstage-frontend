@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Percent } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
@@ -7,7 +7,7 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
-import type { CeremonyDiscountSummary, CeremonyStatus, DiscountType, PageResponse } from '../types';
+import type { CeremonyDiscountSummary, CeremonyStatus, DiscountType, PageResponse, PlatformAdminOrganizationSummary } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -33,19 +33,50 @@ const STATUS_BADGE_CLASS: Record<CeremonyStatus, string> = {
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatCurrency(discountValue);
 
+type DiscountFilter = 'DISCOUNTED' | 'ALL' | 'UNDISCOUNTED';
+
+const DISCOUNT_FILTER_OPTIONS: Array<{ value: DiscountFilter; label: string }> = [
+  { value: 'DISCOUNTED', label: '할인 있는 것만' },
+  { value: 'ALL', label: '전체' },
+  { value: 'UNDISCOUNTED', label: '할인 없는 것만' },
+];
+
+interface SearchParams {
+  organizationId: number | '';
+  status: CeremonyStatus | 'ALL';
+  discountFilter: DiscountFilter;
+}
+
+const EMPTY_SEARCH: SearchParams = { organizationId: '', status: 'ALL', discountFilter: 'DISCOUNTED' };
+
+const fetchCeremonyDiscounts = async (search: SearchParams, page: number): Promise<PageResponse<CeremonyDiscountSummary>> => {
+  const query = new URLSearchParams();
+  if (search.organizationId !== '') query.set('organizationId', String(search.organizationId));
+  if (search.status !== 'ALL') query.set('status', search.status);
+  if (search.discountFilter !== 'ALL') query.set('hasFinalDiscount', search.discountFilter === 'DISCOUNTED' ? 'true' : 'false');
+  query.set('page', String(page));
+  query.set('size', String(PAGE_SIZE));
+  const response = await api.get(`/platform-admin/ceremonies?${query.toString()}`);
+  return response.data as PageResponse<CeremonyDiscountSummary>;
+};
+
 /**
  * 행사 건별 재량 할인 조직 횡단 목록 — 조직 상세 화면에 묻혀 있던 `CeremonyFinalDiscountPanel`을
  * 분리했다(signstage-docs business/discount-management-screen-separation-review.md 결정
- * #5(2026-09-08)). 조직을 먼저 고르지 않고 전체 조직의 행사를 한 목록에서 훑을 수 있다.
- * 기본 필터는 "할인 있는 것만"이다(같은 문서 6장 결정 #1) — 체크를 풀면 전체를 본다. 상세(값
- * 조회/수정)는 각 행의 "상세" 링크로 별도 화면(`AdminCeremonyDiscountDetail`)에서 한다.
+ * #5(2026-09-08)). 검색 영역은 `signstage-docs frontend/list-screen-convention.md`의
+ * "검색 영역 → 목록 → 페이지네비게이션" 3단 구조를 따른다 — 조직/상태/할인 여부 모두 백엔드가
+ * 이미 지원하는 쿼리 파라미터(`hasFinalDiscount`)를 그대로 쓴다(장식용 UI가 아니다). 기본
+ * 필터는 "할인 있는 것만"이다(같은 문서 6장 결정 #1) — "전체"/"할인 없는 것만"으로 바꿀 수
+ * 있다. 상세(값 조회/수정)는 각 행의 "상세" 링크로 별도 화면(`AdminCeremonyDiscountDetail`)에서
+ * 한다.
  */
 export const AdminCeremonyDiscounts: FC = () => {
-  const [statusFilter, setStatusFilter] = useState<CeremonyStatus | 'ALL'>('ALL');
-  const [discountedOnly, setDiscountedOnly] = useState(true);
+  const [formValues, setFormValues] = useState<SearchParams>(EMPTY_SEARCH);
+  const [searchParams, setSearchParams] = useState<SearchParams>(EMPTY_SEARCH);
   const [page, setPage] = useState(0);
   const [pageData, setPageData] = useState<PageResponse<CeremonyDiscountSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [organizations, setOrganizations] = useState<PlatformAdminOrganizationSummary[]>([]);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
@@ -53,14 +84,26 @@ export const AdminCeremonyDiscounts: FC = () => {
     let cancelled = false;
     (async () => {
       try {
+        const response = await api.get('/platform-admin/organizations?size=200');
+        const data = (response.data as PageResponse<PlatformAdminOrganizationSummary>).content;
+        if (!cancelled) setOrganizations(data);
+      } catch (err) {
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '조직 목록을 불러오지 못했습니다.', 'error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
         setIsLoading(true);
-        const query = new URLSearchParams();
-        if (statusFilter !== 'ALL') query.set('status', statusFilter);
-        if (discountedOnly) query.set('hasFinalDiscount', 'true');
-        query.set('page', String(page));
-        query.set('size', String(PAGE_SIZE));
-        const response = await api.get(`/platform-admin/ceremonies?${query.toString()}`);
-        if (!cancelled) setPageData(response.data as PageResponse<CeremonyDiscountSummary>);
+        const data = await fetchCeremonyDiscounts(searchParams, page);
+        if (!cancelled) setPageData(data);
       } catch (err) {
         if (!cancelled) {
           showSnackbar(err instanceof Error ? err.message : '행사 목록을 불러오지 못했습니다.', 'error');
@@ -73,7 +116,21 @@ export const AdminCeremonyDiscounts: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, discountedOnly, page]);
+  }, [searchParams, page]);
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setPage(0);
+    setSearchParams({ ...formValues });
+  };
+
+  const handleReset = () => {
+    setIsLoading(true);
+    setFormValues(EMPTY_SEARCH);
+    setPage(0);
+    setSearchParams({ ...EMPTY_SEARCH });
+  };
 
   const ceremonies = pageData?.content ?? [];
 
@@ -90,24 +147,25 @@ export const AdminCeremonyDiscounts: FC = () => {
         </p>
       </div>
 
-      <SearchBar
-        onSubmit={(e) => {
-          e.preventDefault();
-          setPage(0);
-        }}
-        onReset={() => {
-          setStatusFilter('ALL');
-          setDiscountedOnly(true);
-          setPage(0);
-        }}
-      >
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="조직" className="w-56">
+          <select
+            value={formValues.organizationId}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, organizationId: e.target.value ? Number(e.target.value) : '' }))}
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
+          >
+            <option value="">전체</option>
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name}
+              </option>
+            ))}
+          </select>
+        </SearchField>
         <SearchField label="상태">
           <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as CeremonyStatus | 'ALL');
-              setPage(0);
-            }}
+            value={formValues.status}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value as CeremonyStatus | 'ALL' }))}
             className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
           >
             {STATUS_OPTIONS.map((option) => (
@@ -117,18 +175,18 @@ export const AdminCeremonyDiscounts: FC = () => {
             ))}
           </select>
         </SearchField>
-        <SearchField label="">
-          <label className="flex items-center gap-1.5 text-sm text-gray-700 select-none">
-            <input
-              type="checkbox"
-              checked={discountedOnly}
-              onChange={(e) => {
-                setDiscountedOnly(e.target.checked);
-                setPage(0);
-              }}
-            />
-            할인 있는 것만
-          </label>
+        <SearchField label="할인 여부">
+          <select
+            value={formValues.discountFilter}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, discountFilter: e.target.value as DiscountFilter }))}
+            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
+          >
+            {DISCOUNT_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </SearchField>
       </SearchBar>
 
