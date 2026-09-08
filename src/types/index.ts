@@ -517,7 +517,13 @@ export interface OptionalFeatureSummary {
   taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
-  /** 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제 동작은 projectorEffects.ts에 코드별로 구현돼 있어야 한다. */
+  /**
+   * 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제
+   * 동작은 이 옵션이 여는 `CeremonyEffectDefinition`(효과 카탈로그)과
+   * `components/effects/projector/projectorEffectRegistry.ts`(Renderer 등록)에 있다
+   * (CUTOVER-03 — 예전엔 `pages/projectorEffects.ts`의 옵션→액션 직접 매핑이 이 역할을
+   * 했었다).
+   */
   projectorEffect: boolean;
   /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
@@ -1558,7 +1564,13 @@ export interface ProjectorContext {
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
-  /** 이 하위 행사에 적용된 선택옵션 코드 — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출 효과의 on/off 판단에 쓴다. */
+  /**
+   * 이 하위 행사에 적용된 선택옵션 코드. **CUTOVER-03 이후 프런트에서는 더 이상 읽지
+   * 않는다** — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출은 이제 이벤트 효과 설정
+   * (`CeremonyEventEffectSetting`)과 `useProjectorEffectsController`가 대신 판단한다.
+   * 백엔드 `ProjectorService`가 이 필드를 여전히 내려주므로(구 이벤트 adapter 정리
+   * 전이라 아직 지우지 않았다) 타입만 남겨 배선(wire) 형태를 그대로 반영해 둔다.
+   */
   appliedOptionalFeatureCodes: OptionalFeatureCode[];
 }
 

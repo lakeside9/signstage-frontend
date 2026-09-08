@@ -112,7 +112,8 @@ const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: b
 
 /**
  * 선택옵션 전용 필드 — "이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지" 표시.
- * 분류 정보일 뿐 실제 동작은 프런트 projectorEffects.ts에 코드별로 구현돼 있어야 한다.
+ * 분류 정보일 뿐, 실제 동작은 이 옵션이 여는 효과 카탈로그(`CeremonyEffectManagement`)와
+ * Renderer 등록(`projectorEffectRegistry.ts`)에 있다(CUTOVER-03).
  */
 const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }> = ({
   checked,
