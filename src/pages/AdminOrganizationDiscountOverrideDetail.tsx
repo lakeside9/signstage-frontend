@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, History, Loader2, Tag, X } from 'lucide-react';
+import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -267,22 +268,16 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
               <Tag size={18} />
               {itemLabel || '품목'}
             </h1>
-            <button
-              onClick={openHistory}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-            >
+            <Button variant="secondary" size="sm" onClick={openHistory}>
               <History size={12} />
               이력
-            </button>
+            </Button>
           </div>
 
           {canManage && !isAddFormOpen && (
-            <button
-              onClick={() => setIsAddFormOpen(true)}
-              className="mt-4 flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-            >
+            <Button size="sm" className="mt-4" onClick={() => setIsAddFormOpen(true)}>
               기간 추가
-            </button>
+            </Button>
           )}
 
           {isAddFormOpen && (
@@ -322,7 +317,9 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => {
                             setEditingPeriodId(period.id);
                             setEditDraft({
@@ -332,18 +329,13 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
                               effectiveTo: period.effectiveTo ?? '',
                             });
                           }}
-                          className="px-2 py-1 rounded-md border border-gray-200 text-gray-600 text-[11px] font-medium hover:border-gray-400"
                         >
                           수정
-                        </button>
-                        <button
-                          onClick={() => handleRemove(period.id)}
-                          disabled={removingId === period.id}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-red-600 text-[11px] font-medium hover:border-red-300 disabled:opacity-50"
-                        >
+                        </Button>
+                        <Button variant="danger-outline" size="sm" onClick={() => handleRemove(period.id)} disabled={removingId === period.id}>
                           {removingId === period.id ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
                           제거
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </li>
@@ -444,23 +436,13 @@ const DiscountFields: FC<{ draft: DiscountDraft; onChange: (draft: DiscountDraft
 
 const FormActions: FC<{ isSaving: boolean; onSave?: () => void; onCancel: () => void }> = ({ isSaving, onSave, onCancel }) => (
   <div className="flex gap-1.5">
-    <button
-      type={onSave ? 'button' : 'submit'}
-      onClick={onSave}
-      disabled={isSaving}
-      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-    >
+    <Button type={onSave ? 'button' : 'submit'} size="sm" onClick={onSave} disabled={isSaving}>
       {isSaving && <Loader2 size={11} className="animate-spin" />}
       저장
-    </button>
-    <button
-      type="button"
-      onClick={onCancel}
-      disabled={isSaving}
-      className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-    >
+    </Button>
+    <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={isSaving}>
       취소
-    </button>
+    </Button>
   </div>
 );
 

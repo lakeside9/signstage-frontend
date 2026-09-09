@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Building2, Hash, User } from 'lucide-react';
+import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PlatformAdminOrganizationSummary } from '../types';
@@ -90,22 +91,17 @@ export const AdminOrganizationCreate: FC = () => {
 
           <div className="flex gap-2">
             {created.isDemo ? (
-              <Link
-                to={`/ceremonies/${created.id}`}
-                className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-              >
+              <Button to={`/ceremonies/${created.id}`} className="flex-1">
                 데모 행사 관리로 이동
-              </Link>
+              </Button>
             ) : (
-              <Link
-                to={`/admin/organizations/${created.id}`}
-                className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-              >
+              <Button to={`/admin/organizations/${created.id}`} className="flex-1">
                 상세로 이동
-              </Link>
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setOrganizationName('');
@@ -113,10 +109,9 @@ export const AdminOrganizationCreate: FC = () => {
                 setOwnerLoginId('');
                 setIsDemo(false);
               }}
-              className="flex-1 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
             >
               계속 추가하기
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -195,13 +190,9 @@ export const AdminOrganizationCreate: FC = () => {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-          >
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? '등록 중...' : '파트너 등록'}
-          </button>
+          </Button>
         </form>
       )}
     </div>

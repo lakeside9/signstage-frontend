@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { History, Loader2, Package, Pencil, Plus, Sparkles, X } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -497,16 +498,16 @@ const PricePeriodManagerModal: FC<{
       ) : tab === 'periods' ? (
         <div className="space-y-3">
           {!isAdding && (
-            <button
+            <Button
+              size="sm"
               onClick={() => {
                 setIsAdding(true);
                 setAddDraft(EMPTY_PERIOD_DRAFT());
               }}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
             >
               <Plus size={12} />
               새 기간 추가
-            </button>
+            </Button>
           )}
           {isAdding && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
@@ -556,23 +557,25 @@ const PricePeriodManagerModal: FC<{
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => startEditPeriod(period)}
                         disabled={editingPeriodId !== null || isAdding}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
                       >
                         <Pencil size={12} />
                         수정
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="danger-outline"
+                        size="sm"
                         onClick={() => handleRemovePeriod(period.id)}
                         disabled={isSaving || periods.length <= 1}
                         title={periods.length <= 1 ? '마지막 남은 기간은 삭제할 수 없습니다.' : undefined}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-red-600 text-xs font-medium hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <X size={12} />
                         삭제
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ),
@@ -818,13 +821,10 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950">과금 플랜</h2>
         {canManage && !isCreateFormOpen && (
-          <button
-            onClick={handleOpenCreateForm}
-            className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-          >
+          <Button size="sm" onClick={handleOpenCreateForm}>
             <Plus size={12} />
             새로 만들기
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1164,30 +1164,20 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                     <span className="ml-1.5 text-xs text-gray-400">사용 {plan.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
-                    <button
-                      onClick={() => setPeriodItemId(plan.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    <Button variant="secondary" size="sm" onClick={() => setPeriodItemId(plan.id)}>
                       가격
-                    </button>
-                    <button
-                      onClick={() => openHistory(plan.id)}
-                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    </Button>
+                    <Button variant="secondary" size="sm" className="ml-1.5" onClick={() => openHistory(plan.id)}>
                       <History size={12} />
                       이력
-                    </button>
+                    </Button>
                   </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
-                      <button
-                        onClick={() => startEdit(plan)}
-                        disabled={editingId !== null}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(plan)} disabled={editingId !== null}>
                         <Pencil size={12} />
                         수정
-                      </button>
+                      </Button>
                     </td>
                   )}
                 </tr>
@@ -1403,14 +1393,10 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           선택옵션
         </h2>
         {canManage && !isCreateFormOpen && (
-          <button
-            onClick={handleOpenCreateForm}
-            disabled={availableCodes.length === 0}
-            className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+          <Button size="sm" onClick={handleOpenCreateForm} disabled={availableCodes.length === 0}>
             <Plus size={12} />
             새로 만들기
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1687,30 +1673,20 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                     )}
                   </td>
                   <td className="py-2 px-4 text-right">
-                    <button
-                      onClick={() => setPeriodItemId(feature.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    <Button variant="secondary" size="sm" onClick={() => setPeriodItemId(feature.id)}>
                       가격
-                    </button>
-                    <button
-                      onClick={() => openHistory(feature.id)}
-                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    </Button>
+                    <Button variant="secondary" size="sm" className="ml-1.5" onClick={() => openHistory(feature.id)}>
                       <History size={12} />
                       이력
-                    </button>
+                    </Button>
                   </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
-                      <button
-                        onClick={() => startEdit(feature)}
-                        disabled={editingId !== null}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(feature)} disabled={editingId !== null}>
                         <Pencil size={12} />
                         수정
-                      </button>
+                      </Button>
                     </td>
                   )}
                 </tr>
@@ -1895,13 +1871,10 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950">용량 추가구매 상품</h2>
         {canManage && !isCreateFormOpen && (
-          <button
-            onClick={() => setIsCreateFormOpen(true)}
-            className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-          >
+          <Button size="sm" onClick={() => setIsCreateFormOpen(true)}>
             <Plus size={12} />
             새로 만들기
-          </button>
+          </Button>
         )}
       </div>
 
@@ -2167,30 +2140,20 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                     <span className="ml-1.5 text-xs text-gray-400">사용 {addOn.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
-                    <button
-                      onClick={() => setPeriodItemId(addOn.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    <Button variant="secondary" size="sm" onClick={() => setPeriodItemId(addOn.id)}>
                       가격
-                    </button>
-                    <button
-                      onClick={() => openHistory(addOn.id)}
-                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-                    >
+                    </Button>
+                    <Button variant="secondary" size="sm" className="ml-1.5" onClick={() => openHistory(addOn.id)}>
                       <History size={12} />
                       이력
-                    </button>
+                    </Button>
                   </td>
                   {canManage && (
                     <td className="py-2 px-4 text-right">
-                      <button
-                        onClick={() => startEdit(addOn)}
-                        disabled={editingId !== null}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(addOn)} disabled={editingId !== null}>
                         <Pencil size={12} />
                         수정
-                      </button>
+                      </Button>
                     </td>
                   )}
                 </tr>
@@ -2257,12 +2220,7 @@ const FormActions: FC<{
   onCancel: () => void;
 }> = ({ isSaving, savingLabel, saveLabel, onSave, onCancel }) => (
   <div className="flex gap-2">
-    <button
-      type={onSave ? 'button' : 'submit'}
-      onClick={onSave}
-      disabled={isSaving}
-      className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-    >
+    <Button type={onSave ? 'button' : 'submit'} size="sm" onClick={onSave} disabled={isSaving}>
       {isSaving ? (
         <>
           <Loader2 size={12} className="animate-spin" />
@@ -2271,15 +2229,10 @@ const FormActions: FC<{
       ) : (
         saveLabel
       )}
-    </button>
-    <button
-      type="button"
-      onClick={onCancel}
-      disabled={isSaving}
-      className="flex items-center gap-1.5 px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-    >
+    </Button>
+    <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={isSaving}>
       <X size={12} />
       취소
-    </button>
+    </Button>
   </div>
 );

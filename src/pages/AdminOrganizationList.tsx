@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Plus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -119,13 +120,10 @@ export const AdminOrganizationList: FC = () => {
           <p className="mt-1 text-sm text-gray-500">전체 파트너 목록입니다. 파트너 이름을 누르면 상세로 이동합니다.</p>
         </div>
         {canManage && (
-          <Link
-            to="/admin/organizations/new"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
+          <Button to="/admin/organizations/new">
             <Plus size={16} />
             파트너 등록
-          </Link>
+          </Button>
         )}
       </div>
 

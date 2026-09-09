@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Percent } from 'lucide-react';
+import { Button } from '../components/Button';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -140,33 +141,21 @@ export const AdminCeremonyDiscountDetail: FC = () => {
                   />
                 </Field>
                 <div className="flex gap-1.5">
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                  >
+                  <Button type="submit" size="sm" disabled={isSaving}>
                     {isSaving && <Loader2 size={11} className="animate-spin" />}
                     저장
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    disabled={isSaving}
-                    className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                  >
+                  </Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
                     취소
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : (
               canManage &&
               (ceremony.status === 'IN_PROGRESS' ? (
-                <button
-                  onClick={startEdit}
-                  className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-                >
+                <Button variant="secondary" size="sm" onClick={startEdit}>
                   할인 설정
-                </button>
+                </Button>
               ) : (
                 <p className="text-xs text-gray-400">
                   {ceremony.status === 'DRAFT' ? '플랜 확정 전' : '완료된 행사'}에는 설정할 수 없습니다.

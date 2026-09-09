@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Loader2, Plus, Tag } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { SearchBar, SearchField } from '../components/SearchBar';
@@ -354,13 +355,10 @@ export const AdminOrganizationDiscountOverrides: FC = () => {
           </p>
         </div>
         {canManage && (
-          <button
-            onClick={openAddPicker}
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
+          <Button className="shrink-0" onClick={openAddPicker}>
             <Plus size={16} />
             새 오버라이드 추가
-          </button>
+          </Button>
         )}
       </div>
 
@@ -552,23 +550,13 @@ export const AdminOrganizationDiscountOverrides: FC = () => {
             </Field>
           </div>
           <div className="flex justify-end gap-1.5 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAddPickerOpen(false)}
-              disabled={isCreating}
-              className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={() => setIsAddPickerOpen(false)} disabled={isCreating}>
               취소
-            </button>
-            <button
-              type="button"
-              onClick={handleCreateNewOverride}
-              disabled={isCreating}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="button" size="sm" onClick={handleCreateNewOverride} disabled={isCreating}>
               {isCreating && <Loader2 size={11} className="animate-spin" />}
               생성
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

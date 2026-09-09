@@ -16,6 +16,7 @@ import {
   User,
   UserX,
 } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -344,22 +345,14 @@ export const AdminUserDetail: FC = () => {
         ) : (
           <div className="flex gap-2">
             {user.status !== 'ACTIVE' && (
-              <button
-                onClick={() => handleChangeStatus('ACTIVE')}
-                disabled={isProcessing}
-                className="px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button onClick={() => handleChangeStatus('ACTIVE')} disabled={isProcessing}>
                 승인/활성화
-              </button>
+              </Button>
             )}
             {user.status !== 'DISABLED' && (
-              <button
-                onClick={() => handleChangeStatus('DISABLED')}
-                disabled={isProcessing}
-                className="px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
-              >
+              <Button variant="secondary" onClick={() => handleChangeStatus('DISABLED')} disabled={isProcessing}>
                 거절/비활성화
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -373,24 +366,24 @@ export const AdminUserDetail: FC = () => {
           <p className="text-sm text-gray-500">잠금 해제/비밀번호 재설정은 PLATFORM_OPS 이상만 가능합니다.</p>
         ) : (
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="secondary"
               onClick={handleUnlock}
               disabled={isProcessing || !user.locked}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-40"
               title={user.locked ? undefined : '현재 잠긴 계정이 아닙니다.'}
             >
               <LockOpen size={14} />
               잠금 즉시 해제
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               onClick={handleForcePasswordReset}
               disabled={isProcessing || user.passwordResetRequired}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-40"
               title={user.passwordResetRequired ? '이미 강제 재설정이 대기 중입니다.' : undefined}
             >
               <KeyRound size={14} />
               강제 비밀번호 재설정
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -522,30 +515,19 @@ export const AdminUserDetail: FC = () => {
                 회원이 마지막 OWNER인 파트너가 있다면 실패합니다(먼저 소유권을 이전해주세요).
               </p>
               <div className="flex gap-2">
-                <button
-                  onClick={handleWithdraw}
-                  disabled={isProcessing}
-                  className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                >
+                <Button variant="danger" onClick={handleWithdraw} disabled={isProcessing}>
                   네, 강제 탈퇴시킵니다
-                </button>
-                <button
-                  onClick={() => setConfirmingWithdraw(false)}
-                  disabled={isProcessing}
-                  className="px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
-                >
+                </Button>
+                <Button variant="secondary" onClick={() => setConfirmingWithdraw(false)} disabled={isProcessing}>
                   취소
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setConfirmingWithdraw(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50"
-            >
+            <Button variant="danger-outline" onClick={() => setConfirmingWithdraw(true)}>
               <UserX size={14} />
               회원 강제 탈퇴
-            </button>
+            </Button>
           )}
         </div>
       )}

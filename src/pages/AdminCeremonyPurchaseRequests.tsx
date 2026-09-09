@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Check, ShoppingCart, X } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
@@ -301,30 +302,18 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
                     <td className="px-4 py-3 text-right">
                       {request.status === 'PENDING' &&
                         (rejectingId === request.id ? (
-                          <button
-                            onClick={() => setRejectingId(null)}
-                            disabled={processingId === request.id}
-                            className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                          >
+                          <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
                             취소
-                          </button>
+                          </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleApprove(request.id)}
-                              disabled={processingId === request.id}
-                              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                            >
+                            <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
                               <Check size={12} />
                               승인
-                            </button>
-                            <button
-                              onClick={() => openReject(request.id)}
-                              disabled={processingId === request.id}
-                              className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
                               반려
-                            </button>
+                            </Button>
                           </div>
                         ))}
                     </td>
@@ -342,14 +331,10 @@ const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnack
                           placeholder="반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <button
-                          onClick={() => handleReject(request.id)}
-                          disabled={processingId === request.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-                        >
+                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
                           <X size={12} />
                           반려 확정
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -576,30 +561,18 @@ const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, sh
                     <td className="px-4 py-3 text-right">
                       {request.status === 'PENDING' &&
                         (rejectingId === request.id ? (
-                          <button
-                            onClick={() => setRejectingId(null)}
-                            disabled={processingId === request.id}
-                            className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                          >
+                          <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
                             취소
-                          </button>
+                          </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleApprove(request.id)}
-                              disabled={processingId === request.id}
-                              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                            >
+                            <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
                               <Check size={12} />
                               승인
-                            </button>
-                            <button
-                              onClick={() => openReject(request.id)}
-                              disabled={processingId === request.id}
-                              className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
                               반려
-                            </button>
+                            </Button>
                           </div>
                         ))}
                     </td>
@@ -617,14 +590,10 @@ const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, sh
                           placeholder="반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <button
-                          onClick={() => handleReject(request.id)}
-                          disabled={processingId === request.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-                        >
+                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
                           <X size={12} />
                           반려 확정
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

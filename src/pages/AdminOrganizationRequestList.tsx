@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Check, X } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
@@ -289,27 +290,17 @@ export const AdminOrganizationRequestList: FC = () => {
                     <td className="px-4 py-3 text-right">
                       {request.status === 'PENDING' &&
                         (actioningId === request.id ? (
-                          <button
-                            onClick={closeAction}
-                            disabled={isSubmittingAction}
-                            className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                          >
+                          <Button variant="secondary" size="sm" onClick={closeAction} disabled={isSubmittingAction}>
                             취소
-                          </button>
+                          </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => openAction(request.id, 'approve')}
-                              className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-                            >
+                            <Button size="sm" onClick={() => openAction(request.id, 'approve')}>
                               승인
-                            </button>
-                            <button
-                              onClick={() => openAction(request.id, 'reject')}
-                              className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-                            >
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => openAction(request.id, 'reject')}>
                               반려
-                            </button>
+                            </Button>
                           </div>
                         ))}
                     </td>
@@ -327,14 +318,10 @@ export const AdminOrganizationRequestList: FC = () => {
                           placeholder="파트너 코드 (영문 소문자, 숫자, '-')"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <button
-                          onClick={() => handleApprove(request.id)}
-                          disabled={isSubmittingAction}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                        >
+                        <Button size="sm" onClick={() => handleApprove(request.id)} disabled={isSubmittingAction}>
                           <Check size={12} />
                           승인 확정
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -351,14 +338,10 @@ export const AdminOrganizationRequestList: FC = () => {
                           placeholder="반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <button
-                          onClick={() => handleReject(request.id)}
-                          disabled={isSubmittingAction}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-                        >
+                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={isSubmittingAction}>
                           <X size={12} />
                           반려 확정
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
