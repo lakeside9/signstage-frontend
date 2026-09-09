@@ -524,24 +524,10 @@ export interface OptionalFeatureSummary {
   taxCode: string;
   /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
   active: boolean;
-  /**
-   * 이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지 — 분류 정보일 뿐, 실제
-   * 동작은 이 옵션이 여는 `CeremonyEffectDefinition`(효과 카탈로그)과
-   * `components/effects/projector/projectorEffectRegistry.ts`(Renderer 등록)에 있다
-   * (CUTOVER-03 — 예전엔 `pages/projectorEffects.ts`의 옵션→액션 직접 매핑이 이 역할을
-   * 했었다).
-   */
-  projectorEffect: boolean;
   /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
   /** 상위 분류(장비/인력/애플리케이션, 2026-09-08 결정). */
   category: OptionalFeatureCategory;
-  /**
-   * 짝이 되는 용량 추가구매 종류 — null이면 완결형(그 자체로 끝나는 상품). 값이 있으면 표시
-   * 전용 상품이며 이 CapacityType의 용량 추가구매가 실제 수량을 담당한다(2026-09-08 결정,
-   * business/optional-feature-capacity-addon-pairing-review.md).
-   */
-  pairedCapacityType: CapacityType | null;
   /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   /** 이 묶음이 여는 이벤트 효과 id 목록. `code`가 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
@@ -564,10 +550,8 @@ export interface OptionalFeatureHistorySummary {
   discountValue: number;
   taxCode: string;
   active: boolean;
-  projectorEffect: boolean;
   exclusivityGroup: string | null;
   category: OptionalFeatureCategory;
-  pairedCapacityType: CapacityType | null;
   createdBy: number;
   createdAt: string;
 }
@@ -582,12 +566,8 @@ export interface CreateOptionalFeatureRequest {
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
-  /** 생략하면(undefined) 백엔드 기본값 true. */
-  projectorEffect?: boolean;
   exclusivityGroup?: string | null;
   category: OptionalFeatureCategory;
-  /** 완결형이면 null(짝 없음). 짝이 되는 용량 추가구매 상품이 아직 카탈로그에 없어도 저장은 막히지 않는다. */
-  pairedCapacityType?: CapacityType | null;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록 — `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가
    * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
@@ -608,10 +588,8 @@ export interface UpdateOptionalFeatureRequest {
   discountValue: number;
   taxCode?: string;
   active: boolean;
-  projectorEffect: boolean;
   exclusivityGroup: string | null;
   category: OptionalFeatureCategory;
-  pairedCapacityType?: CapacityType | null;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —
    * `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가 있다. 생략하면(undefined) 기존 구성을

@@ -59,16 +59,6 @@ const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
   ONLINE_SUPPORT: '온라인지원',
 };
 
-/** 코드별 기본 프로젝터 효과값 — 새로 만들기 폼에서 코드를 고를 때 자동으로 맞춰준다(그래도 수동으로 바꿀 수 있다). */
-const DEFAULT_PROJECTOR_EFFECT_BY_CODE: Record<string, boolean> = {
-  SIGNER_FIELD_ZOOM: true,
-  ALL_SIGNED_FIREWORKS: true,
-  EVENT_EFFECT_BUNDLE: true,
-  TABLET_RENTAL: false,
-  ONSITE_SUPPORT: false,
-  ONLINE_SUPPORT: false,
-};
-
 const OPTIONAL_FEATURE_CATEGORY_OPTIONS: Array<{ value: OptionalFeatureCategory; label: string }> = [
   { value: 'EQUIPMENT', label: '장비' },
   { value: 'PERSONNEL', label: '인력' },
@@ -87,17 +77,6 @@ const DEFAULT_CATEGORY_BY_CODE: Record<string, OptionalFeatureCategory> = {
   TABLET_RENTAL: 'EQUIPMENT',
   ONSITE_SUPPORT: 'PERSONNEL',
   ONLINE_SUPPORT: 'PERSONNEL',
-};
-
-/**
- * 코드별 기본 짝 용량 종류 — 표시용 옵션(태블릿 대여/현장지원/온라인지원)만 값이 있다. 완결형
- * (이벤트 효과 묶음)은 짝이 없다(undefined) — signstage-docs
- * business/optional-feature-capacity-addon-pairing-review.md 결정(2026-09-08).
- */
-const DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE: Record<string, CapacityType> = {
-  TABLET_RENTAL: 'TABLETS',
-  ONSITE_SUPPORT: 'ONSITE_SUPPORT',
-  ONLINE_SUPPORT: 'ONLINE_SUPPORT',
 };
 
 /** 효과 하나를 "targetType/triggerType 코드" 형태로 간단히 보여준다(예: "PROJECTOR · SIGNATURE_COMPLETED"). */
@@ -224,24 +203,6 @@ const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: b
     <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
       <input type="checkbox" checked={active} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {active ? '사용' : '미사용(신규 선택/구매 대상에서 제외)'}
-    </label>
-  </Field>
-);
-
-/**
- * 선택옵션 전용 필드 — "이 옵션이 프로젝터(전시용) 화면에 실제로 효과를 내는 종류인지" 표시.
- * 분류 정보일 뿐, 실제 동작은 이 옵션이 여는 효과 카탈로그(`CeremonyEffectManagement`)와
- * Renderer 등록(`projectorEffectRegistry.ts`)에 있다(CUTOVER-03).
- */
-const ProjectorEffectField: FC<{ checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }> = ({
-  checked,
-  disabled,
-  onChange,
-}) => (
-  <Field label="프로젝터 효과">
-    <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      {checked ? '프로젝터 화면에 효과를 냄' : '프로젝터와 무관'}
     </label>
   </Field>
 );
@@ -907,10 +868,8 @@ const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
-  projectorEffect: true,
   exclusivityGroup: '',
   category: 'APPLICATION',
-  pairedCapacityType: null,
   effectDefinitionIds: [],
 };
 
@@ -924,9 +883,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
-  // 표시용 옵션(pairedCapacityType 있음)의 짝이 카탈로그에 있는지 확인하는 데 쓴다 —
-  // signstage-docs business/optional-feature-capacity-addon-pairing-review.md 결정(2026-09-08).
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
 
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<CreateOptionalFeatureRequest>(EMPTY_FEATURE_DRAFT);
@@ -947,21 +903,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     );
   };
 
-  const fetchAddOns = async () => (await api.get('/capacity-addons')).data as CapacityAddOnSummary[];
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [featuresData, effectsRes, addOnsData] = await Promise.all([
-          fetchFeatures(),
-          api.get('/ceremony-effects'),
-          fetchAddOns(),
-        ]);
+        const [featuresData, effectsRes] = await Promise.all([fetchFeatures(), api.get('/ceremony-effects')]);
         if (!cancelled) {
           setFeatures(featuresData);
           setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
-          setAddOns(addOnsData);
         }
       } catch (err) {
         if (!cancelled) {
@@ -982,27 +931,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   // 몇 개든 계속 추가할 수 있어야 한다. 그래서 availableCodes는 등록 여부로 거르지 않는다.
   const availableCodes = MANAGEABLE_OPTIONAL_FEATURE_CODES;
 
-  /** 이 용량 종류를 짝으로 쓰는 활성 용량 추가구매 상품 목록 — 짝 누락 경고·인라인 표시에 쓴다. */
-  const pairedAddOns = (capacityType: CapacityType | null) =>
-    capacityType === null ? [] : addOns.filter((a) => a.capacityType === capacityType && a.active);
-
-  const handleOpenCreateForm = async () => {
+  const handleOpenCreateForm = () => {
     const code = availableCodes[0];
     setCreateDraft({
       ...EMPTY_FEATURE_DRAFT,
       code,
-      projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? true,
       category: DEFAULT_CATEGORY_BY_CODE[code] ?? 'APPLICATION',
-      pairedCapacityType: DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE[code] ?? null,
     });
     setIsCreateFormOpen(true);
-    // 다른 섹션(용량 추가구매)에서 방금 만든 상품이 짝 후보에 바로 보이도록 새로 불러온다
-    // (BillingPlanSection.handleOpenCreateForm과 같은 이유, 라인 320 주석 참고).
-    try {
-      setAddOns(await fetchAddOns());
-    } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '용량 추가구매 상품 목록을 불러오지 못했습니다.', 'error');
-    }
   };
 
   const handleCreate = async (e: FormEvent) => {
@@ -1040,10 +976,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
       discountValue: feature.discountValue,
       taxCode: feature.taxCode,
       active: feature.active,
-      projectorEffect: feature.projectorEffect,
       exclusivityGroup: feature.exclusivityGroup ?? '',
       category: feature.category,
-      pairedCapacityType: feature.pairedCapacityType,
       effectDefinitionIds: feature.effectDefinitionIds,
     });
   };
@@ -1119,9 +1053,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   setCreateDraft((prev) => ({
                     ...prev,
                     code,
-                    projectorEffect: DEFAULT_PROJECTOR_EFFECT_BY_CODE[code] ?? prev.projectorEffect,
                     category: DEFAULT_CATEGORY_BY_CODE[code] ?? prev.category,
-                    pairedCapacityType: DEFAULT_PAIRED_CAPACITY_TYPE_BY_CODE[code] ?? null,
                   }));
                 }}
                 disabled={isCreating}
@@ -1193,11 +1125,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 className={inputClass}
               />
             </Field>
-            <ProjectorEffectField
-              checked={createDraft.projectorEffect ?? true}
-              disabled={isCreating}
-              onChange={(projectorEffect) => setCreateDraft((prev) => ({ ...prev, projectorEffect }))}
-            />
             <Field label="배타 그룹">
               <input
                 type="text"
@@ -1222,26 +1149,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 ))}
               </select>
             </Field>
-            <Field label="짝이 되는 용량 추가구매 종류">
-              <select
-                value={createDraft.pairedCapacityType ?? ''}
-                onChange={(e) =>
-                  setCreateDraft((prev) => ({
-                    ...prev,
-                    pairedCapacityType: e.target.value === '' ? null : (e.target.value as CapacityType),
-                  }))
-                }
-                disabled={isCreating}
-                className={inputClass}
-              >
-                <option value="">없음(완결형)</option>
-                {CAPACITY_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
             {createDraft.code === 'EVENT_EFFECT_BUNDLE' && (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
@@ -1253,16 +1160,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           </div>
           <p className="text-xs text-gray-400">
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예:
-            서명 하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때). 짝이 되는 용량 추가구매 종류를
-            고르면 이 옵션은 "표시 전용"이 됩니다 — 실제 수량은 그 종류의 용량 추가구매 상품이 담당합니다
-            (예: 태블릿 대여 → 태블릿).
+            서명 하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
           </p>
-          {createDraft.pairedCapacityType != null && pairedAddOns(createDraft.pairedCapacityType).length === 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              짝이 되는 용량 추가구매 상품({CAPACITY_TYPE_LABEL[createDraft.pairedCapacityType] ?? createDraft.pairedCapacityType})이
-              아직 카탈로그에 없습니다 — 등록은 막지 않지만, 아래 용량 추가구매 섹션에서 짝 상품도 함께 만들어주세요.
-            </p>
-          )}
           <FormActions
             isSaving={isCreating}
             savingLabel="등록 중..."
@@ -1369,11 +1268,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         disabled={isSavingEdit}
                         onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
                       />
-                      <ProjectorEffectField
-                        checked={editDraft.projectorEffect}
-                        disabled={isSavingEdit}
-                        onChange={(projectorEffect) => setEditDraft((prev) => prev && { ...prev, projectorEffect })}
-                      />
                       <Field label="배타 그룹">
                         <input
                           type="text"
@@ -1398,28 +1292,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           ))}
                         </select>
                       </Field>
-                      <Field label="짝이 되는 용량 추가구매 종류">
-                        <select
-                          value={editDraft.pairedCapacityType ?? ''}
-                          onChange={(e) =>
-                            setEditDraft((prev) =>
-                              prev && {
-                                ...prev,
-                                pairedCapacityType: e.target.value === '' ? null : (e.target.value as CapacityType),
-                              }
-                            )
-                          }
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        >
-                          <option value="">없음(완결형)</option>
-                          {CAPACITY_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
                       {feature.code === 'EVENT_EFFECT_BUNDLE' && (
                         <EffectDefinitionPicker
                           definitions={effectDefinitions}
@@ -1429,12 +1301,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                         />
                       )}
                     </div>
-                    {(editDraft.pairedCapacityType ?? null) !== null && pairedAddOns(editDraft.pairedCapacityType ?? null).length === 0 && (
-                      <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                        짝이 되는 용량 추가구매 상품({CAPACITY_TYPE_LABEL[editDraft.pairedCapacityType ?? ''] ?? editDraft.pairedCapacityType})이
-                        아직 카탈로그에 없습니다 — 저장은 막지 않지만, 아래 용량 추가구매 섹션에서 짝 상품도 함께 만들어주세요.
-                      </p>
-                    )}
                     <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
                     <FormActions
                       isSaving={isSavingEdit}
@@ -1461,25 +1327,12 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                     <span className="ml-1.5 text-xs text-gray-400">사용 {feature.usageCount}건</span>
                   </td>
                   <td className="py-2 text-xs">
-                    <div className="text-gray-600">
-                      {OPTIONAL_FEATURE_CATEGORY_LABEL[feature.category] ?? feature.category} ·{' '}
-                      {feature.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
-                    </div>
+                    <div className="text-gray-600">{OPTIONAL_FEATURE_CATEGORY_LABEL[feature.category] ?? feature.category}</div>
                     {feature.code === 'EVENT_EFFECT_BUNDLE' && (
                       <div className="mt-0.5 text-gray-400">효과 {feature.effectDefinitionIds.length}종</div>
                     )}
                     {feature.exclusivityGroup && (
                       <div className="mt-0.5 text-gray-400">배타 그룹: {feature.exclusivityGroup}</div>
-                    )}
-                    {feature.pairedCapacityType && (
-                      <div className="mt-0.5 text-gray-400">
-                        → 연결된 용량 추가구매:{' '}
-                        {pairedAddOns(feature.pairedCapacityType).length > 0
-                          ? pairedAddOns(feature.pairedCapacityType)
-                              .map((a) => `+${a.unitAmount}`)
-                              .join(', ')
-                          : '없음(짝 상품 등록 필요)'}
-                      </div>
                     )}
                   </td>
                   <td className="py-2 px-4 text-right">
@@ -1535,9 +1388,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   할인 {formatDiscount(history.discountType, history.discountValue)}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {OPTIONAL_FEATURE_CATEGORY_LABEL[history.category] ?? history.category} ·{' '}
-                  {history.projectorEffect ? '프로젝터 효과' : '프로젝터 무관'}
-                  {history.pairedCapacityType && ` · 짝: ${CAPACITY_TYPE_LABEL[history.pairedCapacityType] ?? history.pairedCapacityType}`}
+                  {OPTIONAL_FEATURE_CATEGORY_LABEL[history.category] ?? history.category}
                   {history.exclusivityGroup && ` · 배타 그룹: ${history.exclusivityGroup}`}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
