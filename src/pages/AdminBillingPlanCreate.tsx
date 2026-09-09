@@ -287,8 +287,11 @@ export const AdminBillingPlanCreate: FC = () => {
             </p>
           </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/billing-catalog/plans" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '등록 중...' : '과금 플랜 등록'}
             </Button>
           </div>

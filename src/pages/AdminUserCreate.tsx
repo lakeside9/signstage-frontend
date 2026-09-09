@@ -179,8 +179,11 @@ export const AdminUserCreate: FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/users" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '생성 중...' : '회원 생성'}
             </Button>
           </div>

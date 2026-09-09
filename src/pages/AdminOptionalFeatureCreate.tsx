@@ -273,8 +273,11 @@ export const AdminOptionalFeatureCreate: FC = () => {
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명 하이라이트
             색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
           </p>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/billing-catalog/optional-features" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '등록 중...' : '선택옵션 등록'}
             </Button>
           </div>
