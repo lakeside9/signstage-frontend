@@ -14,6 +14,7 @@ import {
   CAPACITY_TYPE_LABEL,
   CAPACITY_TYPE_OPTIONS,
   CATALOG_PAGE_SIZE,
+  calculateFinalPrice,
   formatDiscount,
   formatPrice,
   formatSupplyPrice,
@@ -121,6 +122,7 @@ export const AdminCapacityAddOnList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">단위 수량</th>
               <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
               <th className="text-left px-4 py-3 font-medium">할인</th>
+              <th className="text-left px-4 py-3 font-medium">예상 최종가</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
             </tr>
@@ -150,6 +152,11 @@ export const AdminCapacityAddOnList: FC = () => {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {addOn.discountType === null || addOn.discountValue === null ? '-' : formatDiscount(addOn.discountType, addOn.discountValue)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {addOn.salePrice === null || addOn.discountType === null || addOn.discountValue === null
+                    ? '-'
+                    : formatPrice(calculateFinalPrice(addOn.salePrice, addOn.discountType, addOn.discountValue), addOn.currencyCode ?? 'KRW')}
                 </td>
                 <td className="px-4 py-3">
                   <PeriodStatusBadge status={addOn.periodStatus} />

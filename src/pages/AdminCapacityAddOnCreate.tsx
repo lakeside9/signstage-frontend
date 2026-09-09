@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, Field } from './billingCatalog/components';
+import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
 import { CAPACITY_TYPE_OPTIONS, DISCOUNT_TYPE_OPTIONS, inputClass, todayIsoDate } from './billingCatalog/constants';
 import type { CapacityAddOnSummary, CapacityType, CreateCapacityAddOnRequest, DiscountType } from '../types';
 
@@ -239,6 +239,12 @@ export const AdminCapacityAddOnCreate: FC = () => {
             </Field>
             <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
           </div>
+          <FinalPricePreview
+            salePrice={draft.salePrice}
+            discountType={draft.discountType}
+            discountValue={draft.discountValue}
+            currencyCode={draft.currencyCode}
+          />
           <p className="text-xs text-gray-400">
             보조 용량을 지정하면 이 상품 1건 구매로 두 용량이 함께 늘어나는 묶음 상품이 됩니다(예: "서명자+태블릿" = 주 용량 서명자,
             보조 용량 태블릿). 묶음 여부와 보조 용량 종류는 등록 후 바꿀 수 없습니다.

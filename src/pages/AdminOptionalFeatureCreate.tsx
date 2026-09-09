@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, EffectDefinitionPicker, Field } from './billingCatalog/components';
+import { ActiveField, EffectDefinitionPicker, Field, FinalPricePreview } from './billingCatalog/components';
 import {
   DEFAULT_CATEGORY_BY_CODE,
   DISCOUNT_TYPE_OPTIONS,
@@ -266,6 +266,12 @@ export const AdminOptionalFeatureCreate: FC = () => {
               />
             )}
           </div>
+          <FinalPricePreview
+            salePrice={draft.salePrice}
+            discountType={draft.discountType}
+            discountValue={draft.discountValue}
+            currencyCode={draft.currencyCode}
+          />
           <p className="text-xs text-gray-400">
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명 하이라이트
             색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
