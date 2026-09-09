@@ -190,9 +190,11 @@ export const AdminOrganizationCreate: FC = () => {
             </div>
           )}
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? '등록 중...' : '파트너 등록'}
-          </Button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={isLoading}>
+              {isLoading ? '등록 중...' : '파트너 등록'}
+            </Button>
+          </div>
         </form>
       )}
     </div>

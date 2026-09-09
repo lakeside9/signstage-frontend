@@ -179,9 +179,11 @@ export const AdminUserCreate: FC = () => {
             </div>
           </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? '생성 중...' : '회원 생성'}
-          </Button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={isLoading}>
+              {isLoading ? '생성 중...' : '회원 생성'}
+            </Button>
+          </div>
         </form>
       )}
     </div>

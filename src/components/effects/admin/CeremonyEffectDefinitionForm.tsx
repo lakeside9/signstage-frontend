@@ -49,8 +49,9 @@ const inputClass = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm o
  *
  * 이 효과를 여는 선택옵션(묶음) 구성은 이 폼이 갖지 않는다(2026-09-08 재설계) — 예전에는
  * `requiredOptionalFeatureId` 단일 FK를 등록 시점에 여기서 골랐지만, 이제는 "이벤트 효과
- * 묶음"이 여러 효과를 자유롭게 겹쳐 담는 N:M 구조라 반대쪽(과금 카탈로그 관리 화면,
- * `AdminBillingCatalog.tsx`)에서 묶음이 담을 효과 목록을 고르는 방식으로 바뀌었다.
+ * 묶음"이 여러 효과를 자유롭게 겹쳐 담는 N:M 구조라 반대쪽(선택옵션 등록/수정 화면,
+ * `AdminOptionalFeatureCreate.tsx`/`AdminOptionalFeatureEdit.tsx`)에서 묶음이 담을 효과
+ * 목록을 고르는 방식으로 바뀌었다.
  *
  * code/대상/실행시점/Renderer 키는 `mode === 'edit'`이면 비활성 입력으로 그대로 보여주기만
  * 한다(값을 지우지 않는다) — 서버도 `UpdateCeremonyEffectDefinition` 요청 자체에 이 필드들을

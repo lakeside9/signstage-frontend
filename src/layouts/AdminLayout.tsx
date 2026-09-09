@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import {
   BadgePercent,
+  Boxes,
   Building2,
   Calculator,
   ChevronLeft,
@@ -13,6 +14,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   Package,
@@ -63,6 +65,8 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Settings: <Settings size={20} />,
   KeyRound: <KeyRound size={20} />,
   Layers: <Layers size={20} />,
+  ListChecks: <ListChecks size={20} />,
+  Boxes: <Boxes size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
