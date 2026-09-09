@@ -78,13 +78,9 @@ export const AdminCapacityAddOnCreate: FC = () => {
               {created.capacityType} +{created.unitAmount}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button to={`/admin/billing-catalog/capacity-addons/${created.id}`} className="flex-1">
-              상세로 이동
-            </Button>
+          <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
-              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setDraft(EMPTY_DRAFT());
@@ -92,6 +88,7 @@ export const AdminCapacityAddOnCreate: FC = () => {
             >
               계속 추가하기
             </Button>
+            <Button to={`/admin/billing-catalog/capacity-addons/${created.id}`}>상세로 이동</Button>
           </div>
         </div>
       ) : (

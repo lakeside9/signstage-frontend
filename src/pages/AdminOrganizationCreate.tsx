@@ -89,19 +89,9 @@ export const AdminOrganizationCreate: FC = () => {
             )}
           </div>
 
-          <div className="flex gap-2">
-            {created.isDemo ? (
-              <Button to={`/ceremonies/${created.id}`} className="flex-1">
-                데모 행사 관리로 이동
-              </Button>
-            ) : (
-              <Button to={`/admin/organizations/${created.id}`} className="flex-1">
-                상세로 이동
-              </Button>
-            )}
+          <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
-              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setOrganizationName('');
@@ -112,6 +102,11 @@ export const AdminOrganizationCreate: FC = () => {
             >
               계속 추가하기
             </Button>
+            {created.isDemo ? (
+              <Button to={`/ceremonies/${created.id}`}>데모 행사 관리로 이동</Button>
+            ) : (
+              <Button to={`/admin/organizations/${created.id}`}>상세로 이동</Button>
+            )}
           </div>
         </div>
       ) : (

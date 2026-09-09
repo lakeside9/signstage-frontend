@@ -102,13 +102,9 @@ export const AdminBillingPlanCreate: FC = () => {
             <p className="text-sm text-gray-500 mb-1">이름</p>
             <p className="text-base font-bold text-gray-950">{created.name}</p>
           </div>
-          <div className="flex gap-2">
-            <Button to={`/admin/billing-catalog/plans/${created.id}`} className="flex-1">
-              상세로 이동
-            </Button>
+          <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
-              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setDraft(EMPTY_DRAFT());
@@ -116,6 +112,7 @@ export const AdminBillingPlanCreate: FC = () => {
             >
               계속 추가하기
             </Button>
+            <Button to={`/admin/billing-catalog/plans/${created.id}`}>상세로 이동</Button>
           </div>
         </div>
       ) : (
