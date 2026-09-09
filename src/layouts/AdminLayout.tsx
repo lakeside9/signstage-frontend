@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import {
+  BadgePercent,
   Building2,
   Calculator,
   ChevronLeft,
   ClipboardCheck,
   ClipboardList,
+  FlaskConical,
   Key,
   KeyRound,
   Layers,
@@ -16,12 +18,15 @@ import {
   Package,
   Percent,
   PlayCircle,
+  Settings,
   ShieldCheck,
   ShoppingCart,
   Sparkles,
   Tag,
   User,
   Users,
+  UsersRound,
+  Wallet,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -51,17 +56,16 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Percent: <Percent size={20} />,
   Tag: <Tag size={20} />,
   PlayCircle: <PlayCircle size={20} />,
+  UsersRound: <UsersRound size={20} />,
+  Wallet: <Wallet size={20} />,
+  BadgePercent: <BadgePercent size={20} />,
+  FlaskConical: <FlaskConical size={20} />,
+  Settings: <Settings size={20} />,
+  KeyRound: <KeyRound size={20} />,
+  Layers: <Layers size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
-
-/**
- * 권한 관리 화면 자체로 가는 메뉴는 의도적으로 서버 메뉴 트리(role_permissions)에 넣지 않고
- * PLATFORM_SUPER에게만 하드코딩으로 붙인다 — 자기 잠금(lockout) 방지(12장 결정 #6). `AdminLayout`이
- * `/admin/menus` 응답과 별개로 조건부 렌더링한다.
- */
-const PERMISSION_MANAGEMENT_PATH = '/admin/permissions';
-const MENU_MANAGEMENT_PATH = '/admin/menus';
 
 export const AdminLayout: FC = () => {
   const { t } = useTranslation();
@@ -88,7 +92,12 @@ export const AdminLayout: FC = () => {
   useEffect(() => {
     // 사이드바는 서버가 역할 기준으로 이미 걸러 응답한 메뉴 트리로 그린다 — 하드코딩된
     // NAV_ITEMS 배열을 두지 않는다(signstage-docs
-    // business/menu-and-action-permission-management-review.md 10장).
+    // business/menu-and-action-permission-management-review.md 10장). "권한관리"/"메뉴관리"
+    // 자체로 가는 링크도 원래는 자기 잠금(lockout) 방지로 이 트리 밖에 하드코딩돼 있었지만
+    // (2026-09-05, 12장 결정 #6), 2026-09-09 사용자 요청으로 다른 메뉴와 동일하게 menus에
+    // 등록해 "시스템" 그룹 아래로 옮겼다(16장) — role_permissions는 PLATFORM_SUPER만 TRUE로
+    // 시딩하고, 컨트롤러 쪽 PLATFORM_SUPER 하드코딩 검사는 그대로 둬서 이 값이 실수로 꺼져도
+    // API 자체는 계속 막혀 있다(사이드바에서만 안 보이게 될 뿐).
     api.get('/platform-admin/menus').then((response) => {
       setMenuNodes(response.data as MenuNode[]);
     }).catch(() => undefined);
@@ -99,14 +108,6 @@ export const AdminLayout: FC = () => {
     logout();
     navigate('/login');
   };
-
-  const extraItems =
-    platformAdmin?.platformRole === 'PLATFORM_SUPER'
-      ? [
-          { to: PERMISSION_MANAGEMENT_PATH, icon: <KeyRound size={20} />, label: t('permission.management') },
-          { to: MENU_MANAGEMENT_PATH, icon: <Layers size={20} />, label: '메뉴 관리' },
-        ]
-      : [];
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
@@ -141,27 +142,6 @@ export const AdminLayout: FC = () => {
         >
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
             <SidebarMenuTree nodes={menuNodes} isSidebarOpen={isSidebarOpen} iconFor={iconFor} />
-            {extraItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={false}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    isActive ? 'bg-gray-950 text-white font-bold' : 'text-gray-600 hover:bg-gray-100'
-                  }`
-                }
-              >
-                <span className="shrink-0">{item.icon}</span>
-                <span
-                  className={`transition-opacity duration-300 whitespace-nowrap ${
-                    isSidebarOpen ? 'opacity-100' : 'opacity-0 sm:hidden'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
           </nav>
 
           <div className="border-t border-gray-100 p-4">
