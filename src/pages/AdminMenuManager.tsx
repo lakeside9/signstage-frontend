@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   BadgePercent,
+  Boxes,
   Building2,
   Calculator,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   FlaskConical,
   KeyRound,
   Layers,
+  ListChecks,
   Loader2,
   Package,
   Percent,
@@ -67,6 +69,8 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   KeyRound: <KeyRound size={14} />,
   Layers: <Layers size={14} />,
   Sparkles: <Sparkles size={14} />,
+  ListChecks: <ListChecks size={14} />,
+  Boxes: <Boxes size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;

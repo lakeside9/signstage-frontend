@@ -13,8 +13,8 @@ import type { CreateCeremonyEffectDefinitionRequest } from '../types';
  * business/ceremony-event-effect-implementation-tasks.md FE-ADMIN-01/02.
  *
  * 등록 시점에는 이 효과를 여는 선택옵션(묶음)을 고르지 않는다(2026-09-08 재설계) — 묶음
- * 구성은 과금 카탈로그 관리 화면(`AdminBillingCatalog.tsx`)에서 반대쪽(묶음 → 효과 목록)으로
- * 관리한다.
+ * 구성은 선택옵션 등록/수정 화면(`AdminOptionalFeatureCreate.tsx`/`AdminOptionalFeatureEdit.tsx`)
+ * 에서 반대쪽(묶음 → 효과 목록)으로 관리한다.
  */
 export const CeremonyEffectRegister: FC = () => {
   const navigate = useNavigate();
