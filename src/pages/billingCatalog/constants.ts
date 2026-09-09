@@ -25,14 +25,13 @@ export const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }
 // 등록하지 않는다(2026-09-08) — signstage-docs
 // business/ceremony-event-effect-implementation-tasks.md 참고. 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL
 // 등)에는 이미 등록된 행/이력을 계속 정상 표시해야 해서 남겨둔다.
-// ONSITE_SUPPORT(현장지원)/ONLINE_SUPPORT(온라인지원)는 태블릿 대여와 같은 "표시용 옵션 + 수량
-// 추가구매" 패턴의 신규 품목이다(2026-09-08 결정) — signstage-docs
-// business/ceremony-support-services-billing-review.md 참고.
-export const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = [
-  'EVENT_EFFECT_BUNDLE',
-  'ONSITE_SUPPORT',
-  'ONLINE_SUPPORT',
-];
+// ONSITE_SUPPORT(현장지원)/ONLINE_SUPPORT(온라인지원)는 2026-09-08엔 태블릿 대여와 같은 "표시용
+// 옵션 + 수량 추가구매" 패턴의 신규 품목으로 등록 가능 목록에 들어갔었으나, 이게 TABLET_RENTAL이
+// 2026-08-30에 바로 그 이유(화면 효과 없는 표시용 옵션과 수량 추가구매가 각자 독립 판매돼 근거
+// 없는 이중 청구 위험)로 제외됐던 것과 같은 문제를 재도입한 것으로 뒤늦게 확인돼, 2026-09-09에
+// 다시 뺐다 — signstage-docs business/optional-feature-capacity-addon-pairing-review.md 8장.
+// 실제 지원 건수는 CapacityType.ONSITE_SUPPORT/ONLINE_SUPPORT 용량 추가구매로만 판매한다.
+export const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = ['EVENT_EFFECT_BUNDLE'];
 
 export const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
   SIGNER_FIELD_ZOOM: '서명 하이라이트',
@@ -84,6 +83,21 @@ export const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }
 export const CAPACITY_TYPE_LABEL: Record<string, string> = Object.fromEntries(
   CAPACITY_TYPE_OPTIONS.map((option) => [option.value, option.label]),
 );
+
+/**
+ * 용량 추가구매 상품의 표시 카테고리 — `OptionalFeature.category`와 같은 enum 값을 코드 매핑으로
+ * 재사용한다. 원래 태블릿/현장지원/온라인지원은 짝이 되는 표시용 `OptionalFeature`의 category를
+ * 빌려 쓰는 구조였는데, 그 표시용 옵션들이 이중 청구 위험으로 제거되면서(2026-09-09,
+ * signstage-docs business/optional-feature-capacity-addon-pairing-review.md 8장) `CapacityAddOn`
+ * 쪽에서 카테고리를 보여줄 다른 소스가 필요해졌다 — `AdminBillingSimulator.tsx`가 이미 쓰던 것과
+ * 같은 코드 매핑 방식을 여기로 옮겨 목록/상세 화면에서 공유한다. 플랜 기본 포함 5종(서명자 등)은
+ * 이 3분류(장비/인력/애플리케이션)에 속하지 않아 값이 없다(매핑에서 빠짐 — 화면은 '—'로 표시).
+ */
+export const CAPACITY_TYPE_CATEGORY: Partial<Record<CapacityType, OptionalFeatureCategory>> = {
+  TABLETS: 'EQUIPMENT',
+  ONSITE_SUPPORT: 'PERSONNEL',
+  ONLINE_SUPPORT: 'PERSONNEL',
+};
 
 /**
  * 플랜이 기본 포함할 수 있는 용량 종류 — 백엔드 CapacityType.isPlanIncludable()과 같은 집합이다

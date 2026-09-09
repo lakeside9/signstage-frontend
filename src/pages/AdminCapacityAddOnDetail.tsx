@@ -8,7 +8,14 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, HistoryButton, HistoryModal, PeriodStatusBadge, PricePeriodSection } from './billingCatalog/components';
-import { CAPACITY_TYPE_LABEL, formatDiscount, formatPrice, formatSupplyPrice } from './billingCatalog/constants';
+import {
+  CAPACITY_TYPE_CATEGORY,
+  CAPACITY_TYPE_LABEL,
+  formatDiscount,
+  formatPrice,
+  formatSupplyPrice,
+  OPTIONAL_FEATURE_CATEGORY_LABEL,
+} from './billingCatalog/constants';
 import type { CapacityAddOnHistorySummary, CapacityAddOnSummary } from '../types';
 
 /** 용량 추가구매 상품 상세 — AdminBillingPlanDetail.tsx와 같은 구성. */
@@ -105,6 +112,14 @@ export const AdminCapacityAddOnDetail: FC = () => {
 
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="종류" value={CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} />
+            <DetailRow
+              label="카테고리"
+              value={
+                CAPACITY_TYPE_CATEGORY[addOn.capacityType]
+                  ? OPTIONAL_FEATURE_CATEGORY_LABEL[CAPACITY_TYPE_CATEGORY[addOn.capacityType]!]
+                  : '-'
+              }
+            />
             <DetailRow label="단위 수량" value={`+${addOn.unitAmount}`} />
             {addOn.secondaryCapacityType && (
               <>
