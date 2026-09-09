@@ -179,7 +179,9 @@ export const UserCeremonyCreate: FC = () => {
                           business/billing-catalog-operations-review.md 4장) — 이전엔 여기서
                           plan.supplyPrice를 "정가" 취급해 취소선으로 잘못 보여주고 있었다
                           (2026-09-08 발견·수정). */}
-                      <p className="mt-1 text-sm text-gray-950">{formatPrice(plan.salePrice, plan.currencyCode)}</p>
+                      <p className="mt-1 text-sm text-gray-950">
+                        {plan.salePrice === null ? '가격 정보 없음' : formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}
+                      </p>
                       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
                         <div className="flex justify-between">
                           <dt>서명자</dt>
