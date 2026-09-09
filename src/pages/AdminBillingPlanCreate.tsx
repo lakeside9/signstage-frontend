@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, Field } from './billingCatalog/components';
+import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
 import { DISCOUNT_TYPE_OPTIONS, PLAN_CAPACITY_TYPE_OPTIONS, emptyPlanCapacities, inputClass, todayIsoDate } from './billingCatalog/constants';
 import type { BillingPlanSummary, CapacityAddOnSummary, CreateBillingPlanRequest, DiscountType, OptionalFeatureSummary } from '../types';
 
@@ -206,6 +206,13 @@ export const AdminBillingPlanCreate: FC = () => {
             </Field>
             <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
           </div>
+
+          <FinalPricePreview
+            salePrice={draft.salePrice}
+            discountType={draft.discountType}
+            discountValue={draft.discountValue}
+            currencyCode={draft.currencyCode}
+          />
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => (

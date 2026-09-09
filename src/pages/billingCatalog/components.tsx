@@ -11,6 +11,7 @@ import {
   EMPTY_PERIOD_DRAFT,
   PERIOD_STATUS_LABEL,
   PERIOD_STATUS_STYLE,
+  calculateFinalPrice,
   formatDiscount,
   formatPrice,
   inputClass,
@@ -160,6 +161,26 @@ export const PeriodStatusBadge: FC<{ status: string }> = ({ status }) => (
   >
     {PERIOD_STATUS_LABEL[status] ?? status}
   </span>
+);
+
+/**
+ * "판매가 → 할인 적용 → 예상 최종가" 미리보기 한 줄 — 저장하지 않는 화면 표시 전용이다
+ * (signstage-docs business/billing-catalog-pricing-input-validation-review.md 3.4절, 2026-09-09
+ * 결정). 등록/기간 추가·수정 폼과 기간 목록 행이 공유한다.
+ */
+export const FinalPricePreview: FC<{ salePrice: number; discountType: DiscountType; discountValue: number; currencyCode?: string }> = ({
+  salePrice,
+  discountType,
+  discountValue,
+  currencyCode = 'KRW',
+}) => (
+  <p className="text-xs text-gray-500">
+    예상 최종가:{' '}
+    <span className="font-medium text-gray-950">
+      {formatPrice(calculateFinalPrice(salePrice, discountType, discountValue), currencyCode)}
+    </span>
+    <span className="text-gray-400"> (참고용 — 조직별 할인·세금 반영 전)</span>
+  </p>
 );
 
 /**
@@ -372,6 +393,14 @@ export const PricePeriodSection: FC<{
         />
       </Field>
       <ActiveField active={draft.active} disabled={disabled} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
+      <div className="col-span-2 sm:col-span-4">
+        <FinalPricePreview
+          salePrice={draft.salePrice}
+          discountType={draft.discountType}
+          discountValue={draft.discountValue}
+          currencyCode={draft.currencyCode}
+        />
+      </div>
     </div>
   );
 
@@ -451,6 +480,12 @@ export const PricePeriodSection: FC<{
                       <p className="text-xs text-gray-400 mt-0.5">
                         {period.effectiveFrom} ~ {period.effectiveTo ?? '무기한'}
                       </p>
+                      <FinalPricePreview
+                        salePrice={period.salePrice}
+                        discountType={period.discountType}
+                        discountValue={period.discountValue}
+                        currencyCode={period.currencyCode}
+                      />
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1.5 shrink-0">

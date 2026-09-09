@@ -9,7 +9,14 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { PeriodStatusBadge } from './billingCatalog/components';
-import { CATALOG_PAGE_SIZE, PLAN_CAPACITY_TYPE_OPTIONS, formatDiscount, formatPrice, formatSupplyPrice } from './billingCatalog/constants';
+import {
+  CATALOG_PAGE_SIZE,
+  PLAN_CAPACITY_TYPE_OPTIONS,
+  calculateFinalPrice,
+  formatDiscount,
+  formatPrice,
+  formatSupplyPrice,
+} from './billingCatalog/constants';
 import type { BillingPlanSummary } from '../types';
 
 /**
@@ -109,6 +116,7 @@ export const AdminBillingPlanList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">이름</th>
               <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
               <th className="text-left px-4 py-3 font-medium">할인</th>
+              <th className="text-left px-4 py-3 font-medium">예상 최종가</th>
               <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
@@ -129,6 +137,11 @@ export const AdminBillingPlanList: FC = () => {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {plan.salePrice === null || plan.discountType === null || plan.discountValue === null
+                    ? '-'
+                    : formatPrice(calculateFinalPrice(plan.salePrice, plan.discountType, plan.discountValue), plan.currencyCode ?? 'KRW')}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => plan.capacities[option.value]).join('/')}

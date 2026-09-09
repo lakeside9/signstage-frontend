@@ -14,6 +14,7 @@ import {
   MANAGEABLE_OPTIONAL_FEATURE_CODES,
   OPTIONAL_FEATURE_CATEGORY_LABEL,
   OPTIONAL_FEATURE_CODE_LABEL,
+  calculateFinalPrice,
   formatDiscount,
   formatPrice,
   formatSupplyPrice,
@@ -140,6 +141,7 @@ export const AdminOptionalFeatureList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">이름</th>
               <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
               <th className="text-left px-4 py-3 font-medium">할인</th>
+              <th className="text-left px-4 py-3 font-medium">예상 최종가</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">분류</th>
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
@@ -163,6 +165,14 @@ export const AdminOptionalFeatureList: FC = () => {
                   {feature.discountType === null || feature.discountValue === null
                     ? '-'
                     : formatDiscount(feature.discountType, feature.discountValue)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {feature.salePrice === null || feature.discountType === null || feature.discountValue === null
+                    ? '-'
+                    : formatPrice(
+                        calculateFinalPrice(feature.salePrice, feature.discountType, feature.discountValue),
+                        feature.currencyCode ?? 'KRW',
+                      )}
                 </td>
                 <td className="px-4 py-3">
                   <PeriodStatusBadge status={feature.periodStatus} />

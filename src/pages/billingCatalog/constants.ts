@@ -123,6 +123,20 @@ export const formatSupplyPrice = (value: number | null, currencyCode = 'KRW') =>
 export const formatDiscount = (discountType: DiscountType, discountValue: number) =>
   discountType === 'PERCENT' ? `${discountValue}%` : formatPrice(discountValue);
 
+/**
+ * 판매가에 할인을 적용한 예상 최종가 — 화면 표시 전용 미리보기다(저장하지 않는다, signstage-docs
+ * business/billing-catalog-pricing-input-validation-review.md 3.4절, 2026-09-09 결정). 백엔드
+ * `MoneyCalculator.applyDiscount`와 같은 공식(정률/정액, 0 미만 clamp)이지만 실제 청구 계산에는
+ * 관여하지 않는다 — 조직×품목 할인 오버라이드·행사 건별 재량 할인·세금은 조직/행사가 정해져야
+ * 계산할 수 있어 카탈로그 등록 단계에서는 반영할 수 없다("이 상품 자체의 할인만 적용한 값"일 뿐,
+ * 실제 청구액이 아니다). 그래서 통화별 반올림 정책(`CurrencyPolicy`) 없이 소수점 없는 정수로만
+ * 근사한다 — 정밀한 반올림이 필요한 값이 아니라 오입력을 걸러내기 위한 참고용 미리보기이기 때문.
+ */
+export const calculateFinalPrice = (salePrice: number, discountType: DiscountType, discountValue: number): number => {
+  const discount = discountType === 'PERCENT' ? (salePrice * discountValue) / 100 : discountValue;
+  return Math.max(0, Math.round(salePrice - discount));
+};
+
 export const PERIOD_STATUS_LABEL: Record<string, string> = {
   PENDING: '판매예정',
   ON_SALE: '판매중',
