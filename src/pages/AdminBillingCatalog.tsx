@@ -13,6 +13,9 @@ import type {
   CapacityAddOnHistorySummary,
   CapacityAddOnSummary,
   CapacityType,
+  CatalogPricePeriodHistorySummary,
+  CatalogPricePeriodRequest,
+  CatalogPricePeriodSummary,
   CeremonyEffectDefinition,
   CreateBillingPlanRequest,
   CreateCapacityAddOnRequest,
@@ -207,6 +210,399 @@ const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (active: b
   </Field>
 );
 
+const PERIOD_STATUS_LABEL: Record<string, string> = {
+  PENDING: '판매예정',
+  ON_SALE: '판매중',
+  EXPIRED: '판매종료',
+  INACTIVE: '사용중지',
+  NO_ACTIVE_PERIOD: '유효 기간 없음',
+};
+
+const PERIOD_STATUS_STYLE: Record<string, string> = {
+  PENDING: 'bg-blue-50 text-blue-700 border-blue-200',
+  ON_SALE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  EXPIRED: 'bg-gray-100 text-gray-500 border-gray-200',
+  INACTIVE: 'bg-gray-100 text-gray-500 border-gray-200',
+  NO_ACTIVE_PERIOD: 'bg-red-50 text-red-700 border-red-200',
+};
+
+/** 목록의 "상태" 열이 쓰는 배지 — 오늘 기준 유효한 판매가격 기간의 상태를 보여준다. */
+const PeriodStatusBadge: FC<{ status: string }> = ({ status }) => (
+  <span
+    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
+      PERIOD_STATUS_STYLE[status] ?? 'bg-gray-100 text-gray-500 border-gray-200'
+    }`}
+  >
+    {PERIOD_STATUS_LABEL[status] ?? status}
+  </span>
+);
+
+const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+
+const EMPTY_PERIOD_DRAFT = (): CatalogPricePeriodRequest => ({
+  currencyCode: 'KRW',
+  supplyPrice: null,
+  salePrice: 0,
+  discountType: 'PERCENT',
+  discountValue: 0,
+  taxCode: 'KR_VAT_STANDARD',
+  active: true,
+  effectiveFrom: todayIsoDate(),
+  effectiveTo: null,
+});
+
+/**
+ * 세 카탈로그 섹션(플랜/선택옵션/용량 추가구매)이 공유하는 판매가격 기간 관리 모달 —
+ * 목록(추가/수정/삭제) + 변경 이력 탭. signstage-docs
+ * business/billing-catalog-price-validity-period-review.md 결정(2026-09-09, 다중버전 채택) —
+ * `basePath`가 `/platform-admin/billing-plans` 등 각 타입의 관리자 API prefix를 결정한다.
+ * 세 타입의 기간 DTO 모양이 완전히 같아 이 컴포넌트 하나로 공유한다(백엔드는 엔티티별로
+ * 나뉘어 있지만, 프런트는 그 경계를 따를 필요가 없다).
+ */
+const PricePeriodManagerModal: FC<{
+  itemId: number | null;
+  basePath: string;
+  onClose: () => void;
+  onChanged: () => void;
+  showSnackbar: (message: string, variant: 'success' | 'error') => void;
+}> = ({ itemId, basePath, onClose, onChanged, showSnackbar }) => {
+  const [periods, setPeriods] = useState<CatalogPricePeriodSummary[]>([]);
+  const [history, setHistory] = useState<CatalogPricePeriodHistorySummary[]>([]);
+  const [tab, setTab] = useState<'periods' | 'history'>('periods');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [addDraft, setAddDraft] = useState<CatalogPricePeriodRequest>(EMPTY_PERIOD_DRAFT());
+  const [editingPeriodId, setEditingPeriodId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<CatalogPricePeriodRequest | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchPeriods = async (id: number) => (await api.get(`${basePath}/${id}/periods`)).data as CatalogPricePeriodSummary[];
+  const fetchHistory = async (id: number) =>
+    (await api.get(`${basePath}/${id}/periods/history`)).data as CatalogPricePeriodHistorySummary[];
+
+  useEffect(() => {
+    if (itemId === null) return;
+    let cancelled = false;
+    // setState를 이펙트 본문에서 곧장 부르지 않고 IIFE 안에서 호출한다 —
+    // react-hooks/set-state-in-effect(AdminUserList.tsx와 같은 관례).
+    (async () => {
+      setIsLoading(true);
+      setTab('periods');
+      setIsAdding(false);
+      setEditingPeriodId(null);
+      try {
+        const data = await fetchPeriods(itemId);
+        if (!cancelled) setPeriods(data);
+      } catch (err) {
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '판매가격 기간을 불러오지 못했습니다.', 'error');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
+
+  const openHistoryTab = async () => {
+    if (itemId === null) return;
+    setTab('history');
+    setIsLoading(true);
+    try {
+      setHistory(await fetchHistory(itemId));
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '기간 변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const reloadPeriods = async () => {
+    if (itemId === null) return;
+    setPeriods(await fetchPeriods(itemId));
+    onChanged();
+  };
+
+  const handleAdd = async () => {
+    if (itemId === null) return;
+    setIsSaving(true);
+    try {
+      await api.post(`${basePath}/${itemId}/periods`, addDraft);
+      showSnackbar('판매가격 기간을 추가했습니다.', 'success');
+      setIsAdding(false);
+      setAddDraft(EMPTY_PERIOD_DRAFT());
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '판매가격 기간 추가에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEditPeriod = (period: CatalogPricePeriodSummary) => {
+    setEditingPeriodId(period.id);
+    setEditDraft({
+      currencyCode: period.currencyCode,
+      supplyPrice: period.supplyPrice,
+      salePrice: period.salePrice,
+      discountType: period.discountType,
+      discountValue: period.discountValue,
+      taxCode: period.taxCode,
+      active: period.active,
+      effectiveFrom: period.effectiveFrom,
+      effectiveTo: period.effectiveTo,
+    });
+  };
+
+  const handleSaveEditPeriod = async (periodId: number) => {
+    if (itemId === null || !editDraft) return;
+    setIsSaving(true);
+    try {
+      await api.put(`${basePath}/${itemId}/periods/${periodId}`, editDraft);
+      showSnackbar('판매가격 기간을 저장했습니다.', 'success');
+      setEditingPeriodId(null);
+      setEditDraft(null);
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '판매가격 기간 저장에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemovePeriod = async (periodId: number) => {
+    if (itemId === null) return;
+    setIsSaving(true);
+    try {
+      await api.delete(`${basePath}/${itemId}/periods/${periodId}`);
+      showSnackbar('판매가격 기간을 삭제했습니다.', 'success');
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '판매가격 기간 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderPeriodForm = (
+    draft: CatalogPricePeriodRequest,
+    setDraft: (updater: (prev: CatalogPricePeriodRequest) => CatalogPricePeriodRequest) => void,
+    disabled: boolean,
+  ) => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Field label="통화">
+        <select
+          value={draft.currencyCode}
+          onChange={(e) => setDraft((prev) => ({ ...prev, currencyCode: e.target.value }))}
+          disabled={disabled}
+          className={inputClass}
+        >
+          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => (
+            <option key={currency} value={currency}>
+              {currency}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="공급가">
+        <input
+          type="number"
+          min={0}
+          value={draft.supplyPrice === null ? '' : draft.supplyPrice}
+          onChange={(e) => setDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+          placeholder="미상"
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="판매가">
+        <input
+          type="number"
+          min={0}
+          value={draft.salePrice === 0 ? '' : draft.salePrice}
+          onChange={(e) => setDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="할인 방식">
+        <select
+          value={draft.discountType}
+          onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
+          disabled={disabled}
+          className={inputClass}
+        >
+          {DISCOUNT_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="할인 값">
+        <input
+          type="number"
+          min={0}
+          value={draft.discountValue === 0 ? '' : draft.discountValue}
+          onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="시작일">
+        <input
+          type="date"
+          value={draft.effectiveFrom}
+          onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="종료일(무기한이면 비움)">
+        <input
+          type="date"
+          value={draft.effectiveTo ?? ''}
+          onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <ActiveField active={draft.active} disabled={disabled} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
+    </div>
+  );
+
+  return (
+    <Modal open={itemId !== null} onClose={onClose} title="판매가격 기간 관리" widthClassName="max-w-3xl">
+      <div className="flex items-center gap-2 mb-3 border-b border-gray-200">
+        <button
+          onClick={() => setTab('periods')}
+          className={`px-3 py-1.5 text-xs font-medium border-b-2 ${tab === 'periods' ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-400'}`}
+        >
+          기간 목록
+        </button>
+        <button
+          onClick={openHistoryTab}
+          className={`px-3 py-1.5 text-xs font-medium border-b-2 ${tab === 'history' ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-400'}`}
+        >
+          변경 이력
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-gray-400">
+          <Loader2 size={20} className="animate-spin" />
+        </div>
+      ) : tab === 'periods' ? (
+        <div className="space-y-3">
+          {!isAdding && (
+            <button
+              onClick={() => {
+                setIsAdding(true);
+                setAddDraft(EMPTY_PERIOD_DRAFT());
+              }}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+            >
+              <Plus size={12} />
+              새 기간 추가
+            </button>
+          )}
+          {isAdding && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+              {renderPeriodForm(addDraft, setAddDraft, isSaving)}
+              <FormActions
+                isSaving={isSaving}
+                savingLabel="추가 중..."
+                saveLabel="추가"
+                onSave={handleAdd}
+                onCancel={() => {
+                  setIsAdding(false);
+                  setAddDraft(EMPTY_PERIOD_DRAFT());
+                }}
+              />
+            </div>
+          )}
+
+          {periods.length === 0 ? (
+            <p className="text-sm text-gray-400">등록된 판매가격 기간이 없습니다.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {periods.map((period) =>
+                editingPeriodId === period.id && editDraft ? (
+                  <li key={period.id} className="py-3 bg-gray-50 -mx-1 px-1 rounded-md space-y-3">
+                    {renderPeriodForm(editDraft, (updater) => setEditDraft((prev) => prev && updater(prev)), isSaving)}
+                    <FormActions
+                      isSaving={isSaving}
+                      savingLabel="저장 중..."
+                      saveLabel="저장"
+                      onSave={() => handleSaveEditPeriod(period.id)}
+                      onCancel={() => {
+                        setEditingPeriodId(null);
+                        setEditDraft(null);
+                      }}
+                    />
+                  </li>
+                ) : (
+                  <li key={period.id} className="py-2 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-950 font-medium">{formatPrice(period.salePrice, period.currencyCode)}</span>
+                        <span className="text-xs text-gray-500">할인 {formatDiscount(period.discountType, period.discountValue)}</span>
+                        <PeriodStatusBadge status={period.status} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {period.effectiveFrom} ~ {period.effectiveTo ?? '무기한'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => startEditPeriod(period)}
+                        disabled={editingPeriodId !== null || isAdding}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                      >
+                        <Pencil size={12} />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleRemovePeriod(period.id)}
+                        disabled={isSaving || periods.length <= 1}
+                        title={periods.length <= 1 ? '마지막 남은 기간은 삭제할 수 없습니다.' : undefined}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-red-600 text-xs font-medium hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <X size={12} />
+                        삭제
+                      </button>
+                    </div>
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+        </div>
+      ) : history.length === 0 ? (
+        <p className="text-sm text-gray-400">기간 변경 이력이 없습니다.</p>
+      ) : (
+        <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+          {history.map((h) => (
+            <li key={h.id} className="py-2">
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-gray-950 font-medium">{formatPrice(h.salePrice, h.currencyCode)}</p>
+                <ActiveBadge active={h.active} />
+                {h.removed && <span className="text-xs text-red-600 font-medium">제거됨</span>}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {h.effectiveFrom} ~ {h.effectiveTo ?? '무기한'} · 할인 {formatDiscount(h.discountType, h.discountValue)}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  );
+};
+
 /**
  * 플랫폼 관리자용 행사 과금 카탈로그(플랜/선택옵션/용량 추가구매 상품) 관리 화면.
  * 조회는 PLATFORM_SUPPORT 이상 누구나, 등록/수정은 PLATFORM_OPS 이상만 할 수 있다
@@ -255,7 +651,7 @@ interface SectionProps {
   showSnackbar: (message: string, variant: 'success' | 'error') => void;
 }
 
-const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
+const EMPTY_PLAN_DRAFT = (): CreateBillingPlanRequest => ({
   name: '',
   currencyCode: 'KRW',
   supplyPrice: null,
@@ -263,10 +659,13 @@ const EMPTY_PLAN_DRAFT: CreateBillingPlanRequest = {
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
+  active: true,
+  effectiveFrom: todayIsoDate(),
+  effectiveTo: null,
   capacities: emptyPlanCapacities(),
   optionalFeatureIds: [],
   capacityAddOnIds: [],
-};
+});
 
 const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
@@ -285,6 +684,8 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [historyPlanId, setHistoryPlanId] = useState<number | null>(null);
   const [planHistory, setPlanHistory] = useState<BillingPlanHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [periodItemId, setPeriodItemId] = useState<number | null>(null);
 
   const fetchAll = async () => {
     const [plansResponse, featuresResponse, addOnsResponse] = await Promise.all([
@@ -373,14 +774,7 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
     setEditingId(plan.id);
     setEditDraft({
       name: plan.name,
-      currencyCode: plan.currencyCode,
-      supplyPrice: plan.supplyPrice,
-      salePrice: plan.salePrice,
-      discountType: plan.discountType,
-      discountValue: plan.discountValue,
-      taxCode: plan.taxCode,
       capacities: { ...plan.capacities },
-      active: plan.active,
       optionalFeatureIds: plan.optionalFeatureIds,
       capacityAddOnIds: plan.capacityAddOnIds,
     });
@@ -499,6 +893,29 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 className={inputClass}
               />
             </Field>
+            <Field label="판매 시작일">
+              <input
+                type="date"
+                value={createDraft.effectiveFrom}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="판매 종료일(무기한이면 비움)">
+              <input
+                type="date"
+                value={createDraft.effectiveTo ?? ''}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <ActiveField
+              active={createDraft.active}
+              disabled={isCreating}
+              onChange={(active) => setCreateDraft((prev) => ({ ...prev, active }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -613,64 +1030,15 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
               editingId === plan.id && editDraft ? (
                 <tr key={plan.id} className="bg-gray-50">
                   <td colSpan={canManage ? 9 : 8} className="p-4">
+                    <p className="mb-3 text-xs text-gray-400">
+                      가격/할인/판매기간/사용여부는 목록의 "가격" 버튼에서 판매가격 기간 단위로 관리합니다.
+                    </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="이름">
                         <input
                           type="text"
                           value={editDraft.name}
                           onChange={(e) => setEditDraft((prev) => prev && { ...prev, name: e.target.value })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="통화">
-                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
-                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-                        </select>
-                      </Field>
-                      <Field label="공급가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
-                          placeholder="미상"
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="판매가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="할인 방식">
-                        <select
-                          value={editDraft.discountType}
-                          onChange={(e) =>
-                            setEditDraft((prev) => prev && { ...prev, discountType: e.target.value as DiscountType })
-                          }
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        >
-                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="할인 값">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
                           disabled={isSavingEdit}
                           className={inputClass}
                         />
@@ -696,11 +1064,6 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                           />
                         </Field>
                       ))}
-                      <ActiveField
-                        active={editDraft.active}
-                        disabled={isSavingEdit}
-                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
-                      />
                     </div>
                     <div className="mb-3">
                       <span className="block text-xs font-medium text-gray-500 mb-1">포함 선택옵션</span>
@@ -784,22 +1147,32 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
                 <tr key={plan.id}>
                   <td className="py-2 px-4 text-gray-950 font-medium">{plan.name}</td>
                   <td className="py-2">
-                    {formatSupplyPrice(plan.supplyPrice, plan.currencyCode)} / {formatPrice(plan.salePrice, plan.currencyCode)}
+                    {plan.salePrice === null
+                      ? '-'
+                      : `${formatSupplyPrice(plan.supplyPrice, plan.currencyCode ?? 'KRW')} / ${formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}`}
                   </td>
-                  <td className="py-2">{formatDiscount(plan.discountType, plan.discountValue)}</td>
+                  <td className="py-2">
+                    {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
+                  </td>
                   <td className="py-2 text-gray-600">
                     {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => plan.capacities[option.value]).join('/')}
                   </td>
                   <td className="py-2 text-gray-600">{plan.optionalFeatureIds.map(featureName).join(', ') || '-'}</td>
                   <td className="py-2 text-gray-600">{plan.capacityAddOnIds.map(addOnLabel).join(', ') || '-'}</td>
                   <td className="py-2">
-                    <ActiveBadge active={plan.active} />
+                    <PeriodStatusBadge status={plan.periodStatus} />
                     <span className="ml-1.5 text-xs text-gray-400">사용 {plan.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
-                      onClick={() => openHistory(plan.id)}
+                      onClick={() => setPeriodItemId(plan.id)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      가격
+                    </button>
+                    <button
+                      onClick={() => openHistory(plan.id)}
+                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
                     >
                       <History size={12} />
                       이력
@@ -840,12 +1213,9 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {planHistory.map((history) => (
               <li key={history.id} className="py-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-950 font-medium">{history.name}</p>
-                  <ActiveBadge active={history.active} />
-                </div>
+                <p className="text-sm text-gray-950 font-medium">{history.name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.salePrice, history.currencyCode)} · 서명자 {history.capacities.SIGNERS}명 · 템플릿{' '}
+                  서명자 {history.capacities.SIGNERS}명 · 템플릿{' '}
                   {history.capacities.TEMPLATES}건 · 테스트 {history.capacities.TEST_EVENTS}건 · 리허설{' '}
                   {history.capacities.REHEARSAL_EVENTS}건 · 본행사 {history.capacities.MAIN_EVENTS}건
                 </p>
@@ -855,11 +1225,19 @@ const BillingPlanSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
           </ul>
         )}
       </Modal>
+
+      <PricePeriodManagerModal
+        itemId={periodItemId}
+        basePath="/platform-admin/billing-plans"
+        onClose={() => setPeriodItemId(null)}
+        onChanged={() => fetchAll().then((data) => setPlans(data.plans))}
+        showSnackbar={showSnackbar}
+      />
     </section>
   );
 };
 
-const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
+const EMPTY_FEATURE_DRAFT = (): CreateOptionalFeatureRequest => ({
   code: 'EVENT_EFFECT_BUNDLE',
   name: '',
   currencyCode: 'KRW',
@@ -868,10 +1246,13 @@ const EMPTY_FEATURE_DRAFT: CreateOptionalFeatureRequest = {
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
+  active: true,
+  effectiveFrom: todayIsoDate(),
+  effectiveTo: null,
   exclusivityGroup: '',
   category: 'APPLICATION',
   effectDefinitionIds: [],
-};
+});
 
 /** 빈 문자열 입력을 "그룹 없음"(null)으로 정규화한다 — 폼 입력값은 항상 문자열로 다루는 게 controlled input에 편해서다. */
 const normalizeExclusivityGroup = (value: string | null | undefined): string | null => {
@@ -895,6 +1276,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   const [historyFeatureId, setHistoryFeatureId] = useState<number | null>(null);
   const [featureHistory, setFeatureHistory] = useState<OptionalFeatureHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [periodItemId, setPeriodItemId] = useState<number | null>(null);
 
   const fetchFeatures = async () => {
     const response = await api.get('/optional-features');
@@ -934,7 +1317,7 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
   const handleOpenCreateForm = () => {
     const code = availableCodes[0];
     setCreateDraft({
-      ...EMPTY_FEATURE_DRAFT,
+      ...EMPTY_FEATURE_DRAFT(),
       code,
       category: DEFAULT_CATEGORY_BY_CODE[code] ?? 'APPLICATION',
     });
@@ -969,13 +1352,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
     setEditingId(feature.id);
     setEditDraft({
       name: feature.name,
-      currencyCode: feature.currencyCode,
-      supplyPrice: feature.supplyPrice,
-      salePrice: feature.salePrice,
-      discountType: feature.discountType,
-      discountValue: feature.discountValue,
-      taxCode: feature.taxCode,
-      active: feature.active,
       exclusivityGroup: feature.exclusivityGroup ?? '',
       category: feature.category,
       effectDefinitionIds: feature.effectDefinitionIds,
@@ -1125,6 +1501,29 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                 className={inputClass}
               />
             </Field>
+            <Field label="판매 시작일">
+              <input
+                type="date"
+                value={createDraft.effectiveFrom}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="판매 종료일(무기한이면 비움)">
+              <input
+                type="date"
+                value={createDraft.effectiveTo ?? ''}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <ActiveField
+              active={createDraft.active}
+              disabled={isCreating}
+              onChange={(active) => setCreateDraft((prev) => ({ ...prev, active }))}
+            />
             <Field label="배타 그룹">
               <input
                 type="text"
@@ -1193,6 +1592,9 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
               editingId === feature.id && editDraft ? (
                 <tr key={feature.id} className="bg-gray-50">
                   <td colSpan={canManage ? 8 : 7} className="p-4">
+                    <p className="mb-3 text-xs text-gray-400">
+                      가격/할인/판매기간/사용여부는 목록의 "가격" 버튼에서 판매가격 기간 단위로 관리합니다.
+                    </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="코드(읽기 전용)">
                         <input
@@ -1211,63 +1613,6 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                           className={inputClass}
                         />
                       </Field>
-                      <Field label="통화">
-                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
-                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-                        </select>
-                      </Field>
-                      <Field label="공급가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
-                          placeholder="미상"
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="판매가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="할인 방식">
-                        <select
-                          value={editDraft.discountType}
-                          onChange={(e) =>
-                            setEditDraft((prev) => prev && { ...prev, discountType: e.target.value as DiscountType })
-                          }
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        >
-                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="할인 값">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <ActiveField
-                        active={editDraft.active}
-                        disabled={isSavingEdit}
-                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
-                      />
                       <Field label="배타 그룹">
                         <input
                           type="text"
@@ -1319,11 +1664,17 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   <td className="py-2 px-4 text-gray-600">{OPTIONAL_FEATURE_CODE_LABEL[feature.code] ?? feature.code}</td>
                   <td className="py-2 text-gray-950 font-medium">{feature.name}</td>
                   <td className="py-2">
-                    {formatSupplyPrice(feature.supplyPrice, feature.currencyCode)} / {formatPrice(feature.salePrice, feature.currencyCode)}
+                    {feature.salePrice === null
+                      ? '-'
+                      : `${formatSupplyPrice(feature.supplyPrice, feature.currencyCode ?? 'KRW')} / ${formatPrice(feature.salePrice, feature.currencyCode ?? 'KRW')}`}
                   </td>
-                  <td className="py-2">{formatDiscount(feature.discountType, feature.discountValue)}</td>
                   <td className="py-2">
-                    <ActiveBadge active={feature.active} />
+                    {feature.discountType === null || feature.discountValue === null
+                      ? '-'
+                      : formatDiscount(feature.discountType, feature.discountValue)}
+                  </td>
+                  <td className="py-2">
+                    <PeriodStatusBadge status={feature.periodStatus} />
                     <span className="ml-1.5 text-xs text-gray-400">사용 {feature.usageCount}건</span>
                   </td>
                   <td className="py-2 text-xs">
@@ -1337,8 +1688,14 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
-                      onClick={() => openHistory(feature.id)}
+                      onClick={() => setPeriodItemId(feature.id)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      가격
+                    </button>
+                    <button
+                      onClick={() => openHistory(feature.id)}
+                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
                     >
                       <History size={12} />
                       이력
@@ -1379,13 +1736,8 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {featureHistory.map((history) => (
               <li key={history.id} className="py-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-950 font-medium">{history.name}</p>
-                  <ActiveBadge active={history.active} />
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {formatPrice(history.salePrice, history.currencyCode)} ·{' '}
-                  할인 {formatDiscount(history.discountType, history.discountValue)}
+                <p className="text-sm text-gray-950 font-medium">
+                  {OPTIONAL_FEATURE_CODE_LABEL[history.code] ?? history.code} · {history.name}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {OPTIONAL_FEATURE_CATEGORY_LABEL[history.category] ?? history.category}
@@ -1397,11 +1749,19 @@ const OptionalFeatureSection: FC<SectionProps> = ({ canManage, showSnackbar }) =
           </ul>
         )}
       </Modal>
+
+      <PricePeriodManagerModal
+        itemId={periodItemId}
+        basePath="/platform-admin/optional-features"
+        onClose={() => setPeriodItemId(null)}
+        onChanged={() => fetchFeatures().then(setFeatures)}
+        showSnackbar={showSnackbar}
+      />
     </section>
   );
 };
 
-const EMPTY_ADDON_DRAFT: CreateCapacityAddOnRequest = {
+const EMPTY_ADDON_DRAFT = (): CreateCapacityAddOnRequest => ({
   capacityType: 'SIGNERS',
   unitAmount: 1,
   secondaryCapacityType: null,
@@ -1412,7 +1772,10 @@ const EMPTY_ADDON_DRAFT: CreateCapacityAddOnRequest = {
   discountType: 'PERCENT',
   discountValue: 0,
   taxCode: 'KR_VAT_STANDARD',
-};
+  active: true,
+  effectiveFrom: todayIsoDate(),
+  effectiveTo: null,
+});
 
 const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
   const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
@@ -1429,6 +1792,8 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
   const [historyAddOnId, setHistoryAddOnId] = useState<number | null>(null);
   const [addOnHistory, setAddOnHistory] = useState<CapacityAddOnHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [periodItemId, setPeriodItemId] = useState<number | null>(null);
 
   const fetchAddOns = async () => {
     const response = await api.get('/capacity-addons');
@@ -1484,13 +1849,6 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
     setEditDraft({
       unitAmount: addOn.unitAmount,
       secondaryUnitAmount: addOn.secondaryUnitAmount,
-      currencyCode: addOn.currencyCode,
-      supplyPrice: addOn.supplyPrice,
-      salePrice: addOn.salePrice,
-      discountType: addOn.discountType,
-      discountValue: addOn.discountValue,
-      taxCode: addOn.taxCode,
-      active: addOn.active,
     });
   };
 
@@ -1667,6 +2025,29 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                 className={inputClass}
               />
             </Field>
+            <Field label="판매 시작일">
+              <input
+                type="date"
+                value={createDraft.effectiveFrom}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="판매 종료일(무기한이면 비움)">
+              <input
+                type="date"
+                value={createDraft.effectiveTo ?? ''}
+                onChange={(e) => setCreateDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+                disabled={isCreating}
+                className={inputClass}
+              />
+            </Field>
+            <ActiveField
+              active={createDraft.active}
+              disabled={isCreating}
+              onChange={(active) => setCreateDraft((prev) => ({ ...prev, active }))}
+            />
           </div>
           <p className="text-xs text-gray-400">
             보조 용량을 지정하면 이 상품 1건 구매로 두 용량이 함께 늘어나는 묶음 상품이 됩니다(예: "서명자+태블릿" =
@@ -1702,6 +2083,9 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
               editingId === addOn.id && editDraft ? (
                 <tr key={addOn.id} className="bg-gray-50">
                   <td colSpan={canManage ? 7 : 6} className="p-4">
+                    <p className="mb-3 text-xs text-gray-400">
+                      가격/할인/판매기간/사용여부는 목록의 "가격" 버튼에서 판매가격 기간 단위로 관리합니다.
+                    </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                       <Field label="종류(읽기 전용)">
                         <input
@@ -1745,63 +2129,6 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                           </Field>
                         </>
                       )}
-                      <Field label="통화">
-                        <select value={editDraft.currencyCode} onChange={(e) => setEditDraft((prev) => prev && { ...prev, currencyCode: e.target.value })} disabled={isSavingEdit} className={inputClass}>
-                          {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-                        </select>
-                      </Field>
-                      <Field label="공급가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.supplyPrice === null ? '' : editDraft.supplyPrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) })}
-                          placeholder="미상"
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="판매가">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.salePrice === 0 ? '' : editDraft.salePrice}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, salePrice: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="할인 방식">
-                        <select
-                          value={editDraft.discountType}
-                          onChange={(e) =>
-                            setEditDraft((prev) => prev && { ...prev, discountType: e.target.value as DiscountType })
-                          }
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        >
-                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="할인 값">
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDraft.discountValue === 0 ? '' : editDraft.discountValue}
-                          onChange={(e) => setEditDraft((prev) => prev && { ...prev, discountValue: Number(e.target.value) })}
-                          disabled={isSavingEdit}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <ActiveField
-                        active={editDraft.active}
-                        disabled={isSavingEdit}
-                        onChange={(active) => setEditDraft((prev) => prev && { ...prev, active })}
-                      />
                     </div>
                     <UsageWarning count={addOn.usageCount} itemLabel="용량 추가구매 상품" />
                     <FormActions
@@ -1828,17 +2155,27 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
                     {addOn.secondaryCapacityType && addOn.secondaryUnitAmount != null && ` / +${addOn.secondaryUnitAmount}`}
                   </td>
                   <td className="py-2">
-                    {formatSupplyPrice(addOn.supplyPrice, addOn.currencyCode)} / {formatPrice(addOn.salePrice, addOn.currencyCode)}
+                    {addOn.salePrice === null
+                      ? '-'
+                      : `${formatSupplyPrice(addOn.supplyPrice, addOn.currencyCode ?? 'KRW')} / ${formatPrice(addOn.salePrice, addOn.currencyCode ?? 'KRW')}`}
                   </td>
-                  <td className="py-2">{formatDiscount(addOn.discountType, addOn.discountValue)}</td>
                   <td className="py-2">
-                    <ActiveBadge active={addOn.active} />
+                    {addOn.discountType === null || addOn.discountValue === null ? '-' : formatDiscount(addOn.discountType, addOn.discountValue)}
+                  </td>
+                  <td className="py-2">
+                    <PeriodStatusBadge status={addOn.periodStatus} />
                     <span className="ml-1.5 text-xs text-gray-400">사용 {addOn.usageCount}건</span>
                   </td>
                   <td className="py-2 px-4 text-right">
                     <button
-                      onClick={() => openHistory(addOn.id)}
+                      onClick={() => setPeriodItemId(addOn.id)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                    >
+                      가격
+                    </button>
+                    <button
+                      onClick={() => openHistory(addOn.id)}
+                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
                     >
                       <History size={12} />
                       이력
@@ -1879,16 +2216,10 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {addOnHistory.map((history) => (
               <li key={history.id} className="py-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-950 font-medium">
-                    {CAPACITY_TYPE_LABEL[history.capacityType] ?? history.capacityType} +{history.unitAmount}
-                    {history.secondaryCapacityType &&
-                      ` · ${CAPACITY_TYPE_LABEL[history.secondaryCapacityType] ?? history.secondaryCapacityType} +${history.secondaryUnitAmount}`}
-                  </p>
-                  <ActiveBadge active={history.active} />
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.salePrice, history.currencyCode)} · 할인 {formatDiscount(history.discountType, history.discountValue)}
+                <p className="text-sm text-gray-950 font-medium">
+                  {CAPACITY_TYPE_LABEL[history.capacityType] ?? history.capacityType} +{history.unitAmount}
+                  {history.secondaryCapacityType &&
+                    ` · ${CAPACITY_TYPE_LABEL[history.secondaryCapacityType] ?? history.secondaryCapacityType} +${history.secondaryUnitAmount}`}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
               </li>
@@ -1896,6 +2227,14 @@ const CapacityAddOnSection: FC<SectionProps> = ({ canManage, showSnackbar }) => 
           </ul>
         )}
       </Modal>
+
+      <PricePeriodManagerModal
+        itemId={periodItemId}
+        basePath="/platform-admin/capacity-addons"
+        onClose={() => setPeriodItemId(null)}
+        onChanged={() => fetchAddOns().then(setAddOns)}
+        showSnackbar={showSnackbar}
+      />
     </section>
   );
 };

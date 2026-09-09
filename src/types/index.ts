@@ -400,17 +400,69 @@ export interface PageResponse<T> {
 /** feature.ceremony.entity.DiscountType 값과 맞춘다. */
 export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
 
-/** GET /api/billing-plans 응답(BillingPlanDto.Response.BillingPlanSummary)과 맞춘다. */
-export interface BillingPlanSummary {
+/**
+ * 카탈로그(플랜/선택옵션/용량 추가구매 상품) 판매가격 기간 하나 — 행 하나 = 기간 하나(다중
+ * 버전, TaxPolicy/조직 할인 오버라이드와 같은 방식). signstage-docs
+ * business/billing-catalog-price-validity-period-review.md 결정(2026-09-09) 참고. 세 카탈로그
+ * 타입(BillingPlanPricePeriodSummary 등)이 구조가 완전히 같아 프런트에서는 이 타입 하나로
+ * 공유한다.
+ */
+export interface CatalogPricePeriodSummary {
   id: number;
-  name: string;
   currencyCode: string;
-  /** 원가(내부 전용, 마진 계산용) — 계산식에는 관여하지 않는다. null이면 "원가 미상"(2026-09-08, 항목 G). */
   supplyPrice: number | null;
   salePrice: number;
   discountType: DiscountType;
   discountValue: number;
   taxCode: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  /** PENDING(판매예정)/ON_SALE(판매중)/EXPIRED(판매종료)/INACTIVE(사용중지, 기간 안이지만 active=false). */
+  status: string;
+  createdAt: string;
+}
+
+/** 판매가격 기간의 생성/수정/삭제 이력 한 행 — removed=true면 "이 시점에 기간이 제거됐다"는 뜻. */
+export interface CatalogPricePeriodHistorySummary {
+  id: number;
+  currencyCode: string;
+  supplyPrice: number | null;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  taxCode: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  removed: boolean;
+  createdBy: number;
+  createdAt: string;
+}
+
+/** POST/PUT .../{plans|optional-features|capacity-addons}/{id}/periods[/{periodId}] 요청과 맞춘다. */
+export interface CatalogPricePeriodRequest {
+  currencyCode?: string;
+  supplyPrice: number | null;
+  salePrice: number;
+  discountType: DiscountType;
+  discountValue: number;
+  taxCode?: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+/**
+ * GET /api/billing-plans 응답(BillingPlanDto.Response.BillingPlanSummary)과 맞춘다. 가격 관련
+ * 필드는 "오늘" 기준 유효한 판매가격 기간 값이다 — 기간 사이 공백으로 오늘 유효한 기간이 없으면
+ * 전부 null이고 periodStatus가 "NO_ACTIVE_PERIOD"다(signstage-docs
+ * business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09). 기간 전체(과거/
+ * 현재/예정) 목록·CRUD는 별도 엔드포인트(.../periods)로 관리한다.
+ */
+export interface BillingPlanSummary {
+  id: number;
+  name: string;
   /**
    * 이 플랜이 기본 포함하는 용량 한도 — CapacityType 이름을 키로 하는 맵(예:
    * `{SIGNERS: 100, TEMPLATES: 10, TEST_EVENTS: 3, REHEARSAL_EVENTS: 3, MAIN_EVENTS: 1}`).
@@ -419,8 +471,6 @@ export interface BillingPlanSummary {
    * 2026-09-08, 항목 B). 키는 항상 PLAN_CAPACITY_TYPE_OPTIONS와 같은 집합이다(TABLETS 제외).
    */
   capacities: Record<string, number>;
-  /** 사용여부. false면 새 행사 생성/플랜 변경 대상에서 제외된다. */
-  active: boolean;
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   optionalFeatureIds: number[];
@@ -431,32 +481,37 @@ export interface BillingPlanSummary {
    */
   capacityAddOnIds: number[];
   createdAt: string;
+  currencyCode: string | null;
+  /** 원가(내부 전용, 마진 계산용) — 계산식에는 관여하지 않는다. null이면 "원가 미상"이거나 오늘 유효한 기간이 없다. */
+  supplyPrice: number | null;
+  salePrice: number | null;
+  discountType: DiscountType | null;
+  discountValue: number | null;
+  taxCode: string | null;
+  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 행사 생성/플랜 변경 대상에서 제외된다. */
+  active: boolean | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  periodStatus: string;
 }
 
 /**
  * GET /api/platform-admin/billing-plans/{id}/history 응답
- * (BillingPlanDto.Response.BillingPlanHistorySummary)과 맞춘다. 최신순이며, 각 행은 그 변경
- * 시점의 전체 상태 스냅샷이다.
+ * (BillingPlanDto.Response.BillingPlanHistorySummary)과 맞춘다. 최신순 — 이름/한도 구성이
+ * 바뀔 때마다 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
  */
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
-  currencyCode: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode: string;
   capacities: Record<string, number>;
-  active: boolean;
   createdBy: number;
   createdAt: string;
 }
 
 /**
  * POST /api/platform-admin/billing-plans 요청(BillingPlanDto.Request.CreatePlan)과 맞춘다.
- * optionalFeatureIds/capacityAddOnIds는 수정 시에도 통째로 교체할 수 있다(9장 후속 —
- * UpdateBillingPlanRequest도 같은 필드를 갖는다).
+ * 정체성(name 등)과 최초 판매가격 기간을 함께 만든다 — optionalFeatureIds/capacityAddOnIds는
+ * 수정 시에도 통째로 교체할 수 있다(9장 후속).
  */
 export interface CreateBillingPlanRequest {
   name: string;
@@ -466,6 +521,9 @@ export interface CreateBillingPlanRequest {
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
   /** 정확히 PLAN_CAPACITY_TYPE_OPTIONS와 같은 키 집합이어야 한다(누락/여분 모두 서버가 거부). */
   capacities: Record<string, number>;
   optionalFeatureIds: number[];
@@ -473,17 +531,14 @@ export interface CreateBillingPlanRequest {
   capacityAddOnIds: number[];
 }
 
-/** PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다. */
+/**
+ * PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다.
+ * 가격/사용여부/판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로
+ * 관리한다(signstage-docs business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09).
+ */
 export interface UpdateBillingPlanRequest {
   name: string;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode?: string;
   capacities: Record<string, number>;
-  active: boolean;
   /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
   optionalFeatureIds: number[];
   /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
@@ -511,19 +566,14 @@ export type OptionalFeatureCode =
 /** feature.ceremony.entity.OptionalFeatureCategory 값과 맞춘다(2026-09-08 결정). */
 export type OptionalFeatureCategory = 'EQUIPMENT' | 'PERSONNEL' | 'APPLICATION';
 
-/** GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다. */
+/**
+ * GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다.
+ * 가격 관련 필드는 "오늘" 기준 유효한 판매가격 기간 값이다(BillingPlanSummary와 같은 원칙).
+ */
 export interface OptionalFeatureSummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
-  currencyCode: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode: string;
-  /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
-  active: boolean;
   /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
   /** 상위 분류(장비/인력/애플리케이션, 2026-09-08 결정). */
@@ -533,30 +583,38 @@ export interface OptionalFeatureSummary {
   /** 이 묶음이 여는 이벤트 효과 id 목록. `code`가 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
   effectDefinitionIds: number[];
   createdAt: string;
+  currencyCode: string | null;
+  supplyPrice: number | null;
+  salePrice: number | null;
+  discountType: DiscountType | null;
+  discountValue: number | null;
+  taxCode: string | null;
+  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 추가구매 대상에서 제외된다. */
+  active: boolean | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  periodStatus: string;
 }
 
 /**
  * GET /api/platform-admin/optional-features/{id}/history 응답
- * (OptionalFeatureDto.Response.OptionalFeatureHistorySummary)과 맞춘다.
+ * (OptionalFeatureDto.Response.OptionalFeatureHistorySummary)과 맞춘다. 이름/배타그룹/분류가
+ * 바뀔 때마다 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
  */
 export interface OptionalFeatureHistorySummary {
   id: number;
   code: OptionalFeatureCode;
   name: string;
-  currencyCode: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode: string;
-  active: boolean;
   exclusivityGroup: string | null;
   category: OptionalFeatureCategory;
   createdBy: number;
   createdAt: string;
 }
 
-/** POST /api/platform-admin/optional-features 요청(OptionalFeatureDto.Request.CreateOptionalFeature)과 맞춘다. */
+/**
+ * POST /api/platform-admin/optional-features 요청(OptionalFeatureDto.Request.CreateOptionalFeature)과
+ * 맞춘다. 정체성(code/name 등)과 최초 판매가격 기간을 함께 만든다.
+ */
 export interface CreateOptionalFeatureRequest {
   code: OptionalFeatureCode;
   name: string;
@@ -566,6 +624,9 @@ export interface CreateOptionalFeatureRequest {
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
   exclusivityGroup?: string | null;
   category: OptionalFeatureCategory;
   /**
@@ -577,17 +638,11 @@ export interface CreateOptionalFeatureRequest {
 
 /**
  * PUT /api/platform-admin/optional-features/{id} 요청(OptionalFeatureDto.Request.UpdateOptionalFeature)과
- * 맞춘다. code는 생성 후 불변이라 CreateOptionalFeatureRequest와 달리 여기엔 없다.
+ * 맞춘다. code는 생성 후 불변이라 CreateOptionalFeatureRequest와 달리 여기엔 없다. 가격/사용여부/
+ * 판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로 관리한다.
  */
 export interface UpdateOptionalFeatureRequest {
   name: string;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode?: string;
-  active: boolean;
   exclusivityGroup: string | null;
   category: OptionalFeatureCategory;
   /**
@@ -620,22 +675,26 @@ export interface CapacityAddOnSummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
-  currencyCode: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode: string;
-  /** 사용여부. false면 새 추가구매 대상에서 제외된다. */
-  active: boolean;
   /** 이 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   createdAt: string;
+  currencyCode: string | null;
+  supplyPrice: number | null;
+  salePrice: number | null;
+  discountType: DiscountType | null;
+  discountValue: number | null;
+  taxCode: string | null;
+  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 추가구매 대상에서 제외된다. */
+  active: boolean | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  periodStatus: string;
 }
 
 /**
  * GET /api/platform-admin/capacity-addons/{id}/history 응답
- * (CapacityAddOnDto.Response.CapacityAddOnHistorySummary)과 맞춘다.
+ * (CapacityAddOnDto.Response.CapacityAddOnHistorySummary)과 맞춘다. 단위수량이 바뀔 때마다
+ * 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
  */
 export interface CapacityAddOnHistorySummary {
   id: number;
@@ -643,18 +702,14 @@ export interface CapacityAddOnHistorySummary {
   unitAmount: number;
   secondaryCapacityType: CapacityType | null;
   secondaryUnitAmount: number | null;
-  currencyCode: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode: string;
-  active: boolean;
   createdBy: number;
   createdAt: string;
 }
 
-/** POST /api/platform-admin/capacity-addons 요청(CapacityAddOnDto.Request.CreateCapacityAddOn)과 맞춘다. */
+/**
+ * POST /api/platform-admin/capacity-addons 요청(CapacityAddOnDto.Request.CreateCapacityAddOn)과
+ * 맞춘다. 정체성(capacityType 등)과 최초 판매가격 기간을 함께 만든다.
+ */
 export interface CreateCapacityAddOnRequest {
   capacityType: CapacityType;
   unitAmount: number;
@@ -667,23 +722,20 @@ export interface CreateCapacityAddOnRequest {
   discountType: DiscountType;
   discountValue: number;
   taxCode?: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
 }
 
 /**
  * PUT /api/platform-admin/capacity-addons/{id} 요청(CapacityAddOnDto.Request.UpdateCapacityAddOn)과
  * 맞춘다. capacityType/secondaryCapacityType은 생성 후 불변이라 여기엔 없다 — 묶음 여부를
- * 바꾸려면 새 상품을 등록해야 한다. 원래 묶음 상품이었다면 secondaryUnitAmount는 필수다.
+ * 바꾸려면 새 상품을 등록해야 한다. 원래 묶음 상품이었다면 secondaryUnitAmount는 필수다. 가격/
+ * 사용여부/판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로 관리한다.
  */
 export interface UpdateCapacityAddOnRequest {
   unitAmount: number;
   secondaryUnitAmount?: number | null;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
-  taxCode?: string;
-  active: boolean;
 }
 
 // 조직×품목 세밀 할인 오버라이드(OrganizationDiscountDto) — signstage-docs

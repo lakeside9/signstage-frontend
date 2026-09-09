@@ -82,16 +82,28 @@ interface ResolvedDiscount {
   overridden: boolean;
 }
 
-/** 조직×품목 오버라이드가 있으면 그 값을, 없으면 카탈로그 값을 쓴다(할인 문서 4.1절). */
-function resolveDiscount<T extends { discountType: DiscountType; discountValue: number }>(
+/**
+ * 조직×품목 오버라이드가 있으면 그 값을, 없으면 카탈로그 값을 쓴다(할인 문서 4.1절). 카탈로그
+ * 값은 이제 "오늘" 기준 유효한 판매가격 기간의 값이라 null일 수 있다(기간 사이 공백 —
+ * signstage-docs business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09) —
+ * 그런 경우 시뮬레이터는 할인 없음(FIXED_AMOUNT 0)으로 취급한다.
+ */
+function resolveDiscount<T extends { discountType: DiscountType | null; discountValue: number | null }>(
   catalogItem: T,
   override: { discountType: DiscountType; discountValue: number } | undefined,
 ): ResolvedDiscount {
   if (override) {
     return { discountType: override.discountType, discountValue: override.discountValue, overridden: true };
   }
-  return { discountType: catalogItem.discountType, discountValue: catalogItem.discountValue, overridden: false };
+  return {
+    discountType: catalogItem.discountType ?? 'FIXED_AMOUNT',
+    discountValue: catalogItem.discountValue ?? 0,
+    overridden: false,
+  };
 }
+
+/** 오늘 기준 유효한 판매가격 기간이 없으면(NO_ACTIVE_PERIOD) null이다 — 시뮬레이터는 0원으로 취급한다. */
+const priceOrZero = (value: number | null) => value ?? 0;
 
 interface LedgerLine {
   key: string;
@@ -239,7 +251,7 @@ export const AdminBillingSimulator: FC = () => {
     if (selectedPlan) {
       const override = orgOverview?.billingPlanDiscounts.find((d) => d.billingPlanId === selectedPlan.id);
       const resolved = resolveDiscount(selectedPlan, override);
-      const applied = appliedPrice(selectedPlan.salePrice, resolved.discountType, resolved.discountValue);
+      const applied = appliedPrice(priceOrZero(selectedPlan.salePrice), resolved.discountType, resolved.discountValue);
       resultLines.push({
         key: `plan-${selectedPlan.id}`,
         label: `${selectedPlan.name} (플랜)`,
@@ -260,7 +272,7 @@ export const AdminBillingSimulator: FC = () => {
       .forEach((o) => {
         const override = orgOverview?.optionalFeatureDiscounts.find((d) => d.optionalFeatureId === o.id);
         const resolved = resolveDiscount(o, override);
-        const applied = appliedPrice(o.salePrice, resolved.discountType, resolved.discountValue);
+        const applied = appliedPrice(priceOrZero(o.salePrice), resolved.discountType, resolved.discountValue);
         resultLines.push({
           key: `opt-${o.id}`,
           label: o.name,
@@ -282,7 +294,7 @@ export const AdminBillingSimulator: FC = () => {
         const quantity = addOnQuantities[a.id] ?? 0;
         const override = orgOverview?.capacityAddOnDiscounts.find((d) => d.capacityAddOnId === a.id);
         const resolved = resolveDiscount(a, override);
-        const unitApplied = appliedPrice(a.salePrice, resolved.discountType, resolved.discountValue);
+        const unitApplied = appliedPrice(priceOrZero(a.salePrice), resolved.discountType, resolved.discountValue);
         const lineTotal = unitApplied * quantity;
         const bundleNote = a.secondaryCapacityType
           ? ` (+${a.unitAmount} ${CAPACITY_TYPE_LABEL[a.capacityType]} · +${a.secondaryUnitAmount} ${CAPACITY_TYPE_LABEL[a.secondaryCapacityType]})`
@@ -419,7 +431,7 @@ export const AdminBillingSimulator: FC = () => {
                         )}
                       </div>
                       <p className="mt-1.5 text-xs text-gray-600 tabular-nums">
-                        {formatPrice(plan.salePrice)} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
+                        {formatPrice(priceOrZero(plan.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
                         {resolved.overridden && <OrgOverrideBadge />}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
@@ -469,7 +481,7 @@ export const AdminBillingSimulator: FC = () => {
                               {!o.active && <span className="text-xs text-gray-400 shrink-0">미사용</span>}
                             </span>
                             <span className="text-xs text-gray-600 shrink-0 tabular-nums">
-                              {formatPrice(o.salePrice)} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
+                              {formatPrice(priceOrZero(o.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
                               {resolved.overridden && <OrgOverrideBadge />}
                             </span>
                           </label>
@@ -516,7 +528,7 @@ export const AdminBillingSimulator: FC = () => {
                                 {!a.active && <span className="ml-2 text-xs text-gray-400">미사용</span>}
                               </p>
                               <p className="text-xs text-gray-500 tabular-nums">
-                                {formatPrice(a.salePrice)} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
+                                {formatPrice(priceOrZero(a.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
                                 {resolved.overridden && <OrgOverrideBadge />}
                               </p>
                             </div>

@@ -741,11 +741,15 @@ export const UserCeremonyEdit: FC = () => {
                 "공급가/판매가"로 같이 보여주고 있었다(2026-09-08 발견·수정). */}
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">판매가</span>
-              <span className="text-gray-950">{formatPrice(plan.salePrice, plan.currencyCode)}</span>
+              <span className="text-gray-950">
+                {plan.salePrice === null ? '가격 정보 없음' : formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}
+              </span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">할인</span>
-              <span className="text-gray-950">{formatDiscount(plan.discountType, plan.discountValue)}</span>
+              <span className="text-gray-950">
+                {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
+              </span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">서명자 한도</span>
@@ -785,7 +789,8 @@ export const UserCeremonyEdit: FC = () => {
                   .filter((candidate) => candidate.id !== ceremony.billingPlanId && candidate.active)
                   .map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} — {formatPrice(candidate.salePrice, candidate.currencyCode)}
+                      {candidate.name}
+                      {candidate.salePrice === null ? '' : ` — ${formatPrice(candidate.salePrice, candidate.currencyCode ?? 'KRW')}`}
                     </option>
                   ))}
               </select>
@@ -899,7 +904,7 @@ export const UserCeremonyEdit: FC = () => {
                       {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount}
                       {addOn.secondaryCapacityType &&
                         ` · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`}{' '}
-                      — {formatPrice(addOn.salePrice)}
+                      — {addOn.salePrice === null ? '가격 정보 없음' : formatPrice(addOn.salePrice)}
                     </option>
                   ))}
               </select>
@@ -1000,7 +1005,7 @@ export const UserCeremonyEdit: FC = () => {
               <li key={feature.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm text-gray-950">{feature.name}</p>
-                  <p className="text-xs text-gray-500">{formatPrice(feature.salePrice)}</p>
+                  <p className="text-xs text-gray-500">{feature.salePrice === null ? '가격 정보 없음' : formatPrice(feature.salePrice)}</p>
                 </div>
                 {hasActiveFeaturePurchase(feature.id) ? (
                   <PurchaseStatusBadge
