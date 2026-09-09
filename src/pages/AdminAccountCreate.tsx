@@ -229,8 +229,11 @@ export const AdminAccountCreate: FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/accounts" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '생성 중...' : '관리자 계정 생성'}
             </Button>
           </div>

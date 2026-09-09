@@ -190,8 +190,11 @@ export const AdminOrganizationCreate: FC = () => {
             </div>
           )}
 
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/organizations" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '등록 중...' : '파트너 등록'}
             </Button>
           </div>

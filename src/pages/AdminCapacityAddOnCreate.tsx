@@ -246,8 +246,11 @@ export const AdminCapacityAddOnCreate: FC = () => {
             보조 용량을 지정하면 이 상품 1건 구매로 두 용량이 함께 늘어나는 묶음 상품이 됩니다(예: "서명자+태블릿" = 주 용량 서명자,
             보조 용량 태블릿). 묶음 여부와 보조 용량 종류는 등록 후 바꿀 수 없습니다.
           </p>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={isLoading}>
+          <div className="flex justify-end gap-2">
+            <Button to="/admin/billing-catalog/capacity-addons" variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? '등록 중...' : '용량 추가구매 상품 등록'}
             </Button>
           </div>
