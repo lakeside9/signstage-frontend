@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  BadgePercent,
   Building2,
   Calculator,
   ChevronDown,
@@ -12,6 +13,9 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileSignature,
+  FlaskConical,
+  KeyRound,
+  Layers,
   Loader2,
   Package,
   Percent,
@@ -19,9 +23,12 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
   Tag,
   User,
   Users,
+  UsersRound,
+  Wallet,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -52,6 +59,13 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Percent: <Percent size={14} />,
   Tag: <Tag size={14} />,
   PlayCircle: <PlayCircle size={14} />,
+  UsersRound: <UsersRound size={14} />,
+  Wallet: <Wallet size={14} />,
+  BadgePercent: <BadgePercent size={14} />,
+  FlaskConical: <FlaskConical size={14} />,
+  KeyRound: <KeyRound size={14} />,
+  Layers: <Layers size={14} />,
+  Sparkles: <Sparkles size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;
