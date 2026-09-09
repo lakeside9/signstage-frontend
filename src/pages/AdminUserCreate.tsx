@@ -107,13 +107,9 @@ export const AdminUserCreate: FC = () => {
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button to={`/admin/users/${created.user.id}`} className="flex-1">
-              상세로 이동
-            </Button>
+          <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
-              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setName('');
@@ -123,6 +119,7 @@ export const AdminUserCreate: FC = () => {
             >
               계속 추가하기
             </Button>
+            <Button to={`/admin/users/${created.user.id}`}>상세로 이동</Button>
           </div>
         </div>
       ) : (
