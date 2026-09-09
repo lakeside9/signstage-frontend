@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Lock, UserPlus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
@@ -153,13 +154,10 @@ export const AdminUserList: FC = () => {
           </p>
         </div>
         {canManage && (
-          <Link
-            to="/admin/users/new"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
+          <Button to="/admin/users/new">
             <UserPlus size={16} />
             회원 추가
-          </Link>
+          </Button>
         )}
       </div>
 
@@ -268,22 +266,19 @@ export const AdminUserList: FC = () => {
                     ) : (
                       <div className="flex justify-end gap-2">
                         {user.status !== 'ACTIVE' && (
-                          <button
-                            onClick={() => handleChangeStatus(user.id, 'ACTIVE')}
-                            disabled={processingId === user.id}
-                            className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                          >
+                          <Button size="sm" onClick={() => handleChangeStatus(user.id, 'ACTIVE')} disabled={processingId === user.id}>
                             승인/활성화
-                          </button>
+                          </Button>
                         )}
                         {user.status !== 'DISABLED' && (
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleChangeStatus(user.id, 'DISABLED')}
                             disabled={processingId === user.id}
-                            className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
                           >
                             거절/비활성화
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}

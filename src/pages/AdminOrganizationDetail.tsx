@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, Globe, History, Loader2, Pencil, Plus, UserMinus, Users, UserPlus, X } from 'lucide-react';
+import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -344,13 +345,10 @@ export const AdminOrganizationDetail: FC = () => {
           <p className="mt-1 text-sm text-gray-500">파트너 상세 정보</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={openHistory}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-          >
+          <Button variant="secondary" size="sm" onClick={openHistory}>
             <History size={12} />
             이력
-          </button>
+          </Button>
           <span
             className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[organization.status]}`}
           >
@@ -383,22 +381,13 @@ export const AdminOrganizationDetail: FC = () => {
             />
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditingInfo(false)}
-              disabled={isSavingInfo}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
-            >
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsEditingInfo(false)} disabled={isSavingInfo}>
               <X size={14} />
               취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSavingInfo}
-              className="flex-1 bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-            >
+            </Button>
+            <Button type="submit" className="flex-1" disabled={isSavingInfo}>
               {isSavingInfo ? '저장 중...' : '저장'}
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -411,13 +400,10 @@ export const AdminOrganizationDetail: FC = () => {
             <DetailRow label="생성일" value={formatDateTime(organization.createdAt)} />
           </div>
           {canEditInfo && (
-            <button
-              onClick={startEditInfo}
-              className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-            >
+            <Button variant="secondary" className="mt-4" onClick={startEditInfo}>
               <Pencil size={14} />
               파트너 정보 수정
-            </button>
+            </Button>
           )}
         </>
       )}
@@ -431,22 +417,14 @@ export const AdminOrganizationDetail: FC = () => {
         ) : (
           <div className="flex gap-2">
             {organization.status !== 'ACTIVE' && (
-              <button
-                onClick={() => handleChangeStatus('ACTIVE')}
-                disabled={isProcessing}
-                className="px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button onClick={() => handleChangeStatus('ACTIVE')} disabled={isProcessing}>
                 재개
-              </button>
+              </Button>
             )}
             {organization.status !== 'SUSPENDED' && (
-              <button
-                onClick={() => handleChangeStatus('SUSPENDED')}
-                disabled={isProcessing}
-                className="px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
-              >
+              <Button variant="secondary" onClick={() => handleChangeStatus('SUSPENDED')} disabled={isProcessing}>
                 정지
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -459,13 +437,10 @@ export const AdminOrganizationDetail: FC = () => {
             멤버
           </h2>
           {canManage && !isAddPanelOpen && (
-            <button
-              onClick={openAddPanel}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-            >
+            <Button size="sm" onClick={openAddPanel}>
               <Plus size={12} />
               멤버 추가
-            </button>
+            </Button>
           )}
         </div>
 
@@ -476,13 +451,9 @@ export const AdminOrganizationDetail: FC = () => {
                 어느 파트너에도 속하지 않은 사용자만 후보로 나옵니다(1인 1파트너 제한). 파트너 내부 위계와
                 무관하게 OWNER로도 추가할 수 있습니다.
               </p>
-              <button
-                type="button"
-                onClick={() => setIsAddPanelOpen(false)}
-                className="shrink-0 ml-2 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-              >
+              <Button variant="secondary" size="sm" className="shrink-0 ml-2" onClick={() => setIsAddPanelOpen(false)}>
                 닫기
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleCandidateSearch} className="flex flex-wrap items-end gap-2 mb-3">
@@ -513,19 +484,12 @@ export const AdminOrganizationDetail: FC = () => {
                   className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all w-40"
                 />
               </div>
-              <button
-                type="submit"
-                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-              >
+              <Button type="submit" size="sm">
                 검색
-              </button>
-              <button
-                type="button"
-                onClick={handleCandidateSearchReset}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-              >
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleCandidateSearchReset}>
                 초기화
-              </button>
+              </Button>
 
               <div className="ml-auto">
                 <label className="block text-xs font-medium text-gray-500 mb-1">추가할 역할</label>
@@ -569,14 +533,10 @@ export const AdminOrganizationDetail: FC = () => {
                         <td className="px-3 py-2 text-gray-700">{candidate.name}</td>
                         <td className="px-3 py-2 text-gray-500">{candidate.email}</td>
                         <td className="px-3 py-2 text-right">
-                          <button
-                            onClick={() => handleAddCandidate(candidate)}
-                            disabled={addingUserId === candidate.id}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                          >
+                          <Button size="sm" onClick={() => handleAddCandidate(candidate)} disabled={addingUserId === candidate.id}>
                             <UserPlus size={12} />
                             {addingUserId === candidate.id ? '추가 중...' : `${addRole}로 추가`}
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -651,40 +611,29 @@ export const AdminOrganizationDetail: FC = () => {
                     <td className="py-2">
                       <div className="flex justify-end items-center gap-2">
                         {roleDrafts[member.id] && roleDrafts[member.id] !== member.role && (
-                          <button
-                            onClick={() => handleChangeMemberRole(member.id)}
-                            disabled={processingMemberId === member.id}
-                            className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                          >
+                          <Button size="sm" onClick={() => handleChangeMemberRole(member.id)} disabled={processingMemberId === member.id}>
                             역할 저장
-                          </button>
+                          </Button>
                         )}
                         {confirmingRemoveId === member.id ? (
                           <>
-                            <button
-                              onClick={() => handleRemoveMember(member.id)}
-                              disabled={processingMemberId === member.id}
-                              className="px-3 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-                            >
+                            <Button variant="danger" size="sm" onClick={() => handleRemoveMember(member.id)} disabled={processingMemberId === member.id}>
                               확인
-                            </button>
-                            <button
-                              onClick={() => setConfirmingRemoveId(null)}
-                              disabled={processingMemberId === member.id}
-                              className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-                            >
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setConfirmingRemoveId(null)} disabled={processingMemberId === member.id}>
                               취소
-                            </button>
+                            </Button>
                           </>
                         ) : (
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => setConfirmingRemoveId(member.id)}
                             disabled={processingMemberId === member.id}
-                            className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
                           >
                             <UserMinus size={12} />
                             제거
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>

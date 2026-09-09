@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Link } from 'react-router-dom';
 import { Building2, PlayCircle, Plus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -64,13 +64,10 @@ export const AdminDemoCeremonies: FC = () => {
           </p>
         </div>
         {canManage && (
-          <Link
-            to="/admin/organizations/new"
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
-          >
-            <Plus size={12} />
+          <Button to="/admin/organizations/new">
+            <Plus size={16} />
             데모 조직 만들기
-          </Link>
+          </Button>
         )}
       </div>
 
@@ -96,12 +93,9 @@ export const AdminDemoCeremonies: FC = () => {
                 <td className="py-2 text-gray-500">{organization.code}</td>
                 <td className="py-2 text-right text-gray-500">{formatDateTime(organization.createdAt)}</td>
                 <td className="py-2 px-4 text-right">
-                  <Link
-                    to={`/ceremonies/${organization.id}`}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
-                  >
+                  <Button to={`/ceremonies/${organization.id}`} variant="secondary" size="sm">
                     관리
-                  </Link>
+                  </Button>
                 </td>
               </tr>
             ))}

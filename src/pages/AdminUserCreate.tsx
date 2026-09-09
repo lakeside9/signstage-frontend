@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Copy, Mail, Phone, UserPlus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PlatformAdminCreatedUser } from '../types';
@@ -107,24 +108,21 @@ export const AdminUserCreate: FC = () => {
           </div>
 
           <div className="flex gap-2">
-            <Link
-              to={`/admin/users/${created.user.id}`}
-              className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
+            <Button to={`/admin/users/${created.user.id}`} className="flex-1">
               상세로 이동
-            </Link>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
               onClick={() => {
                 setCreated(null);
                 setName('');
                 setEmail('');
                 setPhone('');
               }}
-              className="flex-1 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
             >
               계속 추가하기
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -181,13 +179,9 @@ export const AdminUserCreate: FC = () => {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-          >
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? '생성 중...' : '회원 생성'}
-          </button>
+          </Button>
         </form>
       )}
     </div>

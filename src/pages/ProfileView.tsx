@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Loader2, Mail, Phone, User } from 'lucide-react';
+import { Button } from '../components/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -281,13 +282,9 @@ export const ProfileView: FC = () => {
             </select>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSavingProfile}
-            className="bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-          >
+          <Button type="submit" disabled={isSavingProfile}>
             {t(isSavingProfile ? 'profile.saving' : 'profile.save')}
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -330,13 +327,9 @@ export const ProfileView: FC = () => {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isSavingPassword}
-            className="bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-          >
+          <Button type="submit" disabled={isSavingPassword}>
             {t(isSavingPassword ? 'profile.changing' : 'profile.passwordChange')}
-          </button>
+          </Button>
         </form>
       </section>
     </div>

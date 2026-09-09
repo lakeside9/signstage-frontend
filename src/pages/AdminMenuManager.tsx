@@ -30,6 +30,7 @@ import {
   UsersRound,
   Wallet,
 } from 'lucide-react';
+import { Button } from '../components/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -478,26 +479,26 @@ export const AdminMenuManager: FC = () => {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">레벨(상위 메뉴)</label>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => handleOutdent(selectedRow)}
                       disabled={selectedRow.parentMenuId === null || movingId !== null}
                       title="상위로 이동(내어쓰기)"
-                      className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30 text-xs"
                     >
                       <ChevronsLeft size={14} />
                       상위로
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => handleIndent(selectedRow)}
                       disabled={selectedSiblingIndex <= 0 || movingId !== null}
                       title="바로 위 메뉴의 하위로 편입(들여쓰기)"
-                      className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-gray-400 disabled:opacity-30 text-xs"
                     >
                       하위로
                       <ChevronsRight size={14} />
-                    </button>
+                    </Button>
                   </div>
                   <p className="mt-1 text-xs text-gray-400">
                     {selectedSiblingIndex > 0
@@ -517,14 +518,9 @@ export const AdminMenuManager: FC = () => {
                 </label>
 
                 <div className="pt-2">
-                  <button
-                    type="button"
-                    disabled={!isDirty(selectedRow, selectedDraft) || savingId === selectedRow.id}
-                    onClick={() => handleSave(selectedRow)}
-                    className="px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
+                  <Button disabled={!isDirty(selectedRow, selectedDraft) || savingId === selectedRow.id} onClick={() => handleSave(selectedRow)}>
                     저장
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

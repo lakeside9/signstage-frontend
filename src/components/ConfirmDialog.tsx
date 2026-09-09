@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { Loader2, Trash2, X } from 'lucide-react';
+import { Button } from './Button';
 import { Modal } from './Modal';
 
 interface ConfirmDialogProps {
@@ -25,24 +26,14 @@ export const ConfirmDialog: FC<ConfirmDialogProps> = ({
   <Modal open={open} onClose={onCancel} title={title} widthClassName="max-w-sm">
     <p className="text-sm text-gray-700">{message}</p>
     <div className="mt-4 flex justify-end gap-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={isSubmitting}
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-      >
+      <Button variant="secondary" size="sm" onClick={onCancel} disabled={isSubmitting}>
         <X size={12} />
         취소
-      </button>
-      <button
-        type="button"
-        onClick={onConfirm}
-        disabled={isSubmitting}
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-      >
+      </Button>
+      <Button variant="danger" size="sm" onClick={onConfirm} disabled={isSubmitting}>
         {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
         {isSubmitting ? '삭제 중...' : confirmLabel}
-      </button>
+      </Button>
     </div>
   </Modal>
 );

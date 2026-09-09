@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { ShieldCheck, ShieldOff, UserPlus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
@@ -170,13 +170,10 @@ export const AdminAccountList: FC = () => {
           </p>
         </div>
         {canCreateAccount && (
-          <Link
-            to="/admin/accounts/new"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
+          <Button to="/admin/accounts/new">
             <UserPlus size={16} />
             관리자 추가
-          </Link>
+          </Button>
         )}
       </div>
 
@@ -300,23 +297,20 @@ export const AdminAccountList: FC = () => {
                     ) : (
                       <div className="flex justify-end gap-2">
                         {canChangeAccountRole && roleDrafts[account.id] && roleDrafts[account.id] !== account.platformRole && (
-                          <button
-                            onClick={() => handleUpdateRole(account.id)}
-                            disabled={processingId === account.id}
-                            className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                          >
+                          <Button size="sm" onClick={() => handleUpdateRole(account.id)} disabled={processingId === account.id}>
                             등급 저장
-                          </button>
+                          </Button>
                         )}
                         {canRevokeAccount && (
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleRevoke(account.id)}
                             disabled={processingId === account.id}
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
                           >
                             <ShieldOff size={12} />
                             권한 해제
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}

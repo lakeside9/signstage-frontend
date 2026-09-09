@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Eye, Loader2, Save } from 'lucide-react';
+import { Button } from '../../Button';
 import { EffectPreviewDialog } from '../preview/EffectPreviewDialog';
 import type { EffectPreviewDefinition } from '../preview/EffectPreviewStage';
 import type { CeremonyEffectTarget, CeremonyEffectTrigger } from '../../../types';
@@ -224,16 +225,16 @@ export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, sa
             rendererKey: value.rendererKey,
             configJson: value.configJsonDraft,
           })}
-          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-5 py-2 text-sm font-bold text-amber-800 hover:bg-amber-100"
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors"
         >
           <Eye size={15} /> 미리보기
         </button>
-        <button type="button" disabled={saving} onClick={onCancel} className="rounded-lg border border-gray-200 px-5 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50">
+        <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>
           취소
-        </button>
-        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-5 py-2 text-sm font-bold text-white hover:bg-gray-800 disabled:bg-gray-400">
+        </Button>
+        <Button type="submit" disabled={saving}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} 저장
-        </button>
+        </Button>
       </div>
 
       <EffectPreviewDialog open={previewEffect != null} effect={previewEffect} onClose={() => setPreviewEffect(null)} />

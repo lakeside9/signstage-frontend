@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Eye, Loader2, Plus } from 'lucide-react';
+import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { EffectPreviewDialog } from '../components/effects/preview/EffectPreviewDialog';
@@ -161,12 +162,9 @@ export const CeremonyEffectManagement: FC = () => {
           <p className="mt-1 text-sm text-gray-500">행사 등록/수정 화면과 행사 제어 화면에서 고를 수 있는 효과 프리셋 카탈로그입니다.</p>
         </div>
         {canManage && (
-          <Link
-            to="/admin/effects/new"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800"
-          >
-            <Plus size={15} /> 효과 등록
-          </Link>
+          <Button to="/admin/effects/new">
+            <Plus size={16} /> 효과 등록
+          </Button>
         )}
       </div>
 

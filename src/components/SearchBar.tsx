@@ -1,5 +1,6 @@
 import type { FC, FormEvent, ReactNode } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
+import { Button } from './Button';
 
 interface SearchBarProps {
   onSubmit: (e: FormEvent) => void;
@@ -34,21 +35,14 @@ export const SearchBar: FC<SearchBarProps> = ({ onSubmit, onReset, children }) =
     {children}
 
     <div className="flex gap-2">
-      <button
-        type="submit"
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-      >
+      <Button type="submit" size="sm">
         <Search size={14} />
         검색
-      </button>
-      <button
-        type="button"
-        onClick={onReset}
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-      >
+      </Button>
+      <Button type="button" variant="secondary" size="sm" onClick={onReset}>
         <RotateCcw size={14} />
         초기화
-      </button>
+      </Button>
     </div>
   </form>
 );
