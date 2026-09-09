@@ -15,6 +15,7 @@ import {
   Menu,
   Package,
   Percent,
+  PlayCircle,
   ShieldCheck,
   ShoppingCart,
   Sparkles,
@@ -49,6 +50,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Sparkles: <Sparkles size={20} />,
   Percent: <Percent size={20} />,
   Tag: <Tag size={20} />,
+  PlayCircle: <PlayCircle size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

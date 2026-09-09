@@ -21,6 +21,7 @@ import { AdminOrganizationDiscountOverrides } from './pages/AdminOrganizationDis
 import { AdminOrganizationDiscountOverrideDetail } from './pages/AdminOrganizationDiscountOverrideDetail';
 import { AdminPermissionMatrix } from './pages/AdminPermissionMatrix';
 import { AdminMenuManager } from './pages/AdminMenuManager';
+import { AdminDemoCeremonies } from './pages/AdminDemoCeremonies';
 import { CeremonyEffectManagement } from './pages/CeremonyEffectManagement';
 import { CeremonyEffectRegister } from './pages/CeremonyEffectRegister';
 import { CeremonyEffectEdit } from './pages/CeremonyEffectEdit';
@@ -127,6 +128,7 @@ function App() {
             path="organization-discount-overrides/:organizationId/:itemType/:itemId"
             element={<AdminOrganizationDiscountOverrideDetail />}
           />
+          <Route path="demo-ceremonies" element={<AdminDemoCeremonies />} />
           <Route path="permissions" element={<AdminPermissionMatrix />} />
           <Route path="menus" element={<AdminMenuManager />} />
           <Route path="effects" element={<CeremonyEffectManagement />} />

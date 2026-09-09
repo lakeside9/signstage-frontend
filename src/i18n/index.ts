@@ -27,6 +27,7 @@ const resources = {
           billingCatalogManage: '과금 카탈로그 등록/수정',
           organizationDiscountManage: '조직×품목 할인 오버라이드 관리', ceremonyFinalDiscountManage: '행사 건별 재량 할인 관리',
           ceremonyStatusControl: '행사 상태 강제 변경', purchaseApproval: '추가구매 요청 승인/반려',
+          demoCeremonyManage: '데모 행사 관리(생성/서명자·문서 등록/하위 행사 제어)',
         },
       },
       auth: {
@@ -95,6 +96,7 @@ const resources = {
           organizationDiscountManage: 'Manage organization x item discount overrides',
           ceremonyFinalDiscountManage: 'Manage per-ceremony discretionary discount',
           ceremonyStatusControl: 'Force-change ceremony status', purchaseApproval: 'Approve/reject purchase requests',
+          demoCeremonyManage: 'Manage demo ceremonies (create / register signers & documents / control sub-events)',
         },
       },
       auth: {
