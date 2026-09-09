@@ -380,6 +380,12 @@ export interface PlatformAdminOrganizationSummary {
   defaultLocale: string;
   activeMemberCount: number;
   createdAt: string;
+  /**
+   * 데모 조직 여부 — signstage-docs
+   * business/demo-account-exhibition-signer-preview-review.md 11장(2026-09-09). 데모 조직에서는
+   * 플랫폼 관리자가 실제 조직 멤버가 아니어도 행사를 직접 관리할 수 있다.
+   */
+  isDemo: boolean;
 }
 
 /** core.web.PageResponse<T> 응답 규약과 맞춘다(backend-coding-convention.md 10장). */

@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, ChevronLeft, FileSignature, Key, LayoutDashboard, LogOut, Menu, Settings, User } from 'lucide-react';
+import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Building2,
+  ChevronLeft,
+  FileSignature,
+  Key,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  User,
+} from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
@@ -45,7 +56,15 @@ export const UserLayout: FC = () => {
   const [menuNodes, setMenuNodes] = useState<MenuNode[]>([]);
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
+  const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
+  // 행사(ceremonies/:organizationId/...) 하위 라우트의 organizationId — 부모 레이아웃인 여기서도
+  // 자식 라우트가 매칭한 params를 그대로 읽을 수 있다(React Router v6). 플랫폼 관리자는 어떤
+  // 조직의 실제 멤버도 될 수 없으므로, 이 값이 있고 platformAdmin이 있으면 항상 "데모 조직을
+  // 관리자가 직접 관리하는 중"이다(signstage-docs
+  // business/demo-account-exhibition-signer-preview-review.md 11장, 2026-09-09).
+  const { organizationId } = useParams<{ organizationId: string }>();
+  const isDemoManagement = Boolean(platformAdmin && organizationId);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,11 +92,20 @@ export const UserLayout: FC = () => {
   }, []);
 
   useEffect(() => {
+    if (isDemoManagement) {
+      // 플랫폼 관리자는 이 조직의 실제 멤버가 아니라 /organizations/me/*가 전부 빈 값을
+      // 돌려준다 — 대신 "이 데모 조직을 관리하면 어떤 조직 역할 권한을 갖는지"를 계산해주는
+      // 전용 엔드포인트를 쓴다(11.2/11.5절). 사이드바 메뉴 트리는 요청하지 않는다(menuNodes는
+      // 이미 빈 배열로 시작한다) — 재사용하는 화면들이 자체 네비게이션(뒤로가기 링크 등)을
+      // 이미 갖고 있어 사이드바가 필요 없다.
+      loadMyPermissions(`/platform-admin/organizations/${organizationId}/demo-permissions`);
+      return;
+    }
     api.get('/organizations/me/menus').then((response) => {
       setMenuNodes(response.data as MenuNode[]);
     }).catch(() => undefined);
     loadMyPermissions('/organizations/me/permissions');
-  }, [loadMyPermissions]);
+  }, [loadMyPermissions, isDemoManagement, organizationId]);
 
   const handleLogout = () => {
     logout();
@@ -87,14 +115,35 @@ export const UserLayout: FC = () => {
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-gray-950 p-1.5 rounded-lg text-white">
-            <Key size={20} />
-          </div>
-          <span className="text-lg font-bold text-gray-950 hidden sm:block">SignStage</span>
-        </Link>
+        {isDemoManagement ? (
+          <Link to="/admin/demo-ceremonies" className="flex items-center gap-2 text-gray-950">
+            <div className="bg-gray-950 p-1.5 rounded-lg text-white">
+              <Key size={20} />
+            </div>
+            <span className="text-lg font-bold hidden sm:block">SignStage</span>
+            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium border bg-purple-50 text-purple-700 border-purple-200">
+              데모 조직 관리 중
+            </span>
+          </Link>
+        ) : (
+          <Link to="/" className="flex items-center gap-2">
+            <div className="bg-gray-950 p-1.5 rounded-lg text-white">
+              <Key size={20} />
+            </div>
+            <span className="text-lg font-bold text-gray-950 hidden sm:block">SignStage</span>
+          </Link>
+        )}
 
         <div className="flex items-center gap-4">
+          {isDemoManagement && (
+            <Link
+              to="/admin/demo-ceremonies"
+              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-950 transition-colors text-sm font-medium"
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden sm:block">관리자 콘솔로</span>
+            </Link>
+          )}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{displayName ?? t('common.user')}</span>

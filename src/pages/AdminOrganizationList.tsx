@@ -205,6 +205,11 @@ export const AdminOrganizationList: FC = () => {
                     <Building2 size={14} className="text-gray-400" />
                     {organization.name}
                   </Link>
+                  {organization.isDemo && (
+                    <span className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium border bg-purple-50 text-purple-700 border-purple-200">
+                      데모
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-500">{organization.code}</td>
                 <td className="px-4 py-3">

@@ -15,6 +15,7 @@ import {
   Loader2,
   Package,
   Percent,
+  PlayCircle,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -50,6 +51,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   ClipboardList: <ClipboardList size={14} />,
   Percent: <Percent size={14} />,
   Tag: <Tag size={14} />,
+  PlayCircle: <PlayCircle size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;
