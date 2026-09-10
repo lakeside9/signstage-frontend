@@ -28,6 +28,7 @@ import type {
   StrokeSummary,
   TemplateFieldSummary,
 } from '../types';
+import { EventWatermark } from '../components/EventWatermark';
 import { ProjectorEffects } from '../components/effects/projector/ProjectorEffects';
 import { ProjectorEffectsBoundary } from '../components/effects/projector/ProjectorEffectsBoundary';
 import { ProjectorEffectToggleButton } from '../components/effects/projector/ProjectorEffectToggleButton';
@@ -288,17 +289,30 @@ export const ProjectorView: FC = () => {
   const [showStartedNotice, setShowStartedNotice] = useState(false);
   const [settingsSaveMessage, setSettingsSaveMessage] = useState('');
 
-  const [currentPage, setCurrentPage] = useState(() => initialSettings?.currentPage ?? 0);
+  // 데모 사이트(demo-signstage-frontend)가 iframe으로 이 화면을 embed할 때 붙이는 쿼리
+  // 플래그들 — signstage-docs business/demo-account-exhibition-signer-preview-review.md
+  // 13장(legacy DemoConfig 계약 호환) 참고. `embed=1`이면 도구모음을 기본으로 숨기고 "도구모음
+  // 보이기" 리빌 칩도 아예 렌더링하지 않는다(부스 시연 화면에 관리 UI가 얼비치지 않게).
+  const isEmbed = useMemo(() => new URLSearchParams(window.location.search).get('embed') === '1', []);
+
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (initialSettings?.currentPage !== undefined) return initialSettings.currentPage;
+    const startPage = Number(new URLSearchParams(window.location.search).get('startPage'));
+    return Number.isFinite(startPage) && startPage > 0 ? startPage - 1 : 0;
+  });
   const [visiblePageCount, setVisiblePageCount] = useState<VisiblePageCount>(() => {
     if (initialSettings?.visiblePageCount) return initialSettings.visiblePageCount;
     const pages = Number(new URLSearchParams(window.location.search).get('pages'));
     return pages === 2 || pages === 3 ? pages : 1;
   });
   const [zoom, setZoom] = useState(() => initialSettings?.zoom ?? 1);
-  const [pageSpacingMode, setPageSpacingMode] = useState<PageSpacingMode>(() => initialSettings?.pageSpacingMode ?? 'SPACED');
+  const [pageSpacingMode, setPageSpacingMode] = useState<PageSpacingMode>(() => {
+    if (initialSettings?.pageSpacingMode) return initialSettings.pageSpacingMode;
+    return new URLSearchParams(window.location.search).get('spacing') === 'joined' ? 'JOINED' : 'SPACED';
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isToolbarVisible, setIsToolbarVisible] = useState(() => initialSettings?.isToolbarVisible ?? true);
+  const [isToolbarVisible, setIsToolbarVisible] = useState(() => initialSettings?.isToolbarVisible ?? !isEmbed);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -784,6 +798,7 @@ export const ProjectorView: FC = () => {
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden relative">
+      <EventWatermark eventType={context.eventType} isDemo={context.isDemo} />
       {notice && (
         <div
           className={`pointer-events-none absolute left-1/2 top-1/2 z-30 w-[min(86vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border px-10 py-8 text-center shadow-[0_0_60px_rgba(0,0,0,0.45)] backdrop-blur-md transition-opacity duration-300 ${notice.className}`}
@@ -854,7 +869,7 @@ export const ProjectorView: FC = () => {
         </div>
       </div>
 
-      {!isToolbarVisible && (
+      {!isToolbarVisible && !isEmbed && (
         <button
           type="button"
           onClick={() => setIsToolbarVisible(true)}

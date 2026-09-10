@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
 import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, MousePointerClick, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { EventWatermark } from '../components/EventWatermark';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -172,6 +173,9 @@ export const SignerPortalView: FC = () => {
   const [isToolbarVisible, setIsToolbarVisible] = useState(
     () => readToolbarSettings(eventAccessKey, signerAccessKey)?.isToolbarVisible ?? false,
   );
+  // 데모 사이트가 iframe으로 embed할 때 붙이는 플래그(ProjectorView와 같은 용도) — 도구모음이
+  // 기본으로 이미 숨겨져 있지만(위), embed 모드에서는 "도구모음 보이기" 리빌 칩도 아예 없앤다.
+  const isEmbed = useMemo(() => new URLSearchParams(window.location.search).get('embed') === '1', []);
 
   const [myField, setMyField] = useState<TemplateFieldSummary | null>(null);
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
@@ -577,7 +581,8 @@ export const SignerPortalView: FC = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-gray-950 text-white">
-      {!isToolbarVisible && (
+      <EventWatermark eventType={context.eventType} isDemo={context.isDemo} />
+      {!isToolbarVisible && !isEmbed && (
         <button
           type="button"
           onClick={() => setIsToolbarVisible(true)}

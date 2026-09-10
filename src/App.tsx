@@ -31,6 +31,7 @@ import { AdminOrganizationDiscountOverrideDetail } from './pages/AdminOrganizati
 import { AdminPermissionMatrix } from './pages/AdminPermissionMatrix';
 import { AdminMenuManager } from './pages/AdminMenuManager';
 import { AdminDemoCeremonies } from './pages/AdminDemoCeremonies';
+import { AdminDemoConfigList } from './pages/AdminDemoConfigList';
 import { CeremonyEffectManagement } from './pages/CeremonyEffectManagement';
 import { CeremonyEffectRegister } from './pages/CeremonyEffectRegister';
 import { CeremonyEffectEdit } from './pages/CeremonyEffectEdit';
@@ -52,6 +53,7 @@ import { UserTemplateDetail } from './pages/UserTemplateDetail';
 import { SignerPortalView } from './pages/SignerPortalView';
 import { DocumentVerificationView } from './pages/DocumentVerificationView';
 import { ProjectorView } from './pages/ProjectorView';
+import { DemoView } from './pages/DemoView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -66,6 +68,14 @@ function App() {
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
         <Route path="/verify" element={<DocumentVerificationView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
+        <Route
+          path="/demo"
+          element={
+            <ProtectedRoute requireDemoViewer>
+              <DemoView />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/ceremonies/:organizationId/:ceremonyId/events/:eventId/signer-portal-qrs"
           element={
@@ -147,6 +157,7 @@ function App() {
             element={<AdminOrganizationDiscountOverrideDetail />}
           />
           <Route path="demo-ceremonies" element={<AdminDemoCeremonies />} />
+          <Route path="demo-configs" element={<AdminDemoConfigList />} />
           <Route path="permissions" element={<AdminPermissionMatrix />} />
           <Route path="menus" element={<AdminMenuManager />} />
           <Route path="effects" element={<CeremonyEffectManagement />} />

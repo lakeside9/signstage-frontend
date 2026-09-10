@@ -26,12 +26,19 @@ interface ProtectedRouteProps {
    * 관리자 화면 셸 자체가 일반 사용자에게 노출되지 않도록 여기서도 막는다.
    */
   requireAdmin?: boolean;
+  /**
+   * true면 데모 체험 계정(VIEWER, isDemoViewer) 토큰만 통과시킨다 — `/demo`(DemoView) 전용.
+   * 일반 사용자/관리자 계정이 직접 URL로 들어오면 `/`로 돌려보낸다(signstage-docs
+   * business/demo-account-exhibition-signer-preview-review.md 4.2절).
+   */
+  requireDemoViewer?: boolean;
 }
 
-export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
+export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin = false, requireDemoViewer = false }) => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const token = useAuthStore((state) => state.token);
   const platformAdmin = useAuthStore((state) => state.platformAdmin);
+  const isDemoViewer = useAuthStore((state) => state.isDemoViewer);
   const logout = useAuthStore((state) => state.logout);
   const location = useLocation();
 
@@ -50,6 +57,10 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin
   }
 
   if (requireAdmin && !platformAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireDemoViewer && !isDemoViewer) {
     return <Navigate to="/" replace />;
   }
 
