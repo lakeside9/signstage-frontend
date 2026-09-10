@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { EffectDefinitionPicker, ExclusivityGroupField, Field, UsageWarning } from './billingCatalog/components';
+import { EffectDefinitionPicker, ExclusivityGroupField, Field, PeriodStatusBadge, UsageWarning } from './billingCatalog/components';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, inputClass, normalizeExclusivityGroup } from './billingCatalog/constants';
 import type { CeremonyEffectDefinition, UnitProductCategory, UnitProductSummary, UpdateUnitProductRequest } from '../types';
 
@@ -99,7 +99,13 @@ export const AdminUnitProductEdit: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">단위 상품 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">가격/판매기간/사용여부는 상세 화면의 "판매가격 기간 관리"에서 다룹니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          가격/판매기간/사용여부는 여기서 다루지 않습니다 —{' '}
+          <Link to={`/admin/billing-catalog/unit-products/${productId}`} className="text-gray-950 underline">
+            상세 화면의 "판매가격 기간 관리"
+          </Link>
+          에서 기간을 추가하거나 기존 기간을 수정해 사용여부를 바꿀 수 있습니다.
+        </p>
       </div>
 
       {isLoading || !product || !draft ? (
@@ -116,6 +122,11 @@ export const AdminUnitProductEdit: FC = () => {
                 disabled
                 className={`${inputClass} bg-gray-100 text-gray-400`}
               />
+            </Field>
+            <Field label="상태(읽기 전용 — 판매가격 기간 관리에서 변경)">
+              <div className={`${inputClass} bg-gray-100 flex items-center`}>
+                <PeriodStatusBadge status={product.periodStatus} />
+              </div>
             </Field>
             <Field label="이름">
               <input
