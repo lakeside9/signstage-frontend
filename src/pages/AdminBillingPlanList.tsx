@@ -9,23 +9,16 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { PeriodStatusBadge } from './billingCatalog/components';
-import {
-  CATALOG_PAGE_SIZE,
-  PLAN_CAPACITY_TYPE_OPTIONS,
-  calculateFinalPrice,
-  formatDiscount,
-  formatPrice,
-  formatSupplyPrice,
-} from './billingCatalog/constants';
+import { CATALOG_PAGE_SIZE, PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES, calculateFinalPrice, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
 import type { BillingPlanSummary } from '../types';
 
 /**
  * 과금 플랜 목록 — signstage-docs frontend/list-screen-convention.md 구조(검색 → 목록 →
  * 페이지네비게이션)를 따른다. `GET /api/billing-plans`가 조직 스코프 없는 전역 카탈로그라
  * 서버 검색/페이지네이션을 지원하지 않아(누구든 전체 목록을 한 번에 받는다), 여기서는
- * 클라이언트 사이드로 검색·페이지를 자른다 — 목록화면/등록화면/수정화면을 파트너관리처럼
- * 별도 페이지로 나눠달라는 사용자 요청(2026-09-09)에 따라 AdminBillingCatalog.tsx의 "과금
- * 플랜" 섹션(인라인 생성/수정)에서 분리됐다.
+ * 클라이언트 사이드로 검색·페이지를 자른다. 플랜은 자기 가격이 없다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) — "판매가"
+ * 열은 포함된 단위 상품 소계(subtotal)로 대체됐다.
  */
 export const AdminBillingPlanList: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
@@ -114,7 +107,7 @@ export const AdminBillingPlanList: FC = () => {
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3 font-medium">이름</th>
-              <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
+              <th className="text-left px-4 py-3 font-medium">단위 상품 소계</th>
               <th className="text-left px-4 py-3 font-medium">할인</th>
               <th className="text-left px-4 py-3 font-medium">예상 최종가</th>
               <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
@@ -123,35 +116,37 @@ export const AdminBillingPlanList: FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {pageItems.map((plan) => (
-              <tr key={plan.id}>
-                <td className="px-4 py-3 font-medium">
-                  <Link to={`/admin/billing-catalog/plans/${plan.id}`} className="text-gray-950 hover:underline">
-                    {plan.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {plan.salePrice === null
-                    ? '-'
-                    : `${formatSupplyPrice(plan.supplyPrice, plan.currencyCode ?? 'KRW')} / ${formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}`}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {plan.salePrice === null || plan.discountType === null || plan.discountValue === null
-                    ? '-'
-                    : formatPrice(calculateFinalPrice(plan.salePrice, plan.discountType, plan.discountValue), plan.currencyCode ?? 'KRW')}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => plan.capacities[option.value]).join('/')}
-                </td>
-                <td className="px-4 py-3">
-                  <PeriodStatusBadge status={plan.periodStatus} />
-                </td>
-                <td className="px-4 py-3 text-right text-gray-500">{plan.usageCount}건</td>
-              </tr>
-            ))}
+            {pageItems.map((plan) => {
+              const currencyCode = plan.unitProducts[0]?.currencyCode ?? 'KRW';
+              const subtotal = planSubtotal(plan.unitProducts);
+              return (
+                <tr key={plan.id}>
+                  <td className="px-4 py-3 font-medium">
+                    <Link to={`/admin/billing-catalog/plans/${plan.id}`} className="text-gray-950 hover:underline">
+                      {plan.name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{formatPrice(subtotal, currencyCode)}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {plan.discountType === null || plan.discountValue === null
+                      ? '-'
+                      : formatPrice(calculateFinalPrice(subtotal, plan.discountType, plan.discountValue), currencyCode)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.map(
+                      (type) => plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+                    ).join('/')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <PeriodStatusBadge status={plan.periodStatus} />
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-500">{plan.usageCount}건</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </ListContainer>

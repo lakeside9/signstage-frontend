@@ -1,11 +1,26 @@
 import { formatCurrency } from '../../utils/internationalization';
-import type { CapacityType, CatalogPricePeriodRequest, DiscountType, OptionalFeatureCategory, OptionalFeatureCode } from '../../types';
+import type {
+  BillingPlanDiscountPeriodRequest,
+  DiscountType,
+  PlanUnitProductLineSummary,
+  UnitProductCategory,
+  UnitProductPricePeriodRequest,
+  UnitProductType,
+} from '../../types';
 
 /**
- * 과금 카탈로그(플랜/선택옵션/용량 추가구매) 3개 타입이 공유하는 상수·포맷터·순수 함수 —
- * `components.tsx`(공유 컴포넌트)와 분리해뒀다. 컴포넌트와 비컴포넌트 값을 한 파일에서 같이
- * export하면 Vite Fast Refresh가 그 파일을 컴포넌트 모듈로 취급하지 못해
- * `react-refresh/only-export-components` 린트 규칙에 걸린다.
+ * 과금 카탈로그(플랜/단위 상품) 화면이 공유하는 상수·포맷터·순수 함수 — `components.tsx`(공유
+ * 컴포넌트)와 분리해뒀다. 컴포넌트와 비컴포넌트 값을 한 파일에서 같이 export하면 Vite Fast
+ * Refresh가 그 파일을 컴포넌트 모듈로 취급하지 못해 `react-refresh/only-export-components`
+ * 린트 규칙에 걸린다.
+ *
+ * 옛 플랜/선택옵션/용량추가구매 3분리 상수는 `UnitProduct` 통합(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10)으로
+ * 전부 이 파일 하나로 합쳐졌다 — 레거시 값(SIGNER_FIELD_ZOOM/ALL_SIGNED_FIREWORKS/
+ * VIDEO_ATTENDANCE/TABLET_RENTAL)은 백엔드에 등록된 행이 0건이라 완전히 삭제됐고, 이중 청구
+ * 위험 때문에 신규 등록을 따로 막던 ONSITE_SUPPORT/ONLINE_SUPPORT 제한도 구조적으로 필요 없어졌다
+ * (타입 하나로 통합돼 표시용/용량용이 따로 존재하지 않는다) — 그래서 "등록 가능 코드 제한" 목록
+ * 자체가 없어졌다.
  */
 
 export const inputClass =
@@ -16,50 +31,45 @@ export const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }
   { value: 'FIXED_AMOUNT', label: '정액' },
 ];
 
-// VIDEO_ATTENDANCE(화상 참석)는 실제 효과 로직이 아직 없어(별도 트랙에서 검토 중) 이 화면에서는
-// 다루지 않는다 — signstage-docs business/ceremony-billing-options-review.md 참고.
-// TABLET_RENTAL(태블릿 대여)은 프로젝터 효과가 없는 순수 안내/표시용 옵션이라, 선택옵션 카탈로그를
-// 전시화면/서명화면에 실제 효과를 내는 항목으로 좁히면서 신규 등록 대상에서 뺐다(2026-08-30) —
-// signstage-docs business/optional-feature-display-scope-and-plan-capacity-addon-review.md 3장.
-// SIGNER_FIELD_ZOOM/ALL_SIGNED_FIREWORKS는 EVENT_EFFECT_BUNDLE로 통합되면서 더 이상 신규
-// 등록하지 않는다(2026-09-08) — signstage-docs
-// business/ceremony-event-effect-implementation-tasks.md 참고. 라벨 맵(OPTIONAL_FEATURE_CODE_LABEL
-// 등)에는 이미 등록된 행/이력을 계속 정상 표시해야 해서 남겨둔다.
-// ONSITE_SUPPORT(현장지원)/ONLINE_SUPPORT(온라인지원)는 2026-09-08엔 태블릿 대여와 같은 "표시용
-// 옵션 + 수량 추가구매" 패턴의 신규 품목으로 등록 가능 목록에 들어갔었으나, 이게 TABLET_RENTAL이
-// 2026-08-30에 바로 그 이유(화면 효과 없는 표시용 옵션과 수량 추가구매가 각자 독립 판매돼 근거
-// 없는 이중 청구 위험)로 제외됐던 것과 같은 문제를 재도입한 것으로 뒤늦게 확인돼, 2026-09-09에
-// 다시 뺐다 — signstage-docs business/optional-feature-capacity-addon-pairing-review.md 8장.
-// 실제 지원 건수는 CapacityType.ONSITE_SUPPORT/ONLINE_SUPPORT 용량 추가구매로만 판매한다.
-export const MANAGEABLE_OPTIONAL_FEATURE_CODES: OptionalFeatureCode[] = ['EVENT_EFFECT_BUNDLE'];
+/** feature.ceremony.entity.UnitProductType 9종 전체 — 관리자가 등록 시 자유롭게 고른다(등록 가능 제한 없음). */
+export const UNIT_PRODUCT_TYPE_OPTIONS: Array<{ value: UnitProductType; label: string }> = [
+  { value: 'SIGNERS', label: '서명자' },
+  { value: 'TEMPLATES', label: '템플릿' },
+  { value: 'TEST_EVENTS', label: '테스트 행사' },
+  { value: 'REHEARSAL_EVENTS', label: '리허설 행사' },
+  { value: 'MAIN_EVENTS', label: '본행사' },
+  { value: 'TABLETS', label: '태블릿' },
+  { value: 'ONSITE_SUPPORT', label: '현장지원' },
+  { value: 'ONLINE_SUPPORT', label: '온라인지원' },
+  { value: 'EVENT_EFFECT_BUNDLE', label: '이벤트 효과 묶음' },
+];
 
-export const OPTIONAL_FEATURE_CODE_LABEL: Record<string, string> = {
-  SIGNER_FIELD_ZOOM: '서명 하이라이트',
-  ALL_SIGNED_FIREWORKS: '폭죽 효과',
-  EVENT_EFFECT_BUNDLE: '이벤트 효과 묶음',
-  TABLET_RENTAL: '태블릿 대여',
-  ONSITE_SUPPORT: '현장지원',
-  ONLINE_SUPPORT: '온라인지원',
-};
+export const UNIT_PRODUCT_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  UNIT_PRODUCT_TYPE_OPTIONS.map((option) => [option.value, option.label]),
+);
 
-export const OPTIONAL_FEATURE_CATEGORY_OPTIONS: Array<{ value: OptionalFeatureCategory; label: string }> = [
+export const UNIT_PRODUCT_CATEGORY_OPTIONS: Array<{ value: UnitProductCategory; label: string }> = [
+  { value: 'ESSENTIAL', label: '필수' },
   { value: 'EQUIPMENT', label: '장비' },
   { value: 'PERSONNEL', label: '인력' },
   { value: 'APPLICATION', label: '애플리케이션' },
 ];
 
-export const OPTIONAL_FEATURE_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => [option.value, option.label]),
+export const UNIT_PRODUCT_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => [option.value, option.label]),
 );
 
-/** 코드별 기본 카테고리 — signstage-docs business/ceremony-support-services-billing-review.md 4.3/4.5절. */
-export const DEFAULT_CATEGORY_BY_CODE: Record<string, OptionalFeatureCategory> = {
-  SIGNER_FIELD_ZOOM: 'APPLICATION',
-  ALL_SIGNED_FIREWORKS: 'APPLICATION',
-  EVENT_EFFECT_BUNDLE: 'APPLICATION',
-  TABLET_RENTAL: 'EQUIPMENT',
+/** 타입별 기본 카테고리 제안값 — 등록 폼이 타입을 고르면 미리 채워주는 값일 뿐, 저장 시 강제하지 않는다. */
+export const DEFAULT_CATEGORY_BY_TYPE: Record<UnitProductType, UnitProductCategory> = {
+  SIGNERS: 'ESSENTIAL',
+  TEMPLATES: 'ESSENTIAL',
+  TEST_EVENTS: 'ESSENTIAL',
+  REHEARSAL_EVENTS: 'ESSENTIAL',
+  MAIN_EVENTS: 'ESSENTIAL',
+  TABLETS: 'EQUIPMENT',
   ONSITE_SUPPORT: 'PERSONNEL',
   ONLINE_SUPPORT: 'PERSONNEL',
+  EVENT_EFFECT_BUNDLE: 'APPLICATION',
 };
 
 /** 효과 하나를 "targetType/triggerType 코드" 형태로 간단히 보여준다(예: "PROJECTOR · SIGNATURE_COMPLETED"). */
@@ -69,50 +79,29 @@ export const EFFECT_TRIGGER_LABEL: Record<string, string> = {
   EVENT_FINISHED: '행사 종료',
 };
 
-export const CAPACITY_TYPE_OPTIONS: Array<{ value: CapacityType; label: string }> = [
-  { value: 'SIGNERS', label: '서명자' },
-  { value: 'TEMPLATES', label: '템플릿' },
-  { value: 'TEST_EVENTS', label: '테스트 행사' },
-  { value: 'REHEARSAL_EVENTS', label: '리허설 행사' },
-  { value: 'MAIN_EVENTS', label: '본행사' },
-  { value: 'TABLETS', label: '태블릿' },
-  { value: 'ONSITE_SUPPORT', label: '현장지원' },
-  { value: 'ONLINE_SUPPORT', label: '온라인지원' },
+/**
+ * 플랜에 기본 포함 수량(includedQuantity > 0)으로 넣을 수 있는 타입 — 백엔드
+ * `UnitProductType.isPlanIncludable()`과 같은 집합(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md, 3.3절). 서버가 강제하진
+ * 않지만(플랜 구성은 unitProductId 기준이라 타입 제약이 없다), 이 밖의 타입은 "추가구매 후보
+ * (purchasable)"로만 의미가 있어 등록 화면에서 기본 포함 수량 입력을 잠근다.
+ */
+export const PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES: UnitProductType[] = [
+  'SIGNERS',
+  'TEMPLATES',
+  'TEST_EVENTS',
+  'REHEARSAL_EVENTS',
+  'MAIN_EVENTS',
 ];
 
-export const CAPACITY_TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  CAPACITY_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-);
-
 /**
- * 용량 추가구매 상품의 표시 카테고리 — `OptionalFeature.category`와 같은 enum 값을 코드 매핑으로
- * 재사용한다. 원래 태블릿/현장지원/온라인지원은 짝이 되는 표시용 `OptionalFeature`의 category를
- * 빌려 쓰는 구조였는데, 그 표시용 옵션들이 이중 청구 위험으로 제거되면서(2026-09-09,
- * signstage-docs business/optional-feature-capacity-addon-pairing-review.md 8장) `CapacityAddOn`
- * 쪽에서 카테고리를 보여줄 다른 소스가 필요해졌다 — `AdminBillingSimulator.tsx`가 이미 쓰던 것과
- * 같은 코드 매핑 방식을 여기로 옮겨 목록/상세 화면에서 공유한다. 플랜 기본 포함 5종(서명자 등)은
- * 이 3분류(장비/인력/애플리케이션)에 속하지 않아 값이 없다(매핑에서 빠짐 — 화면은 '—'로 표시).
+ * 플랜이 포함하는 단위 상품 줄들의 소계 — `Σ(unitProduct.salePrice × includedQuantity)`, 백엔드
+ * `BillingPlanService`가 "오늘 가격" 계산에 쓰는 것과 같은 식이다(3.3절). 플랜 자체는 가격이
+ * 없으므로 목록/상세/등록 화면이 "판매가" 대신 이 값을 보여준다. 오늘 유효한 판매가격 기간이
+ * 없는 줄(salePrice=null)은 0으로 취급한다.
  */
-export const CAPACITY_TYPE_CATEGORY: Partial<Record<CapacityType, OptionalFeatureCategory>> = {
-  TABLETS: 'EQUIPMENT',
-  ONSITE_SUPPORT: 'PERSONNEL',
-  ONLINE_SUPPORT: 'PERSONNEL',
-};
-
-/**
- * 플랜이 기본 포함할 수 있는 용량 종류 — 백엔드 CapacityType.isPlanIncludable()과 같은 집합이다
- * (signstage-docs business/billing-catalog-zero-base-schema-redesign-review.md 결정, 2026-09-08,
- * 항목 B). TABLETS/ONSITE_SUPPORT/ONLINE_SUPPORT는 플랜 기본 포함 개념이 없어(항상 0에서 시작,
- * 용량 추가구매로만 증가) 제외한다.
- */
-export const PLAN_NON_INCLUDABLE_CAPACITY_TYPES: CapacityType[] = ['TABLETS', 'ONSITE_SUPPORT', 'ONLINE_SUPPORT'];
-export const PLAN_CAPACITY_TYPE_OPTIONS = CAPACITY_TYPE_OPTIONS.filter(
-  (option) => !PLAN_NON_INCLUDABLE_CAPACITY_TYPES.includes(option.value),
-);
-
-/** 새 플랜 초안의 한도 기본값 — 등록 가능한 용량 종류 전부를 0으로 채워 시작한다. */
-export const emptyPlanCapacities = (): Record<string, number> =>
-  Object.fromEntries(PLAN_CAPACITY_TYPE_OPTIONS.map((option) => [option.value, 0]));
+export const planSubtotal = (lines: PlanUnitProductLineSummary[]): number =>
+  lines.reduce((sum, line) => sum + (line.salePrice ?? 0) * line.includedQuantity, 0);
 
 export const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 
@@ -127,10 +116,7 @@ export const formatDiscount = (discountType: DiscountType, discountValue: number
  * 판매가에 할인을 적용한 예상 최종가 — 화면 표시 전용 미리보기다(저장하지 않는다, signstage-docs
  * business/billing-catalog-pricing-input-validation-review.md 3.4절, 2026-09-09 결정). 백엔드
  * `MoneyCalculator.applyDiscount`와 같은 공식(정률/정액, 0 미만 clamp)이지만 실제 청구 계산에는
- * 관여하지 않는다 — 조직×품목 할인 오버라이드·행사 건별 재량 할인·세금은 조직/행사가 정해져야
- * 계산할 수 있어 카탈로그 등록 단계에서는 반영할 수 없다("이 상품 자체의 할인만 적용한 값"일 뿐,
- * 실제 청구액이 아니다). 그래서 통화별 반올림 정책(`CurrencyPolicy`) 없이 소수점 없는 정수로만
- * 근사한다 — 정밀한 반올림이 필요한 값이 아니라 오입력을 걸러내기 위한 참고용 미리보기이기 때문.
+ * 관여하지 않는다. 단위 상품 자체는 할인이 없어(2026-09-10 결정) 플랜 할인 미리보기에서만 쓴다.
  */
 export const calculateFinalPrice = (salePrice: number, discountType: DiscountType, discountValue: number): number => {
   const discount = discountType === 'PERCENT' ? (salePrice * discountValue) / 100 : discountValue;
@@ -155,13 +141,21 @@ export const PERIOD_STATUS_STYLE: Record<string, string> = {
 
 export const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 
-export const EMPTY_PERIOD_DRAFT = (): CatalogPricePeriodRequest => ({
+/** 단위 상품 판매가격 기간 초안 — 할인 필드가 없다(플랜 할인 기간은 `EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT` 참고). */
+export const EMPTY_UNIT_PRODUCT_PERIOD_DRAFT = (): UnitProductPricePeriodRequest => ({
   currencyCode: 'KRW',
   supplyPrice: null,
   salePrice: 0,
+  taxCode: 'KR_VAT_STANDARD',
+  active: true,
+  effectiveFrom: todayIsoDate(),
+  effectiveTo: null,
+});
+
+/** 플랜 할인 기간 초안 — 단위 상품과 달리 가격 필드가 없고 할인 필드만 갖는다(3.3절). */
+export const EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT = (): BillingPlanDiscountPeriodRequest => ({
   discountType: 'PERCENT',
   discountValue: 0,
-  taxCode: 'KR_VAT_STANDARD',
   active: true,
   effectiveFrom: todayIsoDate(),
   effectiveTo: null,

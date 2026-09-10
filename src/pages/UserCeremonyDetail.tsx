@@ -41,7 +41,7 @@ import type {
   CeremonyEventType,
   CeremonyStatus,
   CeremonySummary,
-  OptionalFeatureSummary,
+  UnitProductSummary,
   SignerExcelUploadResult,
   SignerSummary,
   TemplateDocumentRole,
@@ -248,7 +248,7 @@ export const UserCeremonyDetail: FC = () => {
 
   // "하위 행사 수정" 모달의 적용 선택옵션 체크박스용 — 이 행사 마스터가 실제로 쓸 수 있는
   // (플랜 포함분 + 승인된 추가구매) 목록만 걸러서 보여준다(등록 화면과 같은 엔드포인트).
-  const [availableEventFeatures, setAvailableEventFeatures] = useState<OptionalFeatureSummary[]>([]);
+  const [availableEventFeatures, setAvailableEventFeatures] = useState<UnitProductSummary[]>([]);
 
   // 서명자/문서 양식/하위 행사 섹션 타이틀에 "등록할 수 있는 개수"를 보여주는 데 쓴다
   // (플랜 기본값 + 승인된 추가구매 반영). 못 불러와도 개수 안내만 빠질 뿐이라 조용히 넘어간다.
@@ -332,9 +332,9 @@ export const UserCeremonyDetail: FC = () => {
 
     (async () => {
       try {
-        const response = await api.get(`${basePath}/available-optional-features`);
+        const response = await api.get(`${basePath}/applicable-unit-products`);
         if (!cancelled) {
-          setAvailableEventFeatures(response.data as OptionalFeatureSummary[]);
+          setAvailableEventFeatures(response.data as UnitProductSummary[]);
         }
       } catch {
         // 수정 모달을 아직 안 열었을 수도 있어 조용히 넘어간다 — 모달을 열 때 목록이 비어

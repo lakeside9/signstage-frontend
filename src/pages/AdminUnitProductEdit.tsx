@@ -6,30 +6,23 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { EffectDefinitionPicker, Field, UsageWarning } from './billingCatalog/components';
-import {
-  MANAGEABLE_OPTIONAL_FEATURE_CODES,
-  OPTIONAL_FEATURE_CATEGORY_OPTIONS,
-  OPTIONAL_FEATURE_CODE_LABEL,
-  inputClass,
-  normalizeExclusivityGroup,
-} from './billingCatalog/constants';
-import type {
-  CeremonyEffectDefinition,
-  OptionalFeatureCategory,
-  OptionalFeatureSummary,
-  UpdateOptionalFeatureRequest,
-} from '../types';
+import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, inputClass, normalizeExclusivityGroup } from './billingCatalog/constants';
+import type { CeremonyEffectDefinition, UnitProductCategory, UnitProductSummary, UpdateUnitProductRequest } from '../types';
 
-/** 선택옵션 수정 — 인라인 편집이 아니라 별도 페이지로 구성한다(사용자 요청, 2026-09-09).
- * code는 생성 후 불변이라 읽기 전용으로만 보여준다. */
-export const AdminOptionalFeatureEdit: FC = () => {
+/**
+ * 단위 상품 수정 — 인라인 편집이 아니라 별도 페이지로 구성한다(사용자 요청, 2026-09-09).
+ * type은 생성 후 불변이라 읽기 전용으로만 보여준다. 옛 선택옵션/용량 추가구매 수정 2개를
+ * 통합했다(signstage-docs business/billing-catalog-unit-product-model-redesign-review.md
+ * 결정, 2026-09-10).
+ */
+export const AdminUnitProductEdit: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const featureId = Number(id);
+  const productId = Number(id);
 
-  const [feature, setFeature] = useState<OptionalFeatureSummary | null>(null);
+  const [product, setProduct] = useState<UnitProductSummary | null>(null);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
-  const [draft, setDraft] = useState<UpdateOptionalFeatureRequest | null>(null);
+  const [draft, setDraft] = useState<UpdateUnitProductRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -39,17 +32,15 @@ export const AdminOptionalFeatureEdit: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [featuresRes, effectsRes] = await Promise.all([api.get('/optional-features'), api.get('/ceremony-effects')]);
-        const found = (featuresRes.data as OptionalFeatureSummary[]).find(
-          (f) => f.id === featureId && MANAGEABLE_OPTIONAL_FEATURE_CODES.includes(f.code),
-        ) ?? null;
+        const [productsRes, effectsRes] = await Promise.all([api.get('/unit-products'), api.get('/ceremony-effects')]);
+        const found = (productsRes.data as UnitProductSummary[]).find((p) => p.id === productId) ?? null;
         if (!cancelled) {
           if (!found) {
-            showSnackbar('선택옵션을 찾을 수 없습니다.', 'error');
-            navigate('/admin/billing-catalog/optional-features', { replace: true });
+            showSnackbar('단위 상품을 찾을 수 없습니다.', 'error');
+            navigate('/admin/billing-catalog/unit-products', { replace: true });
             return;
           }
-          setFeature(found);
+          setProduct(found);
           setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
           setDraft({
             name: found.name,
@@ -59,7 +50,7 @@ export const AdminOptionalFeatureEdit: FC = () => {
           });
         }
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '선택옵션을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '단위 상품을 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -68,25 +59,25 @@ export const AdminOptionalFeatureEdit: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [featureId]);
+  }, [productId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!draft || !draft.name.trim()) {
-      showSnackbar('선택옵션 이름을 입력해주세요.', 'error');
+      showSnackbar('단위 상품 이름을 입력해주세요.', 'error');
       return;
     }
     setIsSaving(true);
     try {
-      await api.put(`/platform-admin/optional-features/${featureId}`, {
+      await api.put(`/platform-admin/unit-products/${productId}`, {
         ...draft,
         name: draft.name.trim(),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
-      showSnackbar('선택옵션을 저장했습니다.', 'success');
-      navigate(`/admin/billing-catalog/optional-features/${featureId}`);
+      showSnackbar('단위 상품을 저장했습니다.', 'success');
+      navigate(`/admin/billing-catalog/unit-products/${productId}`);
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '선택옵션 저장에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '단위 상품 저장에 실패했습니다.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -95,29 +86,29 @@ export const AdminOptionalFeatureEdit: FC = () => {
   return (
     <div>
       <Link
-        to={`/admin/billing-catalog/optional-features/${featureId}`}
+        to={`/admin/billing-catalog/unit-products/${productId}`}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
-        선택옵션 상세로
+        단위 상품 상세로
       </Link>
 
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">선택옵션 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">가격/할인/판매기간/사용여부는 상세 화면의 "가격 기간 관리"에서 다룹니다.</p>
+        <h1 className="text-xl font-bold text-gray-950">단위 상품 수정</h1>
+        <p className="mt-1 text-sm text-gray-500">가격/판매기간/사용여부는 상세 화면의 "판매가격 기간 관리"에서 다룹니다.</p>
       </div>
 
-      {isLoading || !feature || !draft ? (
+      {isLoading || !product || !draft ? (
         <div className="flex items-center justify-center py-16 text-gray-400">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <Field label="코드(읽기 전용)">
+            <Field label="종류(읽기 전용)">
               <input
                 type="text"
-                value={OPTIONAL_FEATURE_CODE_LABEL[feature.code] ?? feature.code}
+                value={UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type}
                 disabled
                 className={`${inputClass} bg-gray-100 text-gray-400`}
               />
@@ -141,21 +132,21 @@ export const AdminOptionalFeatureEdit: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="카테고리">
+            <Field label="분류">
               <select
                 value={draft.category}
-                onChange={(e) => setDraft((prev) => prev && { ...prev, category: e.target.value as OptionalFeatureCategory })}
+                onChange={(e) => setDraft((prev) => prev && { ...prev, category: e.target.value as UnitProductCategory })}
                 disabled={isSaving}
                 className={inputClass}
               >
-                {OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => (
+                {UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
             </Field>
-            {feature.code === 'EVENT_EFFECT_BUNDLE' && (
+            {product.type === 'EVENT_EFFECT_BUNDLE' && (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
                 selectedIds={draft.effectDefinitionIds ?? []}
@@ -165,7 +156,7 @@ export const AdminOptionalFeatureEdit: FC = () => {
             )}
           </div>
 
-          <UsageWarning count={feature.usageCount} itemLabel="선택옵션" />
+          <UsageWarning count={product.usageCount} itemLabel="단위 상품" />
 
           <div className="flex gap-2">
             <Button type="submit" disabled={isSaving}>
@@ -174,7 +165,7 @@ export const AdminOptionalFeatureEdit: FC = () => {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate(`/admin/billing-catalog/optional-features/${featureId}`)}
+              onClick={() => navigate(`/admin/billing-catalog/unit-products/${productId}`)}
               disabled={isSaving}
             >
               취소

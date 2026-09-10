@@ -12,8 +12,8 @@ import type { CreateCeremonyEffectDefinitionRequest } from '../types';
  * 이벤트 효과 정의 등록(`/admin/effects/new`) — signstage-docs
  * business/ceremony-event-effect-implementation-tasks.md FE-ADMIN-01/02.
  *
- * 등록 시점에는 이 효과를 여는 선택옵션(묶음)을 고르지 않는다(2026-09-08 재설계) — 묶음
- * 구성은 선택옵션 등록/수정 화면(`AdminOptionalFeatureCreate.tsx`/`AdminOptionalFeatureEdit.tsx`)
+ * 등록 시점에는 이 효과를 여는 단위 상품(묶음)을 고르지 않는다(2026-09-08 재설계) — 묶음
+ * 구성은 단위 상품 등록/수정 화면(`AdminUnitProductCreate.tsx`/`AdminUnitProductEdit.tsx`)
  * 에서 반대쪽(묶음 → 효과 목록)으로 관리한다.
  */
 export const CeremonyEffectRegister: FC = () => {

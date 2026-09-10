@@ -9,41 +9,17 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import type {
-  CapacityType,
   DiscountType,
   OrganizationBillingPlanDiscountHistorySummary,
   OrganizationBillingPlanDiscountSummary,
-  OrganizationCapacityAddOnDiscountHistorySummary,
-  OrganizationCapacityAddOnDiscountSummary,
   OrganizationDiscountOverview,
   OrganizationDiscountPeriodStatus,
-  OrganizationOptionalFeatureDiscountHistorySummary,
-  OrganizationOptionalFeatureDiscountSummary,
 } from '../types';
-
-type ItemType = 'plan' | 'optional-feature' | 'capacity-addon';
-
-const API_SEGMENT: Record<ItemType, string> = {
-  plan: 'plans',
-  'optional-feature': 'optional-features',
-  'capacity-addon': 'capacity-addons',
-};
 
 const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
   { value: 'PERCENT', label: '퍼센트' },
   { value: 'FIXED_AMOUNT', label: '정액' },
 ];
-
-const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
-  SIGNERS: '서명자',
-  TEMPLATES: '템플릿',
-  TEST_EVENTS: '테스트 행사',
-  REHEARSAL_EVENTS: '리허설 행사',
-  MAIN_EVENTS: '본행사',
-  TABLETS: '태블릿',
-  ONSITE_SUPPORT: '현장지원',
-  ONLINE_SUPPORT: '온라인지원',
-};
 
 const STATUS_LABEL: Record<OrganizationDiscountPeriodStatus, string> = {
   PENDING: '예정',
@@ -95,9 +71,7 @@ interface Period {
   status: OrganizationDiscountPeriodStatus;
 }
 
-const toPeriod = (
-  d: OrganizationBillingPlanDiscountSummary | OrganizationOptionalFeatureDiscountSummary | OrganizationCapacityAddOnDiscountSummary,
-): Period => ({
+const toPeriod = (d: OrganizationBillingPlanDiscountSummary): Period => ({
   id: d.id,
   discountType: d.discountType,
   discountValue: d.discountValue,
@@ -120,13 +94,16 @@ interface HistoryEntry {
 /**
  * 파트너별 할인 오버라이드 상세 — `AdminOrganizationDiscountOverrides`(목록)의 "상세"에서
  * 들어온다(signstage-docs business/discount-management-screen-separation-review.md 결정
- * #2). 목록 행에 이미 있는 organizationId를 경로에 그대로 포함해 기존 조직 하위 조회
- * 엔드포인트(`GET .../billing-discounts` 전체 조회)를 그대로 재사용하고, 그 결과를 이
- * 품목(itemType+itemId)만 걸러서 보여준다. 생성/수정/삭제/이력도 전부 기존 엔드포인트를
- * 그대로 쓴다 — 이 화면 자체를 위한 새 백엔드 API는 없다.
+ * #2). 조직×플랜 오버라이드 하나뿐이다 — 옛 선택옵션/용량추가구매 오버라이드는 `UnitProduct`
+ * 통합으로 폐지됐다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 4장).
+ * 목록 행에 이미 있는 organizationId를 경로에 그대로 포함해 기존 조직 하위 조회 엔드포인트
+ * (`GET .../billing-discounts` 전체 조회)를 그대로 재사용하고, 그 결과를 이 플랜만 걸러서
+ * 보여준다. 생성/수정/삭제/이력도 전부 기존 엔드포인트를 그대로 쓴다 — 이 화면 자체를 위한
+ * 새 백엔드 API는 없다.
  */
 export const AdminOrganizationDiscountOverrideDetail: FC = () => {
-  const { organizationId, itemType, itemId } = useParams<{ organizationId: string; itemType: ItemType; itemId: string }>();
+  const { organizationId, billingPlanId } = useParams<{ organizationId: string; billingPlanId: string }>();
   const [itemLabel, setItemLabel] = useState('');
   const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,27 +122,16 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_ORGANIZATION_DISCOUNT_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
-  const segment = itemType ? API_SEGMENT[itemType] : '';
-  const basePath = `/platform-admin/organizations/${organizationId}/billing-discounts/${segment}/${itemId}`;
+  const basePath = `/platform-admin/organizations/${organizationId}/billing-discounts/plans/${billingPlanId}`;
 
   const reload = async () => {
     const response = await api.get(`/platform-admin/organizations/${organizationId}/billing-discounts`);
     const overview = response.data as OrganizationDiscountOverview;
-    const numericItemId = Number(itemId);
+    const numericPlanId = Number(billingPlanId);
 
-    if (itemType === 'plan') {
-      const matches = overview.billingPlanDiscounts.filter((d) => d.billingPlanId === numericItemId);
-      if (matches[0]) setItemLabel(matches[0].billingPlanName);
-      setPeriods(matches.map(toPeriod));
-    } else if (itemType === 'optional-feature') {
-      const matches = overview.optionalFeatureDiscounts.filter((d) => d.optionalFeatureId === numericItemId);
-      if (matches[0]) setItemLabel(matches[0].optionalFeatureName);
-      setPeriods(matches.map(toPeriod));
-    } else if (itemType === 'capacity-addon') {
-      const matches = overview.capacityAddOnDiscounts.filter((d) => d.capacityAddOnId === numericItemId);
-      if (matches[0]) setItemLabel(`${CAPACITY_TYPE_LABEL[matches[0].capacityType]} +${matches[0].unitAmount}`);
-      setPeriods(matches.map(toPeriod));
-    }
+    const matches = overview.billingPlanDiscounts.filter((d) => d.billingPlanId === numericPlanId);
+    if (matches[0]) setItemLabel(matches[0].billingPlanName);
+    setPeriods(matches.map(toPeriod));
   };
 
   useEffect(() => {
@@ -184,19 +150,14 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, itemType, itemId]);
+  }, [organizationId, billingPlanId]);
 
   const openHistory = async () => {
     setIsHistoryOpen(true);
     setIsHistoryLoading(true);
     try {
       const response = await api.get(`${basePath}/history`);
-      setHistoryEntries(
-        response.data as
-          | OrganizationBillingPlanDiscountHistorySummary[]
-          | OrganizationOptionalFeatureDiscountHistorySummary[]
-          | OrganizationCapacityAddOnDiscountHistorySummary[],
-      );
+      setHistoryEntries(response.data as OrganizationBillingPlanDiscountHistorySummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
     } finally {

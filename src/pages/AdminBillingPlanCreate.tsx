@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -6,33 +6,44 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
-import { DISCOUNT_TYPE_OPTIONS, PLAN_CAPACITY_TYPE_OPTIONS, emptyPlanCapacities, inputClass, todayIsoDate } from './billingCatalog/constants';
-import type { BillingPlanSummary, CapacityAddOnSummary, CreateBillingPlanRequest, DiscountType, OptionalFeatureSummary } from '../types';
+import {
+  DISCOUNT_TYPE_OPTIONS,
+  PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES,
+  UNIT_PRODUCT_TYPE_LABEL,
+  formatPrice,
+  inputClass,
+  todayIsoDate,
+} from './billingCatalog/constants';
+import type { BillingPlanSummary, CreateBillingPlanRequest, DiscountType, PlanUnitProductLine, UnitProductSummary } from '../types';
 
 const EMPTY_DRAFT = (): CreateBillingPlanRequest => ({
   name: '',
-  currencyCode: 'KRW',
-  supplyPrice: null,
-  salePrice: 0,
   discountType: 'PERCENT',
   discountValue: 0,
-  taxCode: 'KR_VAT_STANDARD',
   active: true,
   effectiveFrom: todayIsoDate(),
   effectiveTo: null,
-  capacities: emptyPlanCapacities(),
-  optionalFeatureIds: [],
-  capacityAddOnIds: [],
 });
+
+interface LineDraft {
+  includedQuantity: number;
+  purchasable: boolean;
+}
+
+const emptyLineDrafts = (products: UnitProductSummary[]): Record<number, LineDraft> =>
+  Object.fromEntries(products.map((p) => [p.id, { includedQuantity: 0, purchasable: false }]));
 
 /**
  * 과금 플랜 등록 — 전용 페이지형(detail-form-screen-convention.md 패턴 A). 제출 성공 시 같은
  * 페이지 안에서 "생성 완료" 뷰로 전환하고 "상세로 이동"/"계속 추가하기" 두 버튼으로 통일한다.
+ * 플랜은 이제 자기 가격이 없다 — 단위 상품 구성(기본 포함 수량 + 추가구매 가능 여부)과 할인만
+ * 갖는다(signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 결정,
+ * 2026-09-10, 3.3절).
  */
 export const AdminBillingPlanCreate: FC = () => {
   const [draft, setDraft] = useState<CreateBillingPlanRequest>(EMPTY_DRAFT);
-  const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
+  const [products, setProducts] = useState<UnitProductSummary[]>([]);
+  const [lineDrafts, setLineDrafts] = useState<Record<number, LineDraft>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [created, setCreated] = useState<BillingPlanSummary | null>(null);
 
@@ -42,13 +53,14 @@ export const AdminBillingPlanCreate: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [featuresRes, addOnsRes] = await Promise.all([api.get('/optional-features'), api.get('/capacity-addons')]);
+        const response = await api.get('/unit-products');
+        const data = response.data as UnitProductSummary[];
         if (!cancelled) {
-          setFeatures(featuresRes.data as OptionalFeatureSummary[]);
-          setAddOns(addOnsRes.data as CapacityAddOnSummary[]);
+          setProducts(data);
+          setLineDrafts(emptyLineDrafts(data));
         }
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '선택옵션/용량 추가구매 상품 목록을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '단위 상품 목록을 불러오지 못했습니다.', 'error');
       }
     })();
     return () => {
@@ -57,11 +69,25 @@ export const AdminBillingPlanCreate: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addOnLabel = (id: number) => {
-    const addOn = addOns.find((a) => a.id === id);
-    if (!addOn) return `#${id}`;
-    return `${addOn.capacityType} +${addOn.unitAmount}`;
-  };
+  const subtotal = useMemo(
+    () =>
+      products.reduce((sum, p) => {
+        const line = lineDrafts[p.id];
+        if (!line || p.salePrice === null) return sum;
+        return sum + p.salePrice * line.includedQuantity;
+      }, 0),
+    [products, lineDrafts],
+  );
+  const currencyCode = products.find((p) => (lineDrafts[p.id]?.includedQuantity ?? 0) > 0)?.currencyCode ?? 'KRW';
+
+  const buildLines = (): PlanUnitProductLine[] =>
+    Object.entries(lineDrafts)
+      .filter(([, line]) => line.includedQuantity > 0 || line.purchasable)
+      .map(([unitProductId, line]) => ({
+        unitProductId: Number(unitProductId),
+        includedQuantity: line.includedQuantity,
+        purchasable: line.purchasable,
+      }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,7 +97,11 @@ export const AdminBillingPlanCreate: FC = () => {
     }
     setIsLoading(true);
     try {
-      const response = await api.post('/platform-admin/billing-plans', { ...draft, name: draft.name.trim() });
+      const response = await api.post('/platform-admin/billing-plans', {
+        ...draft,
+        name: draft.name.trim(),
+        unitProducts: buildLines(),
+      });
       setCreated(response.data as BillingPlanSummary);
       showSnackbar('과금 플랜을 등록했습니다.', 'success');
     } catch (err) {
@@ -93,7 +123,7 @@ export const AdminBillingPlanCreate: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">과금 플랜 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">이름/한도/포함 선택옵션을 정하고 최초 판매가격 기간을 함께 만듭니다.</p>
+        <p className="mt-1 text-sm text-gray-500">이름/할인을 정하고, 포함할 단위 상품 구성과 최초 할인 기간을 함께 만듭니다.</p>
       </div>
 
       {created ? (
@@ -108,6 +138,7 @@ export const AdminBillingPlanCreate: FC = () => {
               onClick={() => {
                 setCreated(null);
                 setDraft(EMPTY_DRAFT());
+                setLineDrafts(emptyLineDrafts(products));
               }}
             >
               계속 추가하기
@@ -123,41 +154,6 @@ export const AdminBillingPlanCreate: FC = () => {
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="통화">
-              <select
-                value={draft.currencyCode}
-                onChange={(e) => setDraft((prev) => ({ ...prev, currencyCode: e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              >
-                {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="공급가">
-              <input
-                type="number"
-                min={0}
-                value={draft.supplyPrice === null ? '' : draft.supplyPrice}
-                onChange={(e) => setDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
-                placeholder="미상"
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="판매가">
-              <input
-                type="number"
-                min={0}
-                value={draft.salePrice === 0 ? '' : draft.salePrice}
-                onChange={(e) => setDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
                 disabled={isLoading}
                 className={inputClass}
               />
@@ -186,7 +182,7 @@ export const AdminBillingPlanCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="판매 시작일">
+            <Field label="할인 적용 시작일">
               <input
                 type="date"
                 value={draft.effectiveFrom}
@@ -195,7 +191,7 @@ export const AdminBillingPlanCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="판매 종료일(무기한이면 비움)">
+            <Field label="할인 적용 종료일(무기한이면 비움)">
               <input
                 type="date"
                 value={draft.effectiveTo ?? ''}
@@ -207,87 +203,81 @@ export const AdminBillingPlanCreate: FC = () => {
             <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
           </div>
 
-          <FinalPricePreview
-            salePrice={draft.salePrice}
-            discountType={draft.discountType}
-            discountValue={draft.discountValue}
-            currencyCode={draft.currencyCode}
-          />
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => (
-              <Field key={option.value} label={`${option.label} 한도`}>
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.capacities[option.value] === 0 ? '' : draft.capacities[option.value]}
-                  onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, capacities: { ...prev.capacities, [option.value]: Number(e.target.value) } }))
-                  }
-                  disabled={isLoading}
-                  className={inputClass}
-                />
-              </Field>
-            ))}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">
+              단위 상품 소계: <span className="font-medium text-gray-950">{formatPrice(subtotal, currencyCode)}</span>
+            </p>
+            <FinalPricePreview
+              salePrice={subtotal}
+              discountType={draft.discountType}
+              discountValue={draft.discountValue}
+              currencyCode={currencyCode}
+            />
           </div>
 
           <div>
-            <span className="block text-xs font-medium text-gray-500 mb-1">포함 선택옵션</span>
-            {features.length === 0 ? (
-              <p className="text-xs text-gray-400">등록된 선택옵션이 없습니다. 먼저 선택옵션을 등록해주세요.</p>
+            <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>
+            {products.length === 0 ? (
+              <p className="text-xs text-gray-400">등록된 단위 상품이 없습니다. 먼저 단위 상품을 등록해주세요.</p>
             ) : (
-              <div className="flex flex-wrap gap-3">
-                {features.map((feature) => (
-                  <label key={feature.id} className="flex items-center gap-1.5 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={draft.optionalFeatureIds.includes(feature.id)}
-                      disabled={isLoading}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          optionalFeatureIds: e.target.checked
-                            ? [...prev.optionalFeatureIds, feature.id]
-                            : prev.optionalFeatureIds.filter((id) => id !== feature.id),
-                        }))
-                      }
-                    />
-                    {feature.name}
-                  </label>
-                ))}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-gray-400">플랜에 묶을 선택옵션 구성은 이후 수정 화면에서도 통째로 바꿀 수 있습니다.</p>
-          </div>
-
-          <div>
-            <span className="block text-xs font-medium text-gray-500 mb-1">구매 가능 용량 추가구매 상품</span>
-            {addOns.length === 0 ? (
-              <p className="text-xs text-gray-400">등록된 용량 추가구매 상품이 없습니다. 먼저 용량 추가구매 상품을 등록해주세요.</p>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {addOns.map((addOn) => (
-                  <label key={addOn.id} className="flex items-center gap-1.5 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={draft.capacityAddOnIds.includes(addOn.id)}
-                      disabled={isLoading}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          capacityAddOnIds: e.target.checked
-                            ? [...prev.capacityAddOnIds, addOn.id]
-                            : prev.capacityAddOnIds.filter((id) => id !== addOn.id),
-                        }))
-                      }
-                    />
-                    {addOnLabel(addOn.id)}
-                  </label>
-                ))}
+              <div className="rounded-md border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">단위 상품</th>
+                      <th className="text-left px-3 py-2 font-medium w-32">기본 포함 수량</th>
+                      <th className="text-left px-3 py-2 font-medium w-28">추가구매 후보</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {products.map((product) => {
+                      const line = lineDrafts[product.id] ?? { includedQuantity: 0, purchasable: false };
+                      const includable = PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.includes(product.type);
+                      return (
+                        <tr key={product.id}>
+                          <td className="px-3 py-2">
+                            <span className="text-gray-950">{product.name}</span>
+                            <span className="ml-1.5 text-xs text-gray-400">
+                              {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              value={!includable || line.includedQuantity === 0 ? '' : line.includedQuantity}
+                              disabled={isLoading || !includable}
+                              placeholder={includable ? '0' : '—'}
+                              onChange={(e) =>
+                                setLineDrafts((prev) => ({
+                                  ...prev,
+                                  [product.id]: { ...line, includedQuantity: Number(e.target.value) },
+                                }))
+                              }
+                              className={`${inputClass} w-24`}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={line.purchasable}
+                              disabled={isLoading}
+                              onChange={(e) =>
+                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, purchasable: e.target.checked } }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
             <p className="mt-1 text-xs text-gray-400">
-              체크한 상품만 이 플랜의 행사가 구매할 수 있습니다(무료 포함 아님 — 여전히 사용자가 구매 요청하고 관리자가 승인해야 합니다).
+              기본 포함 수량은 필수 5종(서명자/템플릿/테스트·리허설·본행사)만 입력할 수 있습니다. 추가구매 후보로 체크한 상품만
+              이 플랜의 행사가 추가구매할 수 있습니다(무료 포함 아님 — 여전히 사용자가 구매 요청하고 관리자가 승인해야
+              합니다). 이 구성은 이후 수정 화면에서도 통째로 바꿀 수 있습니다.
             </p>
           </div>
 

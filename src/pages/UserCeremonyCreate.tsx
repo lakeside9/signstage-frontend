@@ -5,9 +5,14 @@ import { ArrowLeft, CheckCircle2, FileSignature, Loader2 } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
-import type { BillingPlanSummary, CeremonySummary } from '../types';
+import { planSubtotal } from './billingCatalog/constants';
+import type { BillingPlanSummary, CeremonySummary, UnitProductType } from '../types';
 
 const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
+
+/** 이 화면에 보여줄 한도 5종 — 백엔드 `UnitProductType.isPlanIncludable()`과 같은 집합이다. */
+const includedQuantityOf = (plan: BillingPlanSummary, type: UnitProductType) =>
+  plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0;
 
 /**
  * 행사(Ceremony) 등록 화면. 플랜 선택이 필수다(signstage-docs
@@ -176,32 +181,35 @@ export const UserCeremonyCreate: FC = () => {
                         {isSelected && <CheckCircle2 size={18} className="text-gray-950" />}
                       </div>
                       {/* 공급가(원가)는 내부 전용이라 사용자 화면에 노출하지 않는다(signstage-docs
-                          business/billing-catalog-operations-review.md 4장) — 이전엔 여기서
-                          plan.supplyPrice를 "정가" 취급해 취소선으로 잘못 보여주고 있었다
-                          (2026-09-08 발견·수정). */}
+                          business/billing-catalog-operations-review.md 4장). 플랜 자체는
+                          가격이 없다 — 포함 단위 상품 소계로 대신 보여준다(signstage-docs
+                          business/billing-catalog-unit-product-model-redesign-review.md
+                          결정, 2026-09-10). */}
                       <p className="mt-1 text-sm text-gray-950">
-                        {plan.salePrice === null ? '가격 정보 없음' : formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}
+                        {plan.unitProducts.length === 0
+                          ? '가격 정보 없음'
+                          : formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
                       </p>
                       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
                         <div className="flex justify-between">
                           <dt>서명자</dt>
-                          <dd className="text-gray-700">{plan.capacities.SIGNERS}명</dd>
+                          <dd className="text-gray-700">{includedQuantityOf(plan, 'SIGNERS')}명</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>템플릿</dt>
-                          <dd className="text-gray-700">{plan.capacities.TEMPLATES}개</dd>
+                          <dd className="text-gray-700">{includedQuantityOf(plan, 'TEMPLATES')}개</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>테스트 행사</dt>
-                          <dd className="text-gray-700">{plan.capacities.TEST_EVENTS}회</dd>
+                          <dd className="text-gray-700">{includedQuantityOf(plan, 'TEST_EVENTS')}회</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>리허설 행사</dt>
-                          <dd className="text-gray-700">{plan.capacities.REHEARSAL_EVENTS}회</dd>
+                          <dd className="text-gray-700">{includedQuantityOf(plan, 'REHEARSAL_EVENTS')}회</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>본행사</dt>
-                          <dd className="text-gray-700">{plan.capacities.MAIN_EVENTS}회</dd>
+                          <dd className="text-gray-700">{includedQuantityOf(plan, 'MAIN_EVENTS')}회</dd>
                         </div>
                       </dl>
                     </button>
