@@ -509,6 +509,8 @@ export interface UnitProductSummary {
   effectiveFrom: string | null;
   effectiveTo: string | null;
   periodStatus: string;
+  /** 카탈로그 목록 화면의 표시 순서 — 위/아래 이동 버튼으로 바꾼다(2026-09-10). */
+  displayOrder: number;
   /**
    * 삭제 가능 여부 — 플랜 구성(현재/이력)·행사 플랜 스냅샷·추가구매·행사 적용·이벤트 효과
    * 묶음 매핑 어디에도 사용된 적이 없어야 true다(signstage-docs
@@ -1329,10 +1331,11 @@ export interface CeremonyEventLogSummary {
 }
 
 /**
- * PUT .../signers/display-orders, .../templates/display-orders, .../events/display-orders
- * 요청(DisplayOrderRequest.UpdateDisplayOrders)과 맞춘다 — 세 컨트롤러가 같은 모양을
- * 공유한다. 목록 화면의 위/아래 이동 버튼이 전체 배열을 원하는 순서로 다시 인덱싱해
- * 통째로 보낸다(2026-08-27 legacy 포팅).
+ * PUT .../signers/display-orders, .../templates/display-orders, .../events/display-orders,
+ * PUT /api/platform-admin/unit-products/display-orders 요청(DisplayOrderRequest.
+ * UpdateDisplayOrders)과 맞춘다 — 네 컨트롤러가 같은 모양을 공유한다. 목록 화면의 위/아래
+ * 이동 버튼이 전체 배열을 원하는 순서로 다시 인덱싱해 통째로 보낸다(2026-08-27 legacy 포팅,
+ * 2026-09-10 단위 상품 카탈로그에도 적용).
  */
 export interface UpdateDisplayOrdersRequest {
   items: { id: number; displayOrder: number }[];
