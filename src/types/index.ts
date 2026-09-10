@@ -407,19 +407,45 @@ export interface PageResponse<T> {
 export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
 
 /**
- * 카탈로그(플랜/선택옵션/용량 추가구매 상품) 판매가격 기간 하나 — 행 하나 = 기간 하나(다중
- * 버전, TaxPolicy/조직 할인 오버라이드와 같은 방식). signstage-docs
- * business/billing-catalog-price-validity-period-review.md 결정(2026-09-09) 참고. 세 카탈로그
- * 타입(BillingPlanPricePeriodSummary 등)이 구조가 완전히 같아 프런트에서는 이 타입 하나로
- * 공유한다.
+ * feature.ceremony.entity.UnitProductType 값과 맞춘다 — 옛 `OptionalFeatureCode`+`CapacityType`을
+ * 통합했다(signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 결정,
+ * 2026-09-10). 레거시 값(SIGNER_FIELD_ZOOM/ALL_SIGNED_FIREWORKS/VIDEO_ATTENDANCE/TABLET_RENTAL)은
+ * 유지하지 않고 완전히 제거했다 — 백엔드에 등록된 행이 0건이라 역직렬화 부담이 없었다.
+ *
+ * `EVENT_EFFECT_BUNDLE`은 한 타입을 여러 `UnitProductSummary` 행이 공유한다(예: "3종"/"5종"
+ * 묶음, 3.6절) — 묶음이 실제로 여는 효과 목록은 각 행의 `effectDefinitionIds`가 갖는다.
  */
-export interface CatalogPricePeriodSummary {
+export type UnitProductType =
+  | 'SIGNERS'
+  | 'TEMPLATES'
+  | 'TEST_EVENTS'
+  | 'REHEARSAL_EVENTS'
+  | 'MAIN_EVENTS'
+  | 'TABLETS'
+  | 'ONSITE_SUPPORT'
+  | 'ONLINE_SUPPORT'
+  | 'EVENT_EFFECT_BUNDLE';
+
+/**
+ * feature.ceremony.entity.UnitProductCategory 값과 맞춘다. 옛 `OptionalFeatureCategory`
+ * (EQUIPMENT/PERSONNEL/APPLICATION)에 필수 5종을 위한 `ESSENTIAL`을 더했다(2026-09-10 결정,
+ * 3.2절) — `AdminBillingSimulator.tsx`가 화면 전용으로 쓰던 "필수옵션" 버킷을 정식 분류로
+ * 승격했다.
+ */
+export type UnitProductCategory = 'ESSENTIAL' | 'EQUIPMENT' | 'PERSONNEL' | 'APPLICATION';
+
+/**
+ * 단위 상품 판매가격 기간 하나 — 행 하나 = 기간 하나(다중 버전, TaxPolicy/조직 할인
+ * 오버라이드와 같은 방식). 단위 상품은 할인을 갖지 않는다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.5절) —
+ * 옛 `CatalogPricePeriodSummary`(플랜/선택옵션/용량추가구매 공유)와 달리 discountType/
+ * discountValue가 없다.
+ */
+export interface UnitProductPricePeriodSummary {
   id: number;
   currencyCode: string;
   supplyPrice: number | null;
   salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
   taxCode: string;
   active: boolean;
   effectiveFrom: string;
@@ -430,13 +456,11 @@ export interface CatalogPricePeriodSummary {
 }
 
 /** 판매가격 기간의 생성/수정/삭제 이력 한 행 — removed=true면 "이 시점에 기간이 제거됐다"는 뜻. */
-export interface CatalogPricePeriodHistorySummary {
+export interface UnitProductPricePeriodHistorySummary {
   id: number;
   currencyCode: string;
   supplyPrice: number | null;
   salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
   taxCode: string;
   active: boolean;
   effectiveFrom: string;
@@ -446,13 +470,11 @@ export interface CatalogPricePeriodHistorySummary {
   createdAt: string;
 }
 
-/** POST/PUT .../{plans|optional-features|capacity-addons}/{id}/periods[/{periodId}] 요청과 맞춘다. */
-export interface CatalogPricePeriodRequest {
+/** POST/PUT /api/platform-admin/unit-products/{id}/periods[/{periodId}] 요청과 맞춘다. */
+export interface UnitProductPricePeriodRequest {
   currencyCode?: string;
   supplyPrice: number | null;
   salePrice: number;
-  discountType: DiscountType;
-  discountValue: number;
   taxCode?: string;
   active: boolean;
   effectiveFrom: string;
@@ -460,40 +482,130 @@ export interface CatalogPricePeriodRequest {
 }
 
 /**
- * GET /api/billing-plans 응답(BillingPlanDto.Response.BillingPlanSummary)과 맞춘다. 가격 관련
- * 필드는 "오늘" 기준 유효한 판매가격 기간 값이다 — 기간 사이 공백으로 오늘 유효한 기간이 없으면
- * 전부 null이고 periodStatus가 "NO_ACTIVE_PERIOD"다(signstage-docs
- * business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09). 기간 전체(과거/
- * 현재/예정) 목록·CRUD는 별도 엔드포인트(.../periods)로 관리한다.
+ * GET /api/unit-products 응답(UnitProductDto.Response.UnitProductSummary)과 맞춘다 — 옛
+ * `OptionalFeatureSummary`+`CapacityAddOnSummary` 통합. 가격 관련 필드는 "오늘" 기준 유효한
+ * 판매가격 기간 값이다 — 기간 사이 공백으로 오늘 유효한 기간이 없으면 전부 null이고
+ * periodStatus가 "NO_ACTIVE_PERIOD"다. 기간 전체(과거/현재/예정) 목록·CRUD는 별도 엔드포인트
+ * (.../periods)로 관리한다.
+ */
+export interface UnitProductSummary {
+  id: number;
+  type: UnitProductType;
+  name: string;
+  /** 같은 값을 가진 다른 단위 상품과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
+  exclusivityGroup: string | null;
+  category: UnitProductCategory;
+  /** 이 단위 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
+  usageCount: number;
+  /** 이 묶음이 여는 이벤트 효과 id 목록. `type`이 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
+  effectDefinitionIds: number[];
+  createdAt: string;
+  currencyCode: string | null;
+  supplyPrice: number | null;
+  salePrice: number | null;
+  taxCode: string | null;
+  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 선택/구매 대상에서 제외된다. */
+  active: boolean | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  periodStatus: string;
+}
+
+/**
+ * GET /api/platform-admin/unit-products/{id}/history 응답
+ * (UnitProductDto.Response.UnitProductHistorySummary)과 맞춘다. 이름/배타그룹/분류가 바뀔
+ * 때마다 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
+ */
+export interface UnitProductHistorySummary {
+  id: number;
+  type: UnitProductType;
+  name: string;
+  category: UnitProductCategory;
+  exclusivityGroup: string | null;
+  createdBy: number;
+  createdAt: string;
+}
+
+/**
+ * POST /api/platform-admin/unit-products 요청(UnitProductDto.Request.CreateUnitProduct)과
+ * 맞춘다. 정체성(type/name/category 등)과 최초 판매가격 기간을 함께 만든다.
+ */
+export interface CreateUnitProductRequest {
+  type: UnitProductType;
+  name: string;
+  category: UnitProductCategory;
+  exclusivityGroup?: string | null;
+  currencyCode?: string;
+  supplyPrice: number | null;
+  salePrice: number;
+  taxCode?: string;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  /**
+   * 이 묶음이 열어주는 이벤트 효과 목록 — `type`이 `EVENT_EFFECT_BUNDLE`일 때만 의미가
+   * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
+   */
+  effectDefinitionIds?: number[];
+}
+
+/**
+ * PUT /api/platform-admin/unit-products/{id} 요청(UnitProductDto.Request.UpdateUnitProduct)과
+ * 맞춘다. type은 생성 후 불변이라 CreateUnitProductRequest와 달리 여기엔 없다. 가격/사용여부/
+ * 판매기간은 여기서 다루지 않는다 — UnitProductPricePeriodRequest 기간 단위 API로 관리한다.
+ */
+export interface UpdateUnitProductRequest {
+  name: string;
+  exclusivityGroup: string | null;
+  category: UnitProductCategory;
+  /**
+   * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —
+   * `type`이 `EVENT_EFFECT_BUNDLE`일 때만 의미가 있다. 생략하면(undefined) 기존 구성을
+   * 그대로 둔다. 빈 배열을 명시적으로 보내면 전부 해제한다.
+   */
+  effectDefinitionIds?: number[];
+}
+
+/** 플랜이 포함하는 단위 상품 한 줄 요청 — POST/PUT 플랜 요청이 통째로 담아 보낸다. */
+export interface PlanUnitProductLine {
+  unitProductId: number;
+  /** 기본 포함 수량 — 0 이상. 0이면 "기본 미포함, 추가구매로만 확보". */
+  includedQuantity: number;
+  /** 이 플랜을 쓰는 행사가 이 단위 상품을 추가구매 후보로 고를 수 있는지(안 A 큐레이션). */
+  purchasable: boolean;
+}
+
+/** 플랜이 포함하는 단위 상품 한 줄 응답 — 목록/상세/이력 화면이 공유한다. */
+export interface PlanUnitProductLineSummary {
+  unitProductId: number;
+  unitProductType: UnitProductType;
+  unitProductName: string;
+  unitProductCategory: UnitProductCategory;
+  includedQuantity: number;
+  purchasable: boolean;
+  /** "오늘" 기준 단위 상품 자체의 판매가(할인 없음) — 플랜 이력 스냅샷 행에서는 null이다. */
+  salePrice: number | null;
+  currencyCode: string | null;
+}
+
+/**
+ * GET /api/billing-plans 응답(BillingPlanDto.Response.BillingPlanSummary)과 맞춘다. 플랜은
+ * 더 이상 자기 가격을 갖지 않는다 — "오늘 가격"은 `unitProducts`(포함 단위상품 × 수량) 합계에
+ * 이 응답의 할인 필드를 한 번 적용해 계산한다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). 할인 관련
+ * 필드는 "오늘" 기준 유효한 할인 기간 값이다 — 기간 사이 공백으로 오늘 유효한 기간이 없으면
+ * 전부 null이고 periodStatus가 "NO_ACTIVE_PERIOD"다. 기간 전체(과거/현재/예정) 목록·CRUD는
+ * 별도 엔드포인트(.../periods)로 관리한다.
  */
 export interface BillingPlanSummary {
   id: number;
   name: string;
-  /**
-   * 이 플랜이 기본 포함하는 용량 한도 — CapacityType 이름을 키로 하는 맵(예:
-   * `{SIGNERS: 100, TEMPLATES: 10, TEST_EVENTS: 3, REHEARSAL_EVENTS: 3, MAIN_EVENTS: 1}`).
-   * 예전엔 maxSigners 등 고정 필드 5개였는데, BillingPlanCapacity 일반화로 맵이 됐다
-   * (signstage-docs business/billing-catalog-zero-base-schema-redesign-review.md 결정,
-   * 2026-09-08, 항목 B). 키는 항상 PLAN_CAPACITY_TYPE_OPTIONS와 같은 집합이다(TABLETS 제외).
-   */
-  capacities: Record<string, number>;
+  unitProducts: PlanUnitProductLineSummary[];
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
-  optionalFeatureIds: number[];
-  /**
-   * 이 플랜에서 구매 가능한(안 A 큐레이션) 용량 추가구매 상품 id 목록 — 무료 포함이 아니라
-   * "이 플랜을 쓰는 행사가 구매 후보로 고를 수 있는" 허용 목록이다(signstage-docs
-   * business/optional-feature-display-scope-and-plan-capacity-addon-review.md 4.1/5장).
-   */
-  capacityAddOnIds: number[];
   createdAt: string;
-  currencyCode: string | null;
-  /** 원가(내부 전용, 마진 계산용) — 계산식에는 관여하지 않는다. null이면 "원가 미상"이거나 오늘 유효한 기간이 없다. */
-  supplyPrice: number | null;
-  salePrice: number | null;
   discountType: DiscountType | null;
   discountValue: number | null;
-  taxCode: string | null;
   /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 행사 생성/플랜 변경 대상에서 제외된다. */
   active: boolean | null;
   effectiveFrom: string | null;
@@ -503,255 +615,92 @@ export interface BillingPlanSummary {
 
 /**
  * GET /api/platform-admin/billing-plans/{id}/history 응답
- * (BillingPlanDto.Response.BillingPlanHistorySummary)과 맞춘다. 최신순 — 이름/한도 구성이
- * 바뀔 때마다 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
+ * (BillingPlanDto.Response.BillingPlanHistorySummary)과 맞춘다. 최신순 — 이름/단위 상품
+ * 구성이 바뀔 때마다 한 행씩 쌓인다(할인/사용여부 변경 이력은 할인 기간 이력 참고).
  */
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
-  capacities: Record<string, number>;
+  unitProducts: PlanUnitProductLineSummary[];
   createdBy: number;
   createdAt: string;
 }
 
 /**
  * POST /api/platform-admin/billing-plans 요청(BillingPlanDto.Request.CreatePlan)과 맞춘다.
- * 정체성(name 등)과 최초 판매가격 기간을 함께 만든다 — optionalFeatureIds/capacityAddOnIds는
- * 수정 시에도 통째로 교체할 수 있다(9장 후속).
+ * 정체성(name)과 단위 상품 구성, 최초 할인 기간을 함께 만든다.
  */
 export interface CreateBillingPlanRequest {
   name: string;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
+  /** 이 플랜이 포함하는 단위 상품 구성 전체(생략하면 빈 목록). */
+  unitProducts?: PlanUnitProductLine[];
   discountType: DiscountType;
   discountValue: number;
-  taxCode?: string;
   active: boolean;
   effectiveFrom: string;
   effectiveTo: string | null;
-  /** 정확히 PLAN_CAPACITY_TYPE_OPTIONS와 같은 키 집합이어야 한다(누락/여분 모두 서버가 거부). */
-  capacities: Record<string, number>;
-  optionalFeatureIds: number[];
-  /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
-  capacityAddOnIds: number[];
 }
 
 /**
  * PUT /api/platform-admin/billing-plans/{id} 요청(BillingPlanDto.Request.UpdatePlan)과 맞춘다.
- * 가격/사용여부/판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로
- * 관리한다(signstage-docs business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09).
+ * 할인/사용여부/판매기간은 여기서 다루지 않는다 — BillingPlanDiscountPeriodRequest 기간 단위
+ * API로 관리한다.
  */
 export interface UpdateBillingPlanRequest {
   name: string;
-  capacities: Record<string, number>;
-  /** 이 플랜에 기본으로 포함할 선택옵션 id 목록. 이제 수정 시에도 통째로 교체할 수 있다(9장 후속). */
-  optionalFeatureIds: number[];
-  /** 이 플랜에서 구매 가능하게 열어줄 용량 추가구매 상품 id 목록(안 A 큐레이션, 2026-08-30). */
-  capacityAddOnIds: number[];
+  /** 단위 상품 구성을 통째로 교체한다(생략하면 빈 목록 — 전부 뺀다는 뜻). */
+  unitProducts?: PlanUnitProductLine[];
 }
 
 /**
- * feature.ceremony.entity.OptionalFeatureCode 값과 맞춘다.
- *
- * `EVENT_EFFECT_BUNDLE`은 예외다(2026-09-08 결정) — 이 코드 하나를 "프로젝터 화면 이벤트
- * 효과 3종/5종"처럼 여러 `OptionalFeatureSummary` 행이 공유한다. 묶음이 실제로 여는 효과
- * 목록은 각 행의 `effectDefinitionIds`가 갖는다. `SIGNER_FIELD_ZOOM`/`ALL_SIGNED_FIREWORKS`는
- * 더 이상 신규 등록하지 않지만(통합됨), 이미 등록된 행/이력/구매 스냅샷을 역직렬화해야 해서
- * 값 자체는 남겨둔다.
+ * 플랜 할인 기간 하나 — 옛 `CatalogPricePeriodSummary`(가격+할인)를 대체한다. 플랜은 가격이
+ * 없으므로 할인 필드만 남는다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.3절).
  */
-export type OptionalFeatureCode =
-  | 'SIGNER_FIELD_ZOOM'
-  | 'ALL_SIGNED_FIREWORKS'
-  | 'EVENT_EFFECT_BUNDLE'
-  | 'VIDEO_ATTENDANCE'
-  | 'TABLET_RENTAL'
-  | 'ONSITE_SUPPORT'
-  | 'ONLINE_SUPPORT';
-
-/** feature.ceremony.entity.OptionalFeatureCategory 값과 맞춘다(2026-09-08 결정). */
-export type OptionalFeatureCategory = 'EQUIPMENT' | 'PERSONNEL' | 'APPLICATION';
-
-/**
- * GET /api/optional-features 응답(OptionalFeatureDto.Response.OptionalFeatureSummary)과 맞춘다.
- * 가격 관련 필드는 "오늘" 기준 유효한 판매가격 기간 값이다(BillingPlanSummary와 같은 원칙).
- */
-export interface OptionalFeatureSummary {
+export interface BillingPlanDiscountPeriodSummary {
   id: number;
-  code: OptionalFeatureCode;
-  name: string;
-  /** 같은 값을 가진 다른 선택옵션과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
-  exclusivityGroup: string | null;
-  /** 상위 분류(장비/인력/애플리케이션, 2026-09-08 결정). */
-  category: OptionalFeatureCategory;
-  /** 이 옵션을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
-  usageCount: number;
-  /** 이 묶음이 여는 이벤트 효과 id 목록. `code`가 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
-  effectDefinitionIds: number[];
-  createdAt: string;
-  currencyCode: string | null;
-  supplyPrice: number | null;
-  salePrice: number | null;
-  discountType: DiscountType | null;
-  discountValue: number | null;
-  taxCode: string | null;
-  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 추가구매 대상에서 제외된다. */
-  active: boolean | null;
-  effectiveFrom: string | null;
-  effectiveTo: string | null;
-  periodStatus: string;
-}
-
-/**
- * GET /api/platform-admin/optional-features/{id}/history 응답
- * (OptionalFeatureDto.Response.OptionalFeatureHistorySummary)과 맞춘다. 이름/배타그룹/분류가
- * 바뀔 때마다 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
- */
-export interface OptionalFeatureHistorySummary {
-  id: number;
-  code: OptionalFeatureCode;
-  name: string;
-  exclusivityGroup: string | null;
-  category: OptionalFeatureCategory;
-  createdBy: number;
-  createdAt: string;
-}
-
-/**
- * POST /api/platform-admin/optional-features 요청(OptionalFeatureDto.Request.CreateOptionalFeature)과
- * 맞춘다. 정체성(code/name 등)과 최초 판매가격 기간을 함께 만든다.
- */
-export interface CreateOptionalFeatureRequest {
-  code: OptionalFeatureCode;
-  name: string;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
   discountType: DiscountType;
   discountValue: number;
-  taxCode?: string;
   active: boolean;
   effectiveFrom: string;
   effectiveTo: string | null;
-  exclusivityGroup?: string | null;
-  category: OptionalFeatureCategory;
-  /**
-   * 이 묶음이 열어주는 이벤트 효과 목록 — `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가
-   * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
-   */
-  effectDefinitionIds?: number[];
-}
-
-/**
- * PUT /api/platform-admin/optional-features/{id} 요청(OptionalFeatureDto.Request.UpdateOptionalFeature)과
- * 맞춘다. code는 생성 후 불변이라 CreateOptionalFeatureRequest와 달리 여기엔 없다. 가격/사용여부/
- * 판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로 관리한다.
- */
-export interface UpdateOptionalFeatureRequest {
-  name: string;
-  exclusivityGroup: string | null;
-  category: OptionalFeatureCategory;
-  /**
-   * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —
-   * `code`가 `EVENT_EFFECT_BUNDLE`일 때만 의미가 있다. 생략하면(undefined) 기존 구성을
-   * 그대로 둔다. 빈 배열을 명시적으로 보내면 전부 해제한다.
-   */
-  effectDefinitionIds?: number[];
-}
-
-/** feature.ceremony.entity.CapacityType 값과 맞춘다. */
-export type CapacityType =
-  | 'SIGNERS'
-  | 'TEMPLATES'
-  | 'TEST_EVENTS'
-  | 'REHEARSAL_EVENTS'
-  | 'MAIN_EVENTS'
-  | 'TABLETS'
-  | 'ONSITE_SUPPORT'
-  | 'ONLINE_SUPPORT';
-
-/**
- * GET /api/capacity-addons 응답(CapacityAddOnDto.Response.CapacityAddOnSummary)과 맞춘다.
- * secondaryCapacityType이 있으면 묶음 상품이다(예: "서명자+태블릿" — capacityType=SIGNERS,
- * secondaryCapacityType=TABLETS). 구매 1건으로 두 용량이 함께 늘어난다.
- */
-export interface CapacityAddOnSummary {
-  id: number;
-  capacityType: CapacityType;
-  unitAmount: number;
-  secondaryCapacityType: CapacityType | null;
-  secondaryUnitAmount: number | null;
-  /** 이 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
-  usageCount: number;
+  status: string;
   createdAt: string;
-  currencyCode: string | null;
-  supplyPrice: number | null;
-  salePrice: number | null;
-  discountType: DiscountType | null;
-  discountValue: number | null;
-  taxCode: string | null;
-  /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 추가구매 대상에서 제외된다. */
-  active: boolean | null;
-  effectiveFrom: string | null;
-  effectiveTo: string | null;
-  periodStatus: string;
 }
 
-/**
- * GET /api/platform-admin/capacity-addons/{id}/history 응답
- * (CapacityAddOnDto.Response.CapacityAddOnHistorySummary)과 맞춘다. 단위수량이 바뀔 때마다
- * 한 행씩 쌓인다(가격/사용여부 변경 이력은 판매가격 기간 이력 참고).
- */
-export interface CapacityAddOnHistorySummary {
+/** 할인 기간의 생성/수정/삭제 이력 한 행 — removed=true면 "이 시점에 기간이 제거됐다"는 뜻. */
+export interface BillingPlanDiscountPeriodHistorySummary {
   id: number;
-  capacityType: CapacityType;
-  unitAmount: number;
-  secondaryCapacityType: CapacityType | null;
-  secondaryUnitAmount: number | null;
+  discountType: DiscountType;
+  discountValue: number;
+  active: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  removed: boolean;
   createdBy: number;
   createdAt: string;
 }
 
-/**
- * POST /api/platform-admin/capacity-addons 요청(CapacityAddOnDto.Request.CreateCapacityAddOn)과
- * 맞춘다. 정체성(capacityType 등)과 최초 판매가격 기간을 함께 만든다.
- */
-export interface CreateCapacityAddOnRequest {
-  capacityType: CapacityType;
-  unitAmount: number;
-  /** 묶음 상품일 때만 지정한다(예: "서명자+태블릿"). 없으면 단일 상품. */
-  secondaryCapacityType?: CapacityType | null;
-  secondaryUnitAmount?: number | null;
-  currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
+/** POST/PUT /api/platform-admin/billing-plans/{id}/periods[/{periodId}] 요청과 맞춘다. */
+export interface BillingPlanDiscountPeriodRequest {
   discountType: DiscountType;
   discountValue: number;
-  taxCode?: string;
   active: boolean;
   effectiveFrom: string;
   effectiveTo: string | null;
 }
 
-/**
- * PUT /api/platform-admin/capacity-addons/{id} 요청(CapacityAddOnDto.Request.UpdateCapacityAddOn)과
- * 맞춘다. capacityType/secondaryCapacityType은 생성 후 불변이라 여기엔 없다 — 묶음 여부를
- * 바꾸려면 새 상품을 등록해야 한다. 원래 묶음 상품이었다면 secondaryUnitAmount는 필수다. 가격/
- * 사용여부/판매기간은 여기서 다루지 않는다 — CatalogPricePeriodRequest 기간 단위 API로 관리한다.
- */
-export interface UpdateCapacityAddOnRequest {
-  unitAmount: number;
-  secondaryUnitAmount?: number | null;
-}
-
-// 조직×품목 세밀 할인 오버라이드(OrganizationDiscountDto) — signstage-docs
+// 조직×플랜 세밀 할인 오버라이드(OrganizationDiscountDto) — signstage-docs
 // business/organization-event-discount-pricing-review.md 4.1절(2026-08-21 재검토) 참고.
 // 오버라이드 행이 없으면(조직별 할인 화면에 안 나타나면) 카탈로그 자체 할인값을 그대로 쓴다.
+// 조직×선택옵션/조직×용량추가구매 오버라이드는 폐지됐다(signstage-docs
+// business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 4장) —
+// 단위 상품 자체는 할인이 없으므로 오버라이드할 대상이 없어졌다. 조직별 할인은 이제 플랜에만 있다.
 
 /**
- * POST/PUT .../billing-discounts/{plans|optional-features|capacity-addons}/{id}[/periods/{periodId}]
- * 요청과 맞춘다 — 행 하나가 기간 하나(다중 버전, 안 B). effectiveFrom은 결정 #5(오늘 판단
- * 타임존)가 유보라 자동 기본값이 없다 — 항상 명시적으로 보낸다. signstage-docs
+ * POST/PUT .../billing-discounts/plans/{id}[/periods/{periodId}] 요청과 맞춘다 — 행 하나가
+ * 기간 하나(다중 버전, 안 B). effectiveFrom은 결정 #5(오늘 판단 타임존)가 유보라 자동
+ * 기본값이 없다 — 항상 명시적으로 보낸다. signstage-docs
  * business/organization-discount-override-security-and-validity-period-review.md 결정
  * #4(2026-09-08).
  */
@@ -782,87 +731,24 @@ export interface OrganizationBillingPlanDiscountSummary {
   createdAt: string;
 }
 
-/** 선택옵션 오버라이드 기간 한 건(OrganizationDiscountDto.Response.OptionalFeatureDiscountSummary)과 맞춘다. */
-export interface OrganizationOptionalFeatureDiscountSummary {
-  id: number;
-  organizationId: number;
-  organizationName: string;
-  optionalFeatureId: number;
-  optionalFeatureName: string;
-  discountType: DiscountType;
-  discountValue: number;
-  effectiveFrom: string;
-  effectiveTo: string | null;
-  status: OrganizationDiscountPeriodStatus;
-  createdAt: string;
-}
-
-/** 용량 추가구매 오버라이드 기간 한 건(OrganizationDiscountDto.Response.CapacityAddOnDiscountSummary)과 맞춘다. */
-export interface OrganizationCapacityAddOnDiscountSummary {
-  id: number;
-  organizationId: number;
-  organizationName: string;
-  capacityAddOnId: number;
-  capacityType: CapacityType;
-  unitAmount: number;
-  discountType: DiscountType;
-  discountValue: number;
-  effectiveFrom: string;
-  effectiveTo: string | null;
-  status: OrganizationDiscountPeriodStatus;
-  createdAt: string;
-}
-
 /**
  * GET /api/platform-admin/organizations/{organizationId}/billing-discounts 응답
- * (OrganizationDiscountDto.Response.OrganizationDiscountOverview)과 맞춘다. 세 카탈로그 종류의
- * 오버라이드를 한 번에 받는다.
+ * (OrganizationDiscountDto.Response.OrganizationDiscountOverview)과 맞춘다 — 이제 플랜
+ * 오버라이드 하나뿐이다.
  */
 export interface OrganizationDiscountOverview {
   billingPlanDiscounts: OrganizationBillingPlanDiscountSummary[];
-  optionalFeatureDiscounts: OrganizationOptionalFeatureDiscountSummary[];
-  capacityAddOnDiscounts: OrganizationCapacityAddOnDiscountSummary[];
 }
 
-// 조직×품목 할인 오버라이드 변경 이력 — 카탈로그(BillingPlanHistorySummary 등)처럼 구조화된
+// 조직×플랜 할인 오버라이드 변경 이력 — 카탈로그(BillingPlanHistorySummary 등)처럼 구조화된
 // 이력 테이블이다. 설정(생성/수정) 시점마다, 그리고 제거 시점에(removed=true, 그 직전 값) 한
-// 건씩 쌓인다. GET .../billing-discounts/{plans|optional-features|capacity-addons}/{id}/history
-// 응답과 맞춘다.
+// 건씩 쌓인다. GET .../billing-discounts/plans/{id}/history 응답과 맞춘다.
 
 export interface OrganizationBillingPlanDiscountHistorySummary {
   id: number;
   organizationId: number;
   billingPlanId: number;
   billingPlanName: string;
-  discountType: DiscountType;
-  discountValue: number;
-  effectiveFrom: string;
-  effectiveTo: string | null;
-  removed: boolean;
-  createdBy: number;
-  createdAt: string;
-}
-
-export interface OrganizationOptionalFeatureDiscountHistorySummary {
-  id: number;
-  organizationId: number;
-  optionalFeatureId: number;
-  optionalFeatureName: string;
-  discountType: DiscountType;
-  discountValue: number;
-  effectiveFrom: string;
-  effectiveTo: string | null;
-  removed: boolean;
-  createdBy: number;
-  createdAt: string;
-}
-
-export interface OrganizationCapacityAddOnDiscountHistorySummary {
-  id: number;
-  organizationId: number;
-  capacityAddOnId: number;
-  capacityType: CapacityType;
-  unitAmount: number;
   discountType: DiscountType;
   discountValue: number;
   effectiveFrom: string;
@@ -944,11 +830,14 @@ export interface ApplyFinalDiscountRequest {
 /**
  * GET .../estimated-total 응답(CeremonyDto.Response.EstimatedTotal)과 맞춘다. 품목 할인 →
  * subtotal → 행사 건별 할인의 2단 순차 차감 결과다. 실제 결제/청구서 발행 기능은 아직 없다.
+ * 단위 상품은 할인이 없으므로(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) 옛
+ * capacityPurchasesTotal/optionalFeaturePurchasesTotal 2종은 unitProductPurchasesTotal
+ * 하나로 합쳐졌다.
  */
 export interface EstimatedTotal {
   planAppliedPrice: number;
-  capacityPurchasesTotal: number;
-  optionalFeaturePurchasesTotal: number;
+  unitProductPurchasesTotal: number;
   subtotal: number;
   finalDiscountType: DiscountType;
   finalDiscountValue: number;
@@ -984,62 +873,57 @@ export interface ChangeCeremonyPlanRequest {
 }
 
 /**
+ * 플랜 변경 이력 한 줄 — 그 시점 플랜이 포함하던 단위 상품 하나의 수량+가격 스냅샷
+ * (CeremonyDto.Response.PlanHistoryLineSummary)과 맞춘다.
+ */
+export interface CeremonyPlanHistoryLineSummary {
+  unitProductId: number;
+  unitProductType: UnitProductType;
+  unitProductName: string;
+  includedQuantity: number;
+  purchasable: boolean;
+  currencyCode: string;
+  snapshotSalePrice: number;
+  snapshotTaxCode: string;
+}
+
+/**
  * GET .../plan/history 응답(CeremonyDto.Response.PlanHistorySummary)과 맞춘다. 최신순이며,
- * 각 행은 그 변경 시점 플랜의 이름/가격/한도 스냅샷이다 — 카탈로그가 나중에 바뀌어도 안 바뀐다.
+ * 각 행은 그 변경 시점 플랜의 이름/할인/단위 상품 구성 스냅샷이다 — 카탈로그가 나중에 바뀌어도
+ * 안 바뀐다(signstage-docs business/billing-catalog-unit-product-model-redesign-review.md
+ * 결정, 2026-09-10 — 옛 capacities/가격 고정 필드 구조를 대체).
  */
 export interface CeremonyPlanHistorySummary {
   id: number;
   billingPlanId: number;
   planName: string;
-  currencyCode: string;
-  planSupplyPrice: number;
-  planSalePrice: number;
   planDiscountType: DiscountType;
   planDiscountValue: number;
-  taxCode: string;
-  planMaxSigners: number;
-  planMaxTemplates: number;
-  planMaxTestEvents: number;
-  planMaxRehearsalEvents: number;
-  planMaxMainEvents: number;
+  lines: CeremonyPlanHistoryLineSummary[];
   createdBy: number;
   createdAt: string;
 }
 
-/** POST .../capacity-purchases 요청(CeremonyDto.Request.PurchaseCapacity)과 맞춘다. */
-export interface PurchaseCapacityRequest {
-  capacityAddOnId: number;
+/**
+ * feature.ceremony.entity.PurchaseStatus 값과 맞춘다. 요청 즉시 PENDING으로 생기고,
+ * 플랫폼 관리자가 APPROVED로 승인해야 유효 한도/구매한 단위 상품 집계에 반영된다.
+ */
+export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/** POST .../unit-product-purchases 요청 한 줄(CeremonyDto.Request.PurchaseUnitProductLine)과 맞춘다. */
+export interface PurchaseUnitProductLine {
+  unitProductId: number;
   quantity: number;
 }
 
 /**
- * feature.ceremony.entity.PurchaseStatus 값과 맞춘다. 요청 즉시 PENDING으로 생기고,
- * 플랫폼 관리자가 APPROVED로 승인해야 유효 한도/구매한 선택옵션 집계에 반영된다.
+ * POST .../unit-product-purchases 요청(CeremonyDto.Request.PurchaseUnitProducts)과 맞춘다 —
+ * 여러 단위 상품 줄을 한 번에 담는 장바구니형 요청이다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). 옛
+ * PurchaseCapacityRequest/PurchaseOptionalFeatureRequest 2종을 대체한다.
  */
-export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-
-/**
- * GET/POST .../capacity-purchases 응답(CeremonyDto.Response.CapacityPurchaseSummary)과 맞춘다.
- * 요청자 본인이 볼 수 있는 이력이다.
- */
-export interface CapacityPurchaseSummary {
-  id: number;
-  ceremonyId: number;
-  capacityAddOnId: number;
-  quantity: number;
-  /** 구매 시점 단가 스냅샷 — 카탈로그 단가가 나중에 바뀌어도 안 바뀐다(9장). */
-  purchasedUnitAmount: number;
-  /** 묶음 상품(예: "서명자+태블릿")이었을 때만 값이 있다 — 구매 시점 보조 용량 단가 스냅샷. */
-  purchasedSecondaryUnitAmount: number | null;
-  currencyCode: string;
-  purchasedSalePrice: number;
-  purchasedDiscountType: DiscountType;
-  purchasedDiscountValue: number;
-  purchasedTaxCode: string;
-  status: PurchaseStatus;
-  rejectionReason: string | null;
-  reviewedAt: string | null;
-  createdAt: string;
+export interface PurchaseUnitProductsRequest {
+  lines: PurchaseUnitProductLine[];
 }
 
 /**
@@ -1055,26 +939,31 @@ export interface CapacityStatus {
   mainEventLimit: number;
 }
 
-/** POST .../optional-feature-purchases 요청(CeremonyDto.Request.PurchaseOptionalFeature)과 맞춘다. */
-export interface PurchaseOptionalFeatureRequest {
-  optionalFeatureId: number;
-}
-
 /**
- * GET/POST .../optional-feature-purchases 응답(CeremonyDto.Response.OptionalFeaturePurchaseSummary)과
- * 맞춘다. 요청자 본인이 볼 수 있는 이력이다.
+ * 단위 상품 추가구매 요청 한 줄 — 구매 시점 스냅샷(CeremonyDto.Response.UnitProductPurchaseLineSummary)과
+ * 맞춘다.
  */
-export interface OptionalFeaturePurchaseSummary {
+export interface UnitProductPurchaseLineSummary {
   id: number;
-  ceremonyId: number;
-  optionalFeatureId: number;
+  unitProductId: number;
+  unitProductType: UnitProductType;
+  quantity: number;
+  currencyCode: string;
   /** 구매 시점 이름 스냅샷 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */
   purchasedName: string;
-  currencyCode: string;
   purchasedSalePrice: number;
-  purchasedDiscountType: DiscountType;
-  purchasedDiscountValue: number;
   purchasedTaxCode: string;
+}
+
+/**
+ * GET/POST .../unit-product-purchases 응답(CeremonyDto.Response.UnitProductPurchaseSummary)과
+ * 맞춘다. 요청자 본인이 볼 수 있는 이력이다 — 장바구니형 요청이라 승인/반려도 요청에 담긴
+ * 줄 전체 단위다. 옛 CapacityPurchaseSummary/OptionalFeaturePurchaseSummary 2종을 대체한다.
+ */
+export interface UnitProductPurchaseSummary {
+  id: number;
+  ceremonyId: number;
+  lines: UnitProductPurchaseLineSummary[];
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
@@ -1082,39 +971,19 @@ export interface OptionalFeaturePurchaseSummary {
 }
 
 /**
- * GET/POST/PUT /api/platform-admin/capacity-purchases 응답
- * (PlatformAdminCeremonyPurchaseDto.Response.CapacityPurchaseRequestSummary)과 맞춘다.
+ * GET/POST/PUT /api/platform-admin/unit-product-purchases 응답
+ * (PlatformAdminCeremonyPurchaseDto.Response.UnitProductPurchaseRequestSummary)과 맞춘다 — 옛
+ * PlatformAdminCapacityPurchaseRequestSummary/PlatformAdminOptionalFeaturePurchaseRequestSummary
+ * 2종을 대체한다.
  */
-export interface PlatformAdminCapacityPurchaseRequestSummary {
+export interface PlatformAdminUnitProductPurchaseRequestSummary {
   id: number;
   requesterId: number;
   requesterLoginId: string;
   organizationId: number;
   ceremonyId: number;
   ceremonyTitle: string;
-  capacityAddOnId: number;
-  quantity: number;
-  purchasedSalePrice: number;
-  status: PurchaseStatus;
-  rejectionReason: string | null;
-  reviewerLoginId: string | null;
-  reviewedAt: string | null;
-  createdAt: string;
-}
-
-/**
- * GET/POST/PUT /api/platform-admin/optional-feature-purchases 응답
- * (PlatformAdminCeremonyPurchaseDto.Response.OptionalFeaturePurchaseRequestSummary)과 맞춘다.
- */
-export interface PlatformAdminOptionalFeaturePurchaseRequestSummary {
-  id: number;
-  requesterId: number;
-  requesterLoginId: string;
-  organizationId: number;
-  ceremonyId: number;
-  ceremonyTitle: string;
-  optionalFeatureId: number;
-  purchasedSalePrice: number;
+  lines: UnitProductPurchaseLineSummary[];
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewerLoginId: string | null;
@@ -1292,7 +1161,12 @@ export interface CeremonyEffectDefinition {
   code: string;
   targetType: CeremonyEffectTarget;
   triggerType: CeremonyEffectTrigger;
-  /** 이 효과를 포함한 선택옵션(묶음) id 목록 — 여러 묶음에 겹쳐 속할 수 있다(2026-09-08). */
+  /**
+   * 이 효과를 포함한 단위 상품(EVENT_EFFECT_BUNDLE 묶음) id 목록 — 여러 묶음에 겹쳐 속할 수
+   * 있다(2026-09-08). 필드명은 옛 `OptionalFeatureCode` 시절 그대로다 — 2026-09-10
+   * `UnitProduct` 통합 때 백엔드 DTO 필드명은 바꾸지 않았다(응답 JSON 키 `optionalFeatureIds`
+   * 그대로).
+   */
   optionalFeatureIds: number[];
   displayName: string;
   description: string | null;
@@ -1309,8 +1183,9 @@ export interface CeremonyEffectDefinition {
  * POST /api/platform-admin/ceremony-effects 요청
  * (CeremonyEffectDefinitionDto.Request.CreateCeremonyEffectDefinition)과 맞춘다.
  * `code`/`targetType`/`triggerType`/`rendererKey`는 등록 후 불변이라 이 요청에만 있고
- * 아래 Update 요청에는 없다. 이 효과를 여는 선택옵션(묶음) 구성은 이 요청이 갖지 않는다 —
- * `OptionalFeatureService` 쪽에서 `effectDefinitionIds`로 관리한다(2026-09-08 결정).
+ * 아래 Update 요청에는 없다. 이 효과를 여는 단위 상품(EVENT_EFFECT_BUNDLE 묶음) 구성은 이
+ * 요청이 갖지 않는다 — `UnitProductService` 쪽에서 `effectDefinitionIds`로 관리한다
+ * (2026-09-08 결정, 2026-09-10 `UnitProduct` 통합으로 소속 이전).
  */
 export interface CreateCeremonyEffectDefinitionRequest {
   code: string;
@@ -1692,13 +1567,16 @@ export interface ProjectorContext {
   eventAccessKey: string;
   exhibition: ProjectorExhibitionDocument | null;
   /**
-   * 이 하위 행사에 적용된 선택옵션 코드. **CUTOVER-03 이후 프런트에서는 더 이상 읽지
-   * 않는다** — 서명 하이라이트/폭죽 같은 프로젝터 전용 연출은 이제 이벤트 효과 설정
-   * (`CeremonyEventEffectSetting`)과 `useProjectorEffectsController`가 대신 판단한다.
-   * 백엔드 `ProjectorService`가 이 필드를 여전히 내려주므로(구 이벤트 adapter 정리
-   * 전이라 아직 지우지 않았다) 타입만 남겨 배선(wire) 형태를 그대로 반영해 둔다.
+   * 이 하위 행사에 실제로 적용된 단위 상품 유형(`UnitProductType.name()`) 목록 — 옛
+   * `OptionalFeatureCode.name()` 목록을 대체한다(signstage-docs
+   * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10).
+   * **CUTOVER-03 이후 프런트에서는 더 이상 읽지 않는다** — 서명 하이라이트/폭죽 같은
+   * 프로젝터 전용 연출은 이제 이벤트 효과 설정(`CeremonyEventEffectSetting`)과
+   * `useProjectorEffectsController`가 대신 판단한다. 백엔드 `ProjectorService`가 이 필드를
+   * 여전히 내려주므로(구 이벤트 adapter 정리 전이라 아직 지우지 않았다) 타입만 남겨
+   * 배선(wire) 형태를 그대로 반영해 둔다.
    */
-  appliedOptionalFeatureCodes: OptionalFeatureCode[];
+  appliedOptionalFeatureCodes: UnitProductType[];
 }
 
 export interface ProjectorExhibitionDocument {

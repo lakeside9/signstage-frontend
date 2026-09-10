@@ -16,14 +16,10 @@ import { AdminBillingPlanList } from './pages/AdminBillingPlanList';
 import { AdminBillingPlanCreate } from './pages/AdminBillingPlanCreate';
 import { AdminBillingPlanDetail } from './pages/AdminBillingPlanDetail';
 import { AdminBillingPlanEdit } from './pages/AdminBillingPlanEdit';
-import { AdminOptionalFeatureList } from './pages/AdminOptionalFeatureList';
-import { AdminOptionalFeatureCreate } from './pages/AdminOptionalFeatureCreate';
-import { AdminOptionalFeatureDetail } from './pages/AdminOptionalFeatureDetail';
-import { AdminOptionalFeatureEdit } from './pages/AdminOptionalFeatureEdit';
-import { AdminCapacityAddOnList } from './pages/AdminCapacityAddOnList';
-import { AdminCapacityAddOnCreate } from './pages/AdminCapacityAddOnCreate';
-import { AdminCapacityAddOnDetail } from './pages/AdminCapacityAddOnDetail';
-import { AdminCapacityAddOnEdit } from './pages/AdminCapacityAddOnEdit';
+import { AdminUnitProductList } from './pages/AdminUnitProductList';
+import { AdminUnitProductCreate } from './pages/AdminUnitProductCreate';
+import { AdminUnitProductDetail } from './pages/AdminUnitProductDetail';
+import { AdminUnitProductEdit } from './pages/AdminUnitProductEdit';
 import { AdminBillingSimulator } from './pages/AdminBillingSimulator';
 import { AdminCeremonyPurchaseRequests } from './pages/AdminCeremonyPurchaseRequests';
 import { AdminCeremonyDiscounts } from './pages/AdminCeremonyDiscounts';
@@ -133,21 +129,17 @@ function App() {
           <Route path="billing-catalog/plans/new" element={<AdminBillingPlanCreate />} />
           <Route path="billing-catalog/plans/:id" element={<AdminBillingPlanDetail />} />
           <Route path="billing-catalog/plans/:id/edit" element={<AdminBillingPlanEdit />} />
-          <Route path="billing-catalog/optional-features" element={<AdminOptionalFeatureList />} />
-          <Route path="billing-catalog/optional-features/new" element={<AdminOptionalFeatureCreate />} />
-          <Route path="billing-catalog/optional-features/:id" element={<AdminOptionalFeatureDetail />} />
-          <Route path="billing-catalog/optional-features/:id/edit" element={<AdminOptionalFeatureEdit />} />
-          <Route path="billing-catalog/capacity-addons" element={<AdminCapacityAddOnList />} />
-          <Route path="billing-catalog/capacity-addons/new" element={<AdminCapacityAddOnCreate />} />
-          <Route path="billing-catalog/capacity-addons/:id" element={<AdminCapacityAddOnDetail />} />
-          <Route path="billing-catalog/capacity-addons/:id/edit" element={<AdminCapacityAddOnEdit />} />
+          <Route path="billing-catalog/unit-products" element={<AdminUnitProductList />} />
+          <Route path="billing-catalog/unit-products/new" element={<AdminUnitProductCreate />} />
+          <Route path="billing-catalog/unit-products/:id" element={<AdminUnitProductDetail />} />
+          <Route path="billing-catalog/unit-products/:id/edit" element={<AdminUnitProductEdit />} />
           <Route path="billing-simulator" element={<AdminBillingSimulator />} />
           <Route path="purchase-requests" element={<AdminCeremonyPurchaseRequests />} />
           <Route path="ceremony-discounts" element={<AdminCeremonyDiscounts />} />
           <Route path="ceremony-discounts/:organizationId/:ceremonyId" element={<AdminCeremonyDiscountDetail />} />
           <Route path="organization-discount-overrides" element={<AdminOrganizationDiscountOverrides />} />
           <Route
-            path="organization-discount-overrides/:organizationId/:itemType/:itemId"
+            path="organization-discount-overrides/:organizationId/:billingPlanId"
             element={<AdminOrganizationDiscountOverrideDetail />}
           />
           <Route path="demo-ceremonies" element={<AdminDemoCeremonies />} />

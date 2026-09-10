@@ -3,68 +3,13 @@ import type { FC } from 'react';
 import { Building2, Calculator, Loader2, Receipt, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
-import type {
-  BillingPlanSummary,
-  CapacityAddOnSummary,
-  CapacityType,
-  DiscountType,
-  OptionalFeatureCode,
-  OptionalFeatureSummary,
-  OrganizationDiscountOverview,
-  PageResponse,
-  PlatformAdminOrganizationSummary,
-} from '../types';
+import type { BillingPlanSummary, DiscountType, OrganizationDiscountOverview, PageResponse, PlatformAdminOrganizationSummary, UnitProductSummary } from '../types';
+import { UNIT_PRODUCT_CATEGORY_LABEL, UNIT_PRODUCT_CATEGORY_OPTIONS, planSubtotal } from './billingCatalog/constants';
 
 const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
   { value: 'PERCENT', label: '퍼센트' },
   { value: 'FIXED_AMOUNT', label: '정액' },
 ];
-
-/**
- * 선택옵션/용량 추가구매 코드를 장비·인력·애플리케이션 3분류로 묶어 보여주기 위한
- * 화면 전용 매핑 — signstage-docs business/ceremony-support-services-billing-review.md
- * 3.3절의 "(안 A) 매핑 테이블" 방식으로 시작했으나, 4.3절에서 실제로는 안 B(백엔드
- * `OptionalFeature.category` 컬럼)로 결정됐다(2026-09-08). `OptionalFeatureSummary.category`가
- * 진짜 소스이고, 이 매핑은 이 시뮬레이터 화면이 "용량 추가구매"까지 포함해 4번째 버킷
- * (필수옵션 상향)을 표시하기 위한 화면 전용 보조 표라 그대로 둔다 — `CapacityAddOn`은
- * `category` 컬럼이 없어(짝이 되는 `OptionalFeature.category`를 재사용하는 게 결정이지만,
- * 이 화면은 짝 조회 없이 단순 표시로 충분해 기존 매핑을 유지한다).
- */
-const OPTION_CATEGORY_BY_CODE: Record<OptionalFeatureCode, string> = {
-  SIGNER_FIELD_ZOOM: '애플리케이션',
-  ALL_SIGNED_FIREWORKS: '애플리케이션',
-  EVENT_EFFECT_BUNDLE: '애플리케이션',
-  VIDEO_ATTENDANCE: '애플리케이션',
-  TABLET_RENTAL: '장비',
-  ONSITE_SUPPORT: '인력',
-  ONLINE_SUPPORT: '인력',
-};
-
-const OPTION_CATEGORY_ORDER = ['장비', '인력', '애플리케이션'];
-
-const ADDON_CATEGORY_BY_TYPE: Record<CapacityType, string> = {
-  SIGNERS: '필수옵션 상향',
-  TEMPLATES: '필수옵션 상향',
-  TEST_EVENTS: '필수옵션 상향',
-  REHEARSAL_EVENTS: '필수옵션 상향',
-  MAIN_EVENTS: '필수옵션 상향',
-  TABLETS: '장비',
-  ONSITE_SUPPORT: '인력',
-  ONLINE_SUPPORT: '인력',
-};
-
-const ADDON_CATEGORY_ORDER = ['필수옵션 상향', '장비', '인력'];
-
-const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
-  SIGNERS: '서명자',
-  TEMPLATES: '템플릿',
-  TEST_EVENTS: '테스트 행사',
-  REHEARSAL_EVENTS: '리허설 행사',
-  MAIN_EVENTS: '본행사',
-  TABLETS: '태블릿',
-  ONSITE_SUPPORT: '현장지원',
-  ONLINE_SUPPORT: '온라인지원',
-};
 
 const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
@@ -83,10 +28,11 @@ interface ResolvedDiscount {
 }
 
 /**
- * 조직×품목 오버라이드가 있으면 그 값을, 없으면 카탈로그 값을 쓴다(할인 문서 4.1절). 카탈로그
- * 값은 이제 "오늘" 기준 유효한 판매가격 기간의 값이라 null일 수 있다(기간 사이 공백 —
- * signstage-docs business/billing-catalog-price-validity-period-review.md 결정, 2026-09-09) —
- * 그런 경우 시뮬레이터는 할인 없음(FIXED_AMOUNT 0)으로 취급한다.
+ * 조직×플랜 오버라이드가 있으면 그 값을, 없으면 카탈로그 값을 쓴다(할인 문서 4.1절). 단위
+ * 상품은 할인을 갖지 않으므로(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) 할인
+ * 오버라이드는 플랜에만 있다. 카탈로그 값은 "오늘" 기준 유효한 할인 기간의 값이라 null일 수
+ * 있다(기간 사이 공백) — 그런 경우 시뮬레이터는 할인 없음(FIXED_AMOUNT 0)으로 취급한다.
  */
 function resolveDiscount<T extends { discountType: DiscountType | null; discountValue: number | null }>(
   catalogItem: T,
@@ -102,7 +48,7 @@ function resolveDiscount<T extends { discountType: DiscountType | null; discount
   };
 }
 
-/** 오늘 기준 유효한 판매가격 기간이 없으면(NO_ACTIVE_PERIOD) null이다 — 시뮬레이터는 0원으로 취급한다. */
+/** 오늘 기준 유효한 판매가격/할인 기간이 없으면(NO_ACTIVE_PERIOD) null이다 — 시뮬레이터는 0원으로 취급한다. */
 const priceOrZero = (value: number | null) => value ?? 0;
 
 interface LedgerLine {
@@ -115,27 +61,27 @@ interface LedgerLine {
 
 /**
  * 플랫폼 관리자용 행사(Ceremony) 과금 시뮬레이터. 실제 카탈로그(GET /billing-plans,
- * /optional-features, /capacity-addons)와 조직×품목 할인 오버라이드(GET
+ * /unit-products)와 조직×플랜 할인 오버라이드(GET
  * /platform-admin/organizations/{id}/billing-discounts)를 그대로 읽어와, 행사를 실제로
  * 만들지 않고도 "이 조합이면 얼마"를 미리 계산해본다.
  *
  * 계산 공식은 signstage-docs business/ceremony-billing-consolidated-simulation-reference.md
- * §2를 그대로 구현한다: 정가 → 품목 할인(조직 오버라이드 있으면 그 값) → 소계 → 건별
- * 재량 할인(이 화면에서는 실제 Ceremony에 저장하지 않는 가상 입력값) → 최종가.
+ * §2를 그대로 구현한다: 플랜 소계(포함 단위 상품 합) → 플랜 할인(조직 오버라이드 있으면 그 값) →
+ * 추가구매 합산 → 소계 → 건별 재량 할인(이 화면에서는 실제 Ceremony에 저장하지 않는 가상
+ * 입력값) → 최종가. 단위 상품은 할인이 없다(2026-09-10 결정) — 추가구매 줄은 정가 × 수량
+ * 그대로다.
  *
  * 조회 전용 화면이라 등록/수정 권한(canManagePlatform) 검사가 없다 — 쓰는 API가 전부
  * PLATFORM_SUPPORT 이상 누구나 조회 가능한 엔드포인트다.
  */
 export const AdminBillingSimulator: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
-  const [options, setOptions] = useState<OptionalFeatureSummary[]>([]);
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
+  const [products, setProducts] = useState<UnitProductSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<number>>(new Set());
-  const [addOnQuantities, setAddOnQuantities] = useState<Record<number, number>>({});
+  const [purchaseQuantities, setPurchaseQuantities] = useState<Record<number, number>>({});
 
   const [orgSearchTerm, setOrgSearchTerm] = useState('');
   const [orgResults, setOrgResults] = useState<PlatformAdminOrganizationSummary[]>([]);
@@ -151,16 +97,11 @@ export const AdminBillingSimulator: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [plansRes, optionsRes, addOnsRes] = await Promise.all([
-          api.get('/billing-plans'),
-          api.get('/optional-features'),
-          api.get('/capacity-addons'),
-        ]);
+        const [plansRes, productsRes] = await Promise.all([api.get('/billing-plans'), api.get('/unit-products')]);
         if (cancelled) return;
         const planList = plansRes.data as BillingPlanSummary[];
         setPlans(planList);
-        setOptions(optionsRes.data as OptionalFeatureSummary[]);
-        setAddOns(addOnsRes.data as CapacityAddOnSummary[]);
+        setProducts(productsRes.data as UnitProductSummary[]);
         const defaultPlan = planList.find((p) => p.active) ?? planList[0];
         if (defaultPlan) setSelectedPlanId(defaultPlan.id);
       } catch (err) {
@@ -223,20 +164,19 @@ export const AdminBillingSimulator: FC = () => {
     };
   }, [selectedOrg]);
 
-  const toggleOption = (id: number) => {
-    setSelectedOptionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const setAddOnQuantity = (id: number, quantity: number) => {
-    setAddOnQuantities((prev) => ({ ...prev, [id]: Math.max(0, quantity) }));
+  const setPurchaseQuantity = (id: number, quantity: number) => {
+    setPurchaseQuantities((prev) => ({ ...prev, [id]: Math.max(0, quantity) }));
   };
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
+  const purchasableProducts = useMemo(() => {
+    const purchasableIds = new Set(selectedPlan?.unitProducts.filter((l) => l.purchasable).map((l) => l.unitProductId) ?? []);
+    return products.filter((p) => purchasableIds.has(p.id));
+  }, [selectedPlan, products]);
+  const groupedPurchasable = UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => ({
+    category: option.label,
+    items: purchasableProducts.filter((p) => p.category === option.value),
+  }));
 
   const { lines, subtotal, finalDiscountAmount, total, clamped, marginSale, marginSupply, marginSupplyUnknown } = useMemo(() => {
     const resultLines: LedgerLine[] = [];
@@ -249,68 +189,47 @@ export const AdminBillingSimulator: FC = () => {
     let hasUnknownSupply = false;
 
     if (selectedPlan) {
+      const planSale = planSubtotal(selectedPlan.unitProducts);
       const override = orgOverview?.billingPlanDiscounts.find((d) => d.billingPlanId === selectedPlan.id);
       const resolved = resolveDiscount(selectedPlan, override);
-      const applied = appliedPrice(priceOrZero(selectedPlan.salePrice), resolved.discountType, resolved.discountValue);
+      const applied = appliedPrice(planSale, resolved.discountType, resolved.discountValue);
       resultLines.push({
         key: `plan-${selectedPlan.id}`,
         label: `${selectedPlan.name} (플랜)`,
-        sub: `필수옵션 포함 · 할인 ${formatDiscount(resolved.discountType, resolved.discountValue)}`,
+        sub: `포함 단위 상품 소계 ${formatPrice(planSale)} · 할인 ${formatDiscount(resolved.discountType, resolved.discountValue)}`,
         amount: applied,
         overridden: resolved.overridden,
       });
       sale += applied;
-      if (selectedPlan.supplyPrice === null) {
-        hasUnknownSupply = true;
-      } else {
-        supply += selectedPlan.supplyPrice;
+      // 플랜 소계 자체가 단위 상품 정가 합이므로, 마진 비교용 공급가도 그 단위 상품들의 공급가 합으로 본다.
+      for (const line of selectedPlan.unitProducts) {
+        const product = products.find((p) => p.id === line.unitProductId);
+        if (!product || product.supplyPrice === null) {
+          hasUnknownSupply = true;
+        } else {
+          supply += product.supplyPrice * line.includedQuantity;
+        }
       }
     }
 
-    options
-      .filter((o) => selectedOptionIds.has(o.id))
-      .forEach((o) => {
-        const override = orgOverview?.optionalFeatureDiscounts.find((d) => d.optionalFeatureId === o.id);
-        const resolved = resolveDiscount(o, override);
-        const applied = appliedPrice(priceOrZero(o.salePrice), resolved.discountType, resolved.discountValue);
+    purchasableProducts
+      .filter((p) => (purchaseQuantities[p.id] ?? 0) > 0)
+      .forEach((p) => {
+        const quantity = purchaseQuantities[p.id] ?? 0;
+        const unitPrice = priceOrZero(p.salePrice);
+        const lineTotal = unitPrice * quantity;
         resultLines.push({
-          key: `opt-${o.id}`,
-          label: o.name,
-          sub: `${OPTION_CATEGORY_BY_CODE[o.code] ?? '기타'} · 선택옵션 · 할인 ${formatDiscount(resolved.discountType, resolved.discountValue)}`,
-          amount: applied,
-          overridden: resolved.overridden,
-        });
-        sale += applied;
-        if (o.supplyPrice === null) {
-          hasUnknownSupply = true;
-        } else {
-          supply += o.supplyPrice;
-        }
-      });
-
-    addOns
-      .filter((a) => (addOnQuantities[a.id] ?? 0) > 0)
-      .forEach((a) => {
-        const quantity = addOnQuantities[a.id] ?? 0;
-        const override = orgOverview?.capacityAddOnDiscounts.find((d) => d.capacityAddOnId === a.id);
-        const resolved = resolveDiscount(a, override);
-        const unitApplied = appliedPrice(priceOrZero(a.salePrice), resolved.discountType, resolved.discountValue);
-        const lineTotal = unitApplied * quantity;
-        const bundleNote = a.secondaryCapacityType
-          ? ` (+${a.unitAmount} ${CAPACITY_TYPE_LABEL[a.capacityType]} · +${a.secondaryUnitAmount} ${CAPACITY_TYPE_LABEL[a.secondaryCapacityType]})`
-          : ` (+${a.unitAmount} ${CAPACITY_TYPE_LABEL[a.capacityType]})`;
-        resultLines.push({
-          key: `addon-${a.id}`,
-          label: `${CAPACITY_TYPE_LABEL[a.capacityType]} 추가구매${bundleNote}`,
-          sub: `${ADDON_CATEGORY_BY_TYPE[a.capacityType]} · ${quantity}건 × ${formatPrice(unitApplied)}`,
+          key: `product-${p.id}`,
+          label: `${p.name} 추가구매`,
+          sub: `${UNIT_PRODUCT_CATEGORY_LABEL[p.category] ?? p.category} · ${quantity}건 × ${formatPrice(unitPrice)}`,
           amount: lineTotal,
-          overridden: resolved.overridden,
+          overridden: false,
         });
         sale += lineTotal;
-        if (a.supplyPrice === null) {
+        if (p.supplyPrice === null) {
           hasUnknownSupply = true;
         } else {
-          supply += a.supplyPrice * quantity;
+          supply += p.supplyPrice * quantity;
         }
       });
 
@@ -331,17 +250,7 @@ export const AdminBillingSimulator: FC = () => {
       marginSupply: supply,
       marginSupplyUnknown: hasUnknownSupply,
     };
-  }, [selectedPlan, options, selectedOptionIds, addOns, addOnQuantities, orgOverview, finalDiscountType, finalDiscountValue]);
-
-  const groupedOptions = OPTION_CATEGORY_ORDER.map((category) => ({
-    category,
-    items: options.filter((o) => (OPTION_CATEGORY_BY_CODE[o.code] ?? '기타') === category),
-  }));
-
-  const groupedAddOns = ADDON_CATEGORY_ORDER.map((category) => ({
-    category,
-    items: addOns.filter((a) => (ADDON_CATEGORY_BY_TYPE[a.capacityType] ?? '기타') === category),
-  }));
+  }, [selectedPlan, products, purchasableProducts, purchaseQuantities, orgOverview, finalDiscountType, finalDiscountValue]);
 
   if (isLoading) {
     return (
@@ -431,13 +340,13 @@ export const AdminBillingSimulator: FC = () => {
                         )}
                       </div>
                       <p className="mt-1.5 text-xs text-gray-600 tabular-nums">
-                        {formatPrice(priceOrZero(plan.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
+                        {formatPrice(planSubtotal(plan.unitProducts))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
                         {resolved.overridden && <OrgOverrideBadge />}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
-                        서명자 {plan.capacities.SIGNERS}/템플릿 {plan.capacities.TEMPLATES}/테스트{' '}
-                        {plan.capacities.TEST_EVENTS}/리허설 {plan.capacities.REHEARSAL_EVENTS}/본행사{' '}
-                        {plan.capacities.MAIN_EVENTS}
+                        {plan.unitProducts.length === 0
+                          ? '포함 단위 상품 없음'
+                          : plan.unitProducts.map((line) => `${line.unitProductName} ${line.includedQuantity}`).join(' · ')}
                       </p>
                     </label>
                   );
@@ -447,115 +356,62 @@ export const AdminBillingSimulator: FC = () => {
           </section>
 
           <section className="bg-white border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-bold text-gray-950 mb-1">② 선택옵션</h2>
+            <h2 className="text-sm font-bold text-gray-950 mb-1">② 단위 상품 추가구매</h2>
             <p className="text-xs text-gray-400 mb-3">
-              장비/인력/애플리케이션 분류는 화면에서 코드별로 나눠 보여주는 것일 뿐, 카탈로그 데이터 자체에 분류
-              필드가 있는 건 아닙니다(향후 검토, ceremony-support-services-billing-review.md 참고).
+              선택한 플랜에서 추가구매 후보(purchasable)로 열어둔 단위 상품만 보여줍니다. 단위 상품은 할인이 없어
+              정가 × 수량 그대로 계산됩니다(signstage-docs
+              business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10).
             </p>
-            <div className="space-y-4">
-              {groupedOptions.map(({ category, items }) => (
-                <div key={category}>
-                  <h3 className="text-xs font-bold text-gray-500 mb-2">{category}</h3>
-                  {items.length === 0 ? (
-                    <p className="text-xs text-gray-400">
-                      {category === '인력'
-                        ? '아직 등록된 인력 카테고리 상품이 없습니다 — 현장지원/온라인지원은 검토 단계입니다.'
-                        : '등록된 항목이 없습니다.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {items.map((o) => {
-                        const override = orgOverview?.optionalFeatureDiscounts.find((d) => d.optionalFeatureId === o.id);
-                        const resolved = resolveDiscount(o, override);
-                        const checked = selectedOptionIds.has(o.id);
-                        return (
-                          <label
-                            key={o.id}
-                            className={`flex items-center justify-between gap-3 border rounded-md px-3 py-2 cursor-pointer ${
-                              checked ? 'border-gray-950 bg-gray-50' : 'border-gray-200 hover:border-gray-300'
-                            } ${!o.active ? 'opacity-50' : ''}`}
-                          >
-                            <span className="flex items-center gap-2 min-w-0">
-                              <input type="checkbox" checked={checked} onChange={() => toggleOption(o.id)} />
-                              <span className="text-sm text-gray-950 font-medium truncate">{o.name}</span>
-                              {!o.active && <span className="text-xs text-gray-400 shrink-0">미사용</span>}
-                            </span>
-                            <span className="text-xs text-gray-600 shrink-0 tabular-nums">
-                              {formatPrice(priceOrZero(o.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
-                              {resolved.overridden && <OrgOverrideBadge />}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="bg-white border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-bold text-gray-950 mb-3">③ 용량 추가구매</h2>
-            <div className="space-y-4">
-              {groupedAddOns.map(({ category, items }) => (
-                <div key={category}>
-                  <h3 className="text-xs font-bold text-gray-500 mb-2">{category}</h3>
-                  {items.length === 0 ? (
-                    <p className="text-xs text-gray-400">
-                      {category === '인력'
-                        ? '아직 등록된 인력 카테고리 상품이 없습니다.'
-                        : '등록된 항목이 없습니다.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {items.map((a) => {
-                        const override = orgOverview?.capacityAddOnDiscounts.find((d) => d.capacityAddOnId === a.id);
-                        const resolved = resolveDiscount(a, override);
-                        const quantity = addOnQuantities[a.id] ?? 0;
-                        return (
-                          <div
-                            key={a.id}
-                            className={`flex items-center justify-between gap-3 border rounded-md px-3 py-2 ${
-                              quantity > 0 ? 'border-gray-950 bg-gray-50' : 'border-gray-200'
-                            } ${!a.active ? 'opacity-50' : ''}`}
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm text-gray-950 font-medium">
-                                {CAPACITY_TYPE_LABEL[a.capacityType]} +{a.unitAmount}
-                                {a.secondaryCapacityType &&
-                                  a.secondaryUnitAmount != null &&
-                                  ` / ${CAPACITY_TYPE_LABEL[a.secondaryCapacityType]} +${a.secondaryUnitAmount}`}
-                                {!a.active && <span className="ml-2 text-xs text-gray-400">미사용</span>}
-                              </p>
-                              <p className="text-xs text-gray-500 tabular-nums">
-                                {formatPrice(priceOrZero(a.salePrice))} · 할인 {formatDiscount(resolved.discountType, resolved.discountValue)}
-                                {resolved.overridden && <OrgOverrideBadge />}
-                              </p>
+            {purchasableProducts.length === 0 ? (
+              <p className="text-sm text-gray-400">이 플랜에서 추가구매할 수 있는 단위 상품이 없습니다.</p>
+            ) : (
+              <div className="space-y-4">
+                {groupedPurchasable
+                  .filter(({ items }) => items.length > 0)
+                  .map(({ category, items }) => (
+                    <div key={category}>
+                      <h3 className="text-xs font-bold text-gray-500 mb-2">{category}</h3>
+                      <div className="space-y-1.5">
+                        {items.map((p) => {
+                          const quantity = purchaseQuantities[p.id] ?? 0;
+                          return (
+                            <div
+                              key={p.id}
+                              className={`flex items-center justify-between gap-3 border rounded-md px-3 py-2 ${
+                                quantity > 0 ? 'border-gray-950 bg-gray-50' : 'border-gray-200'
+                              } ${!p.active ? 'opacity-50' : ''}`}
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm text-gray-950 font-medium">
+                                  {p.name}
+                                  {!p.active && <span className="ml-2 text-xs text-gray-400">미사용</span>}
+                                </p>
+                                <p className="text-xs text-gray-500 tabular-nums">{formatPrice(priceOrZero(p.salePrice))}</p>
+                              </div>
+                              <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+                                구매 수량
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={quantity === 0 ? '' : quantity}
+                                  onChange={(e) => setPurchaseQuantity(p.id, Number(e.target.value))}
+                                  placeholder="0"
+                                  className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                                />
+                                건
+                              </label>
                             </div>
-                            <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
-                              구매 수량
-                              <input
-                                type="number"
-                                min={0}
-                                value={quantity === 0 ? '' : quantity}
-                                onChange={(e) => setAddOnQuantity(a.id, Number(e.target.value))}
-                                placeholder="0"
-                                className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                              />
-                              건
-                            </label>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  ))}
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-bold text-gray-950 mb-1">④ 행사 건별 재량 할인 (가정)</h2>
+            <h2 className="text-sm font-bold text-gray-950 mb-1">③ 행사 건별 재량 할인 (가정)</h2>
             <p className="text-xs text-gray-400 mb-3">
               실제 시스템에서는 PLATFORM_OPS 이상만, 확정(IN_PROGRESS) 상태의 행사에만 설정할 수 있습니다. 이
               화면의 값은 실제 행사에 저장되지 않는 가상 입력입니다.
@@ -640,7 +496,7 @@ const OrganizationPicker: FC<OrganizationPickerProps> = ({
       파트너 (선택사항)
     </h2>
     <p className="text-xs text-gray-400 mb-3">
-      파트너를 고르면 그 파트너에 설정된 품목별 할인 오버라이드가 자동으로 적용됩니다. 고르지 않으면 카탈로그 전역
+      파트너를 고르면 그 파트너에 설정된 플랜별 할인 오버라이드가 자동으로 적용됩니다. 고르지 않으면 카탈로그 전역
       할인값으로 계산합니다.
     </p>
 
@@ -730,7 +586,7 @@ const Ledger: FC<LedgerProps> = ({
         <Receipt size={14} />
         예상 청구 금액
       </h2>
-      <p className="text-xs text-gray-400 mt-0.5">정가 → 품목 할인 → 소계 → 건별 할인 → 최종가</p>
+      <p className="text-xs text-gray-400 mt-0.5">플랜 소계 → 플랜 할인 → 추가구매 합산 → 건별 할인 → 최종가</p>
     </div>
 
     {lines.length === 0 ? (

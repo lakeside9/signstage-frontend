@@ -6,7 +6,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { EventDateTimeInput } from '../components/EventDateTimeInput';
 import { CeremonyEventEffectSelectionFields } from '../components/effects/settings/CeremonyEventEffectSelectionFields';
-import type { CeremonyEffectSelection, CeremonyEventSummary, CeremonyEventType, OptionalFeatureSummary } from '../types';
+import type { CeremonyEffectSelection, CeremonyEventSummary, CeremonyEventType, UnitProductSummary } from '../types';
 
 /**
  * 하위 행사(CeremonyEvent) 등록 화면. TEST/MAIN 두 유형이 있고(signstage-docs
@@ -16,7 +16,7 @@ import type { CeremonyEffectSelection, CeremonyEventSummary, CeremonyEventType, 
  * 적용 선택옵션은 이전에는 등록 후 상세 화면에서만 켤 수 있었는데, 이번에 등록 시점에
  * 바로 적용할 수 있게 추가했다(수정 화면도 동일 — `UserCeremonyDetail.tsx`의 "하위 행사
  * 수정" 모달 참고). 목록은 이 행사 마스터가 실제로 쓸 수 있는(플랜 포함분 + 승인된
- * 추가구매) 옵션만 `/available-optional-features`로 걸러서 보여준다.
+ * 추가구매) 옵션만 `/applicable-unit-products`로 걸러서 보여준다.
  */
 export const UserCeremonyEventCreate: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -31,7 +31,7 @@ export const UserCeremonyEventCreate: FC = () => {
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const [availableFeatures, setAvailableFeatures] = useState<OptionalFeatureSummary[]>([]);
+  const [availableFeatures, setAvailableFeatures] = useState<UnitProductSummary[]>([]);
   const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<number[]>([]);
   const [effectSelections, setEffectSelections] = useState<CeremonyEffectSelection[]>([]);
@@ -44,10 +44,10 @@ export const UserCeremonyEventCreate: FC = () => {
     (async () => {
       try {
         const response = await api.get(
-          `/organizations/${organizationId}/ceremonies/${ceremonyId}/available-optional-features`,
+          `/organizations/${organizationId}/ceremonies/${ceremonyId}/applicable-unit-products`,
         );
         if (!cancelled) {
-          setAvailableFeatures(response.data as OptionalFeatureSummary[]);
+          setAvailableFeatures(response.data as UnitProductSummary[]);
         }
       } catch (err) {
         if (!cancelled) {

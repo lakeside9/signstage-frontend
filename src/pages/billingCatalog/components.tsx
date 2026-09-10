@@ -8,7 +8,8 @@ import { formatDateTime } from '../../utils/internationalization';
 import {
   DISCOUNT_TYPE_OPTIONS,
   EFFECT_TRIGGER_LABEL,
-  EMPTY_PERIOD_DRAFT,
+  EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT,
+  EMPTY_UNIT_PRODUCT_PERIOD_DRAFT,
   PERIOD_STATUS_LABEL,
   PERIOD_STATUS_STYLE,
   calculateFinalPrice,
@@ -17,17 +18,26 @@ import {
   inputClass,
 } from './constants';
 import type {
-  CatalogPricePeriodHistorySummary,
-  CatalogPricePeriodRequest,
-  CatalogPricePeriodSummary,
+  BillingPlanDiscountPeriodHistorySummary,
+  BillingPlanDiscountPeriodRequest,
+  BillingPlanDiscountPeriodSummary,
   CeremonyEffectDefinition,
   DiscountType,
+  UnitProductPricePeriodHistorySummary,
+  UnitProductPricePeriodRequest,
+  UnitProductPricePeriodSummary,
 } from '../../types';
 
 /**
- * 과금 카탈로그(플랜/선택옵션/용량 추가구매) 3개 타입의 목록/등록/상세/수정 화면이 공유하는
- * 컴포넌트 — 순수 상수/포맷터는 `constants.ts`에 분리했다(react-refresh/only-export-components
- * 린트 규칙 때문에 컴포넌트와 비컴포넌트 export를 한 파일에 안 섞는다).
+ * 과금 카탈로그(단위 상품/플랜) 목록/등록/상세/수정 화면이 공유하는 컴포넌트 — 순수 상수/포맷터는
+ * `constants.ts`에 분리했다(react-refresh/only-export-components 린트 규칙 때문에 컴포넌트와
+ * 비컴포넌트 export를 한 파일에 안 섞는다).
+ *
+ * 판매가격 기간 관리는 두 타입이 갖는 필드가 다르다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.5절) —
+ * 단위 상품은 가격만, 플랜은 할인만 갖는다. 옛 `PricePeriodSection` 하나를 `UnitProductPeriodSection`/
+ * `PlanDiscountPeriodSection` 둘로 나눴다(공유 로직은 각자 안에 살짝 중복돼 있다 — 필드 모양이
+ * 달라 제네릭으로 합치면 오히려 읽기 어려워진다).
  */
 
 export const Field: FC<{ label: string; children: ReactNode }> = ({ label, children }) => (
@@ -184,34 +194,35 @@ export const FinalPricePreview: FC<{ salePrice: number; discountType: DiscountTy
 );
 
 /**
- * 세 카탈로그 타입(플랜/선택옵션/용량 추가구매)이 공유하는 판매가격 기간 관리 — 상세 화면의
- * 기본 정보 목록 바로 아래 인라인 목록으로 보여준다(사용자 요청, 2026-09-09 — 원래는 모달이었다).
- * `basePath`가 `/platform-admin/billing-plans` 등 각 타입의 관리자 API prefix를 결정한다.
- * 변경 이력은 여전히 별도(작은) 모달로 연다 — signstage-docs
- * business/billing-catalog-price-validity-period-review.md 결정(2026-09-09, 다중버전 채택).
+ * 단위 상품의 판매가격 기간 관리 — 상세 화면의 기본 정보 목록 바로 아래 인라인 목록으로
+ * 보여준다(사용자 요청, 2026-09-09 — 원래는 모달이었다). `basePath`는
+ * `/platform-admin/unit-products`로 고정이라 상위에서 받지 않는다. 변경 이력은 여전히 별도(작은)
+ * 모달로 연다 — signstage-docs business/billing-catalog-price-validity-period-review.md
+ * 결정(2026-09-09, 다중버전 채택). 단위 상품은 할인이 없다(2026-09-10 결정) — 플랜 할인 기간은
+ * `PlanDiscountPeriodSection`을 쓴다.
  */
-export const PricePeriodSection: FC<{
+export const UnitProductPeriodSection: FC<{
   itemId: number;
-  basePath: string;
   /** PLATFORM_OPS 이상만 추가/수정/삭제 버튼을 본다 — 목록·이력 조회는 누구나 볼 수 있다. */
   canManage: boolean;
   onChanged: () => void;
   showSnackbar: (message: string, variant: 'success' | 'error') => void;
-}> = ({ itemId, basePath, canManage, onChanged, showSnackbar }) => {
-  const [periods, setPeriods] = useState<CatalogPricePeriodSummary[]>([]);
+}> = ({ itemId, canManage, onChanged, showSnackbar }) => {
+  const basePath = '/platform-admin/unit-products';
+  const [periods, setPeriods] = useState<UnitProductPricePeriodSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isAdding, setIsAdding] = useState(false);
-  const [addDraft, setAddDraft] = useState<CatalogPricePeriodRequest>(EMPTY_PERIOD_DRAFT());
+  const [addDraft, setAddDraft] = useState<UnitProductPricePeriodRequest>(EMPTY_UNIT_PRODUCT_PERIOD_DRAFT());
   const [editingPeriodId, setEditingPeriodId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState<CatalogPricePeriodRequest | null>(null);
+  const [editDraft, setEditDraft] = useState<UnitProductPricePeriodRequest | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [history, setHistory] = useState<CatalogPricePeriodHistorySummary[]>([]);
+  const [history, setHistory] = useState<UnitProductPricePeriodHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-  const fetchPeriods = async (id: number) => (await api.get(`${basePath}/${id}/periods`)).data as CatalogPricePeriodSummary[];
+  const fetchPeriods = async (id: number) => (await api.get(`${basePath}/${id}/periods`)).data as UnitProductPricePeriodSummary[];
 
   useEffect(() => {
     let cancelled = false;
@@ -237,7 +248,7 @@ export const PricePeriodSection: FC<{
     setIsHistoryLoading(true);
     try {
       const response = await api.get(`${basePath}/${itemId}/periods/history`);
-      setHistory(response.data as CatalogPricePeriodHistorySummary[]);
+      setHistory(response.data as UnitProductPricePeriodHistorySummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '기간 변경 이력을 불러오지 못했습니다.', 'error');
     } finally {
@@ -256,7 +267,7 @@ export const PricePeriodSection: FC<{
       await api.post(`${basePath}/${itemId}/periods`, addDraft);
       showSnackbar('판매가격 기간을 추가했습니다.', 'success');
       setIsAdding(false);
-      setAddDraft(EMPTY_PERIOD_DRAFT());
+      setAddDraft(EMPTY_UNIT_PRODUCT_PERIOD_DRAFT());
       await reloadPeriods();
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '판매가격 기간 추가에 실패했습니다.', 'error');
@@ -265,14 +276,12 @@ export const PricePeriodSection: FC<{
     }
   };
 
-  const startEditPeriod = (period: CatalogPricePeriodSummary) => {
+  const startEditPeriod = (period: UnitProductPricePeriodSummary) => {
     setEditingPeriodId(period.id);
     setEditDraft({
       currencyCode: period.currencyCode,
       supplyPrice: period.supplyPrice,
       salePrice: period.salePrice,
-      discountType: period.discountType,
-      discountValue: period.discountValue,
       taxCode: period.taxCode,
       active: period.active,
       effectiveFrom: period.effectiveFrom,
@@ -310,8 +319,8 @@ export const PricePeriodSection: FC<{
   };
 
   const renderPeriodForm = (
-    draft: CatalogPricePeriodRequest,
-    setDraft: (updater: (prev: CatalogPricePeriodRequest) => CatalogPricePeriodRequest) => void,
+    draft: UnitProductPricePeriodRequest,
+    setDraft: (updater: (prev: UnitProductPricePeriodRequest) => UnitProductPricePeriodRequest) => void,
     disabled: boolean,
   ) => (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -350,30 +359,6 @@ export const PricePeriodSection: FC<{
           className={inputClass}
         />
       </Field>
-      <Field label="할인 방식">
-        <select
-          value={draft.discountType}
-          onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
-          disabled={disabled}
-          className={inputClass}
-        >
-          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="할인 값">
-        <input
-          type="number"
-          min={0}
-          value={draft.discountValue === 0 ? '' : draft.discountValue}
-          onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
-          disabled={disabled}
-          className={inputClass}
-        />
-      </Field>
       <Field label="시작일">
         <input
           type="date"
@@ -393,14 +378,6 @@ export const PricePeriodSection: FC<{
         />
       </Field>
       <ActiveField active={draft.active} disabled={disabled} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
-      <div className="col-span-2 sm:col-span-4">
-        <FinalPricePreview
-          salePrice={draft.salePrice}
-          discountType={draft.discountType}
-          discountValue={draft.discountValue}
-          currencyCode={draft.currencyCode}
-        />
-      </div>
     </div>
   );
 
@@ -418,7 +395,7 @@ export const PricePeriodSection: FC<{
               size="sm"
               onClick={() => {
                 setIsAdding(true);
-                setAddDraft(EMPTY_PERIOD_DRAFT());
+                setAddDraft(EMPTY_UNIT_PRODUCT_PERIOD_DRAFT());
               }}
             >
               <Plus size={12} />
@@ -444,7 +421,7 @@ export const PricePeriodSection: FC<{
                 onSave={handleAdd}
                 onCancel={() => {
                   setIsAdding(false);
-                  setAddDraft(EMPTY_PERIOD_DRAFT());
+                  setAddDraft(EMPTY_UNIT_PRODUCT_PERIOD_DRAFT());
                 }}
               />
             </div>
@@ -474,18 +451,11 @@ export const PricePeriodSection: FC<{
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-950 font-medium">{formatPrice(period.salePrice, period.currencyCode)}</span>
-                        <span className="text-xs text-gray-500">할인 {formatDiscount(period.discountType, period.discountValue)}</span>
                         <PeriodStatusBadge status={period.status} />
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {period.effectiveFrom} ~ {period.effectiveTo ?? '무기한'}
                       </p>
-                      <FinalPricePreview
-                        salePrice={period.salePrice}
-                        discountType={period.discountType}
-                        discountValue={period.discountValue}
-                        currencyCode={period.currencyCode}
-                      />
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -533,7 +503,312 @@ export const PricePeriodSection: FC<{
               {h.removed && <span className="text-xs text-red-600 font-medium">제거됨</span>}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              {h.effectiveFrom} ~ {h.effectiveTo ?? '무기한'} · 할인 {formatDiscount(h.discountType, h.discountValue)}
+              {h.effectiveFrom} ~ {h.effectiveTo ?? '무기한'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
+          </li>
+        ))}
+      </HistoryModal>
+    </div>
+  );
+};
+
+/**
+ * 플랜의 할인 기간 관리 — `UnitProductPeriodSection`과 같은 UI 골격이지만 가격 필드가 없고
+ * 할인 필드만 갖는다(플랜은 자기 가격이 없다, 3.3절). `basePath`는
+ * `/platform-admin/billing-plans`로 고정이라 상위에서 받지 않는다.
+ */
+export const PlanDiscountPeriodSection: FC<{
+  itemId: number;
+  canManage: boolean;
+  onChanged: () => void;
+  showSnackbar: (message: string, variant: 'success' | 'error') => void;
+}> = ({ itemId, canManage, onChanged, showSnackbar }) => {
+  const basePath = '/platform-admin/billing-plans';
+  const [periods, setPeriods] = useState<BillingPlanDiscountPeriodSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [addDraft, setAddDraft] = useState<BillingPlanDiscountPeriodRequest>(EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT());
+  const [editingPeriodId, setEditingPeriodId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<BillingPlanDiscountPeriodRequest | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<BillingPlanDiscountPeriodHistorySummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const fetchPeriods = async (id: number) => (await api.get(`${basePath}/${id}/periods`)).data as BillingPlanDiscountPeriodSummary[];
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPeriods(itemId);
+        if (!cancelled) setPeriods(data);
+      } catch (err) {
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '할인 기간을 불러오지 못했습니다.', 'error');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
+
+  const openHistory = async () => {
+    setIsHistoryOpen(true);
+    setIsHistoryLoading(true);
+    try {
+      const response = await api.get(`${basePath}/${itemId}/periods/history`);
+      setHistory(response.data as BillingPlanDiscountPeriodHistorySummary[]);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '기간 변경 이력을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const reloadPeriods = async () => {
+    setPeriods(await fetchPeriods(itemId));
+    onChanged();
+  };
+
+  const handleAdd = async () => {
+    setIsSaving(true);
+    try {
+      await api.post(`${basePath}/${itemId}/periods`, addDraft);
+      showSnackbar('할인 기간을 추가했습니다.', 'success');
+      setIsAdding(false);
+      setAddDraft(EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT());
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '할인 기간 추가에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEditPeriod = (period: BillingPlanDiscountPeriodSummary) => {
+    setEditingPeriodId(period.id);
+    setEditDraft({
+      discountType: period.discountType,
+      discountValue: period.discountValue,
+      active: period.active,
+      effectiveFrom: period.effectiveFrom,
+      effectiveTo: period.effectiveTo,
+    });
+  };
+
+  const handleSaveEditPeriod = async (periodId: number) => {
+    if (!editDraft) return;
+    setIsSaving(true);
+    try {
+      await api.put(`${basePath}/${itemId}/periods/${periodId}`, editDraft);
+      showSnackbar('할인 기간을 저장했습니다.', 'success');
+      setEditingPeriodId(null);
+      setEditDraft(null);
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '할인 기간 저장에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemovePeriod = async (periodId: number) => {
+    setIsSaving(true);
+    try {
+      await api.delete(`${basePath}/${itemId}/periods/${periodId}`);
+      showSnackbar('할인 기간을 삭제했습니다.', 'success');
+      await reloadPeriods();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '할인 기간 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderPeriodForm = (
+    draft: BillingPlanDiscountPeriodRequest,
+    setDraft: (updater: (prev: BillingPlanDiscountPeriodRequest) => BillingPlanDiscountPeriodRequest) => void,
+    disabled: boolean,
+  ) => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Field label="할인 방식">
+        <select
+          value={draft.discountType}
+          onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
+          disabled={disabled}
+          className={inputClass}
+        >
+          {DISCOUNT_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="할인 값">
+        <input
+          type="number"
+          min={0}
+          value={draft.discountValue === 0 ? '' : draft.discountValue}
+          onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="시작일">
+        <input
+          type="date"
+          value={draft.effectiveFrom}
+          onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="종료일(무기한이면 비움)">
+        <input
+          type="date"
+          value={draft.effectiveTo ?? ''}
+          onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+          disabled={disabled}
+          className={inputClass}
+        />
+      </Field>
+      <ActiveField active={draft.active} disabled={disabled} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
+    </div>
+  );
+
+  return (
+    <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-gray-950">할인 기간</h2>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={openHistory}>
+            <History size={12} />
+            변경 이력
+          </Button>
+          {canManage && !isAdding && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setIsAdding(true);
+                setAddDraft(EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT());
+              }}
+            >
+              <Plus size={12} />
+              새 기간 추가
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-gray-400">
+          <Loader2 size={20} className="animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {isAdding && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+              {renderPeriodForm(addDraft, setAddDraft, isSaving)}
+              <FormActions
+                isSaving={isSaving}
+                savingLabel="추가 중..."
+                saveLabel="추가"
+                onSave={handleAdd}
+                onCancel={() => {
+                  setIsAdding(false);
+                  setAddDraft(EMPTY_PLAN_DISCOUNT_PERIOD_DRAFT());
+                }}
+              />
+            </div>
+          )}
+
+          {periods.length === 0 ? (
+            <p className="text-sm text-gray-400">등록된 할인 기간이 없습니다.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {periods.map((period) =>
+                editingPeriodId === period.id && editDraft ? (
+                  <li key={period.id} className="py-3 bg-gray-50 -mx-1 px-1 rounded-md space-y-3">
+                    {renderPeriodForm(editDraft, (updater) => setEditDraft((prev) => prev && updater(prev)), isSaving)}
+                    <FormActions
+                      isSaving={isSaving}
+                      savingLabel="저장 중..."
+                      saveLabel="저장"
+                      onSave={() => handleSaveEditPeriod(period.id)}
+                      onCancel={() => {
+                        setEditingPeriodId(null);
+                        setEditDraft(null);
+                      }}
+                    />
+                  </li>
+                ) : (
+                  <li key={period.id} className="py-2 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-950 font-medium">
+                          할인 {formatDiscount(period.discountType, period.discountValue)}
+                        </span>
+                        <PeriodStatusBadge status={period.status} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {period.effectiveFrom} ~ {period.effectiveTo ?? '무기한'}
+                      </p>
+                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => startEditPeriod(period)}
+                          disabled={editingPeriodId !== null || isAdding}
+                        >
+                          <Pencil size={12} />
+                          수정
+                        </Button>
+                        <Button
+                          variant="danger-outline"
+                          size="sm"
+                          onClick={() => handleRemovePeriod(period.id)}
+                          disabled={isSaving || periods.length <= 1}
+                          title={periods.length <= 1 ? '마지막 남은 기간은 삭제할 수 없습니다.' : undefined}
+                        >
+                          <X size={12} />
+                          삭제
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <HistoryModal
+        open={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        title="할인 기간 변경 이력"
+        isLoading={isHistoryLoading}
+        isEmpty={history.length === 0}
+      >
+        {history.map((h) => (
+          <li key={h.id} className="py-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-950 font-medium">할인 {formatDiscount(h.discountType, h.discountValue)}</p>
+              <ActiveBadge active={h.active} />
+              {h.removed && <span className="text-xs text-red-600 font-medium">제거됨</span>}
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {h.effectiveFrom} ~ {h.effectiveTo ?? '무기한'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
           </li>

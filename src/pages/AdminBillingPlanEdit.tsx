@@ -6,21 +6,27 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, UsageWarning } from './billingCatalog/components';
-import { PLAN_CAPACITY_TYPE_OPTIONS, inputClass } from './billingCatalog/constants';
-import type { BillingPlanSummary, CapacityAddOnSummary, OptionalFeatureSummary, UpdateBillingPlanRequest } from '../types';
+import { PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, inputClass } from './billingCatalog/constants';
+import type { BillingPlanSummary, PlanUnitProductLine, UnitProductSummary, UpdateBillingPlanRequest } from '../types';
+
+interface LineDraft {
+  includedQuantity: number;
+  purchasable: boolean;
+}
 
 /** 과금 플랜 수정 — 인라인 편집이 아니라 별도 페이지로 구성한다(사용자 요청, 2026-09-09).
- * 가격/할인/판매기간/사용여부는 여기서 다루지 않는다 — 상세 화면의 "가격 기간 관리"에서 기간
- * 단위로 관리한다. */
+ * 할인/사용여부/할인기간은 여기서 다루지 않는다 — 상세 화면의 "할인 기간 관리"에서 기간
+ * 단위로 관리한다. 단위 상품 구성은 여기서 통째로 교체한다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). */
 export const AdminBillingPlanEdit: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const planId = Number(id);
 
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
-  const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
-  const [draft, setDraft] = useState<UpdateBillingPlanRequest | null>(null);
+  const [products, setProducts] = useState<UnitProductSummary[]>([]);
+  const [name, setName] = useState('');
+  const [lineDrafts, setLineDrafts] = useState<Record<number, LineDraft>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,12 +36,9 @@ export const AdminBillingPlanEdit: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [plansRes, featuresRes, addOnsRes] = await Promise.all([
-          api.get('/billing-plans'),
-          api.get('/optional-features'),
-          api.get('/capacity-addons'),
-        ]);
+        const [plansRes, productsRes] = await Promise.all([api.get('/billing-plans'), api.get('/unit-products')]);
         const found = (plansRes.data as BillingPlanSummary[]).find((p) => p.id === planId) ?? null;
+        const allProducts = productsRes.data as UnitProductSummary[];
         if (!cancelled) {
           if (!found) {
             showSnackbar('과금 플랜을 찾을 수 없습니다.', 'error');
@@ -43,14 +46,15 @@ export const AdminBillingPlanEdit: FC = () => {
             return;
           }
           setPlan(found);
-          setFeatures(featuresRes.data as OptionalFeatureSummary[]);
-          setAddOns(addOnsRes.data as CapacityAddOnSummary[]);
-          setDraft({
-            name: found.name,
-            capacities: { ...found.capacities },
-            optionalFeatureIds: found.optionalFeatureIds,
-            capacityAddOnIds: found.capacityAddOnIds,
-          });
+          setProducts(allProducts);
+          setName(found.name);
+          const drafts: Record<number, LineDraft> = Object.fromEntries(
+            allProducts.map((p) => [p.id, { includedQuantity: 0, purchasable: false }]),
+          );
+          for (const line of found.unitProducts) {
+            drafts[line.unitProductId] = { includedQuantity: line.includedQuantity, purchasable: line.purchasable };
+          }
+          setLineDrafts(drafts);
         }
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '과금 플랜을 불러오지 못했습니다.', 'error');
@@ -64,21 +68,25 @@ export const AdminBillingPlanEdit: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
 
-  const addOnLabel = (id: number) => {
-    const addOn = addOns.find((a) => a.id === id);
-    if (!addOn) return `#${id}`;
-    return `${addOn.capacityType} +${addOn.unitAmount}`;
-  };
+  const buildLines = (): PlanUnitProductLine[] =>
+    Object.entries(lineDrafts)
+      .filter(([, line]) => line.includedQuantity > 0 || line.purchasable)
+      .map(([unitProductId, line]) => ({
+        unitProductId: Number(unitProductId),
+        includedQuantity: line.includedQuantity,
+        purchasable: line.purchasable,
+      }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!draft || !draft.name.trim()) {
+    if (!name.trim()) {
       showSnackbar('플랜 이름을 입력해주세요.', 'error');
       return;
     }
     setIsSaving(true);
     try {
-      await api.put(`/platform-admin/billing-plans/${planId}`, { ...draft, name: draft.name.trim() });
+      const body: UpdateBillingPlanRequest = { name: name.trim(), unitProducts: buildLines() };
+      await api.put(`/platform-admin/billing-plans/${planId}`, body);
       showSnackbar('과금 플랜을 저장했습니다.', 'success');
       navigate(`/admin/billing-catalog/plans/${planId}`);
     } catch (err) {
@@ -100,10 +108,10 @@ export const AdminBillingPlanEdit: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">과금 플랜 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">가격/할인/판매기간/사용여부는 상세 화면의 "가격 기간 관리"에서 다룹니다.</p>
+        <p className="mt-1 text-sm text-gray-500">할인/할인기간/사용여부는 상세 화면의 "할인 기간 관리"에서 다룹니다.</p>
       </div>
 
-      {isLoading || !plan || !draft ? (
+      {isLoading || !plan ? (
         <div className="flex items-center justify-center py-16 text-gray-400">
           <Loader2 size={24} className="animate-spin" />
         </div>
@@ -113,96 +121,74 @@ export const AdminBillingPlanEdit: FC = () => {
             <Field label="이름">
               <input
                 type="text"
-                value={draft.name}
-                onChange={(e) => setDraft((prev) => prev && { ...prev, name: e.target.value })}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 disabled={isSaving}
                 className={inputClass}
               />
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {PLAN_CAPACITY_TYPE_OPTIONS.map((option) => (
-              <Field key={option.value} label={`${option.label} 한도`}>
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.capacities[option.value] === 0 ? '' : draft.capacities[option.value]}
-                  onChange={(e) =>
-                    setDraft((prev) => prev && { ...prev, capacities: { ...prev.capacities, [option.value]: Number(e.target.value) } })
-                  }
-                  disabled={isSaving}
-                  className={inputClass}
-                />
-              </Field>
-            ))}
-          </div>
-
           <div>
-            <span className="block text-xs font-medium text-gray-500 mb-1">포함 선택옵션</span>
-            {features.length === 0 ? (
-              <p className="text-xs text-gray-400">등록된 선택옵션이 없습니다.</p>
+            <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>
+            {products.length === 0 ? (
+              <p className="text-xs text-gray-400">등록된 단위 상품이 없습니다.</p>
             ) : (
-              <div className="flex flex-wrap gap-3">
-                {features.map((feature) => (
-                  <label key={feature.id} className="flex items-center gap-1.5 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={draft.optionalFeatureIds.includes(feature.id)}
-                      disabled={isSaving}
-                      onChange={(e) =>
-                        setDraft(
-                          (prev) =>
-                            prev && {
-                              ...prev,
-                              optionalFeatureIds: e.target.checked
-                                ? [...prev.optionalFeatureIds, feature.id]
-                                : prev.optionalFeatureIds.filter((fid) => fid !== feature.id),
-                            },
-                        )
-                      }
-                    />
-                    {feature.name}
-                  </label>
-                ))}
+              <div className="rounded-md border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">단위 상품</th>
+                      <th className="text-left px-3 py-2 font-medium w-32">기본 포함 수량</th>
+                      <th className="text-left px-3 py-2 font-medium w-28">추가구매 후보</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {products.map((product) => {
+                      const line = lineDrafts[product.id] ?? { includedQuantity: 0, purchasable: false };
+                      const includable = PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.includes(product.type);
+                      return (
+                        <tr key={product.id}>
+                          <td className="px-3 py-2">
+                            <span className="text-gray-950">{product.name}</span>
+                            <span className="ml-1.5 text-xs text-gray-400">
+                              {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              value={!includable || line.includedQuantity === 0 ? '' : line.includedQuantity}
+                              disabled={isSaving || !includable}
+                              placeholder={includable ? '0' : '—'}
+                              onChange={(e) =>
+                                setLineDrafts((prev) => ({
+                                  ...prev,
+                                  [product.id]: { ...line, includedQuantity: Number(e.target.value) },
+                                }))
+                              }
+                              className={`${inputClass} w-24`}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={line.purchasable}
+                              disabled={isSaving}
+                              onChange={(e) =>
+                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, purchasable: e.target.checked } }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
             <p className="mt-1 text-xs text-gray-400">이미 확정/구매해서 쓰고 있는 행사는 변경 시점 스냅샷 기준이라 영향받지 않습니다.</p>
-          </div>
-
-          <div>
-            <span className="block text-xs font-medium text-gray-500 mb-1">구매 가능 용량 추가구매 상품</span>
-            {addOns.length === 0 ? (
-              <p className="text-xs text-gray-400">등록된 용량 추가구매 상품이 없습니다.</p>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {addOns.map((addOn) => (
-                  <label key={addOn.id} className="flex items-center gap-1.5 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={draft.capacityAddOnIds.includes(addOn.id)}
-                      disabled={isSaving}
-                      onChange={(e) =>
-                        setDraft(
-                          (prev) =>
-                            prev && {
-                              ...prev,
-                              capacityAddOnIds: e.target.checked
-                                ? [...prev.capacityAddOnIds, addOn.id]
-                                : prev.capacityAddOnIds.filter((aid) => aid !== addOn.id),
-                            },
-                        )
-                      }
-                    />
-                    {addOnLabel(addOn.id)}
-                  </label>
-                ))}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-gray-400">
-              체크한 상품만 이 플랜의 행사가 구매할 수 있습니다(무료 포함 아님). 이미 진행 중인 행사는 플랜 확정/변경 시점 스냅샷
-              기준이라 영향받지 않습니다.
-            </p>
           </div>
 
           <UsageWarning count={plan.usageCount} itemLabel="플랜" />

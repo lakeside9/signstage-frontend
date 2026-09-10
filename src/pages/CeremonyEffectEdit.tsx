@@ -6,7 +6,7 @@ import { CeremonyEffectDefinitionForm } from '../components/effects/admin/Ceremo
 import type { CeremonyEffectFormValue } from '../components/effects/admin/CeremonyEffectDefinitionForm';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { CeremonyEffectDefinition, OptionalFeatureSummary, UpdateCeremonyEffectDefinitionRequest } from '../types';
+import type { CeremonyEffectDefinition, UnitProductSummary, UpdateCeremonyEffectDefinitionRequest } from '../types';
 
 /**
  * 이벤트 효과 정의 수정(`/admin/effects/:id/edit`) — signstage-docs
@@ -18,7 +18,7 @@ export const CeremonyEffectEdit: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const [definition, setDefinition] = useState<CeremonyEffectDefinition | null>(null);
-  const [optionalFeatures, setOptionalFeatures] = useState<OptionalFeatureSummary[]>([]);
+  const [unitProducts, setUnitProducts] = useState<UnitProductSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -29,11 +29,11 @@ export const CeremonyEffectEdit: FC = () => {
       try {
         const [definitionRes, featuresRes] = await Promise.all([
           api.get(`/platform-admin/ceremony-effects/${id}`),
-          api.get('/optional-features'),
+          api.get('/unit-products'),
         ]);
         if (!cancelled) {
           setDefinition(definitionRes.data as CeremonyEffectDefinition);
-          setOptionalFeatures(featuresRes.data as OptionalFeatureSummary[]);
+          setUnitProducts(featuresRes.data as UnitProductSummary[]);
         }
       } catch (err) {
         if (!cancelled) {
@@ -96,7 +96,7 @@ export const CeremonyEffectEdit: FC = () => {
   };
 
   const belongingBundleNames = definition.optionalFeatureIds
-    .map((featureId) => optionalFeatures.find((f) => f.id === featureId)?.name ?? `#${featureId}`);
+    .map((featureId) => unitProducts.find((f) => f.id === featureId)?.name ?? `#${featureId}`);
 
   return (
     <div>

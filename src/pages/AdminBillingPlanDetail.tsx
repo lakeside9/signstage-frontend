@@ -7,20 +7,20 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
-import { DetailRow, HistoryButton, HistoryModal, PeriodStatusBadge, PricePeriodSection } from './billingCatalog/components';
-import { PLAN_CAPACITY_TYPE_OPTIONS, formatDiscount, formatPrice, formatSupplyPrice } from './billingCatalog/constants';
-import type { BillingPlanHistorySummary, BillingPlanSummary, CapacityAddOnSummary, OptionalFeatureSummary } from '../types';
+import { DetailRow, FinalPricePreview, HistoryButton, HistoryModal, PeriodStatusBadge, PlanDiscountPeriodSection } from './billingCatalog/components';
+import { UNIT_PRODUCT_TYPE_LABEL, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
+import type { BillingPlanHistorySummary, BillingPlanSummary } from '../types';
 
 /** 과금 플랜 상세 — 파트너관리(AdminOrganizationDetail.tsx)와 같은 구성: 읽기 전용 정보 +
- * 이력/가격 기간 관리는 모달, 수정은 별도 페이지(사용자 요청, 2026-09-09)로 이동한다. */
+ * 이력/할인 기간 관리는 모달, 수정은 별도 페이지(사용자 요청, 2026-09-09)로 이동한다. 플랜은
+ * 자기 가격이 없다 — 포함 단위 상품 구성으로 소계를 보여준다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.3절). */
 export const AdminBillingPlanDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const planId = Number(id);
 
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
-  const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -31,29 +31,22 @@ export const AdminBillingPlanDetail: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const load = async () => {
-    const [plansRes, featuresRes, addOnsRes] = await Promise.all([
-      api.get('/billing-plans'),
-      api.get('/optional-features'),
-      api.get('/capacity-addons'),
-    ]);
-    const found = (plansRes.data as BillingPlanSummary[]).find((p) => p.id === planId) ?? null;
-    return { found, features: featuresRes.data as OptionalFeatureSummary[], addOns: addOnsRes.data as CapacityAddOnSummary[] };
+    const plansRes = await api.get('/billing-plans');
+    return (plansRes.data as BillingPlanSummary[]).find((p) => p.id === planId) ?? null;
   };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await load();
+        const found = await load();
         if (!cancelled) {
-          if (!data.found) {
+          if (!found) {
             showSnackbar('과금 플랜을 찾을 수 없습니다.', 'error');
             navigate('/admin/billing-catalog/plans', { replace: true });
             return;
           }
-          setPlan(data.found);
-          setFeatures(data.features);
-          setAddOns(data.addOns);
+          setPlan(found);
         }
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '과금 플랜을 불러오지 못했습니다.', 'error');
@@ -66,14 +59,6 @@ export const AdminBillingPlanDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
-
-  const featureName = (fid: number) => features.find((f) => f.id === fid)?.name ?? `#${fid}`;
-  const addOnLabel = (aid: number) => {
-    const addOn = addOns.find((a) => a.id === aid);
-    if (!addOn) return `#${aid}`;
-    const primary = `${addOn.capacityType} +${addOn.unitAmount}`;
-    return addOn.secondaryCapacityType ? `${primary} · ${addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}` : primary;
-  };
 
   const openHistory = async () => {
     setIsHistoryOpen(true);
@@ -123,37 +108,53 @@ export const AdminBillingPlanDetail: FC = () => {
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="이름" value={plan.name} />
             <DetailRow
-              label="공급가/판매가"
-              value={
-                plan.salePrice === null
-                  ? '-'
-                  : `${formatSupplyPrice(plan.supplyPrice, plan.currencyCode ?? 'KRW')} / ${formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}`
-              }
+              label="단위 상품 소계"
+              value={formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
             />
             <DetailRow
               label="할인"
-              value={plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
+              value={
+                plan.discountType === null || plan.discountValue === null ? (
+                  '-'
+                ) : (
+                  <div>
+                    <p>{formatDiscount(plan.discountType, plan.discountValue)}</p>
+                    <FinalPricePreview
+                      salePrice={planSubtotal(plan.unitProducts)}
+                      discountType={plan.discountType}
+                      discountValue={plan.discountValue}
+                      currencyCode={plan.unitProducts[0]?.currencyCode ?? 'KRW'}
+                    />
+                  </div>
+                )
+              }
             />
             <DetailRow
-              label="판매 기간"
+              label="할인 적용 기간"
               value={plan.effectiveFrom ? `${plan.effectiveFrom} ~ ${plan.effectiveTo ?? '무기한'}` : '-'}
             />
             <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
             <DetailRow
-              label="한도"
-              value={PLAN_CAPACITY_TYPE_OPTIONS.map((option) => `${option.label} ${plan.capacities[option.value]}`).join(' · ')}
+              label="포함 단위 상품"
+              value={
+                plan.unitProducts.length === 0
+                  ? '없음'
+                  : plan.unitProducts
+                      .map(
+                        (line) =>
+                          `${line.unitProductName}(${UNIT_PRODUCT_TYPE_LABEL[line.unitProductType] ?? line.unitProductType}) 기본 ${line.includedQuantity}${line.purchasable ? ' · 추가구매 가능' : ''}`,
+                      )
+                      .join(', ')
+              }
             />
-            <DetailRow label="포함 선택옵션" value={plan.optionalFeatureIds.map(featureName).join(', ') || '없음'} />
-            <DetailRow label="구매 가능 추가구매 상품" value={plan.capacityAddOnIds.map(addOnLabel).join(', ') || '없음'} />
             <DetailRow label="사용 건수" value={`${plan.usageCount}건`} />
             <DetailRow label="생성일" value={formatDateTime(plan.createdAt)} />
           </div>
 
-          <PricePeriodSection
+          <PlanDiscountPeriodSection
             itemId={plan.id}
-            basePath="/platform-admin/billing-plans"
             canManage={canManage}
-            onChanged={() => load().then((data) => data.found && setPlan(data.found))}
+            onChanged={() => load().then((found) => found && setPlan(found))}
             showSnackbar={showSnackbar}
           />
 
@@ -168,8 +169,9 @@ export const AdminBillingPlanDetail: FC = () => {
               <li key={h.id} className="py-2">
                 <p className="text-sm text-gray-950 font-medium">{h.name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  서명자 {h.capacities.SIGNERS}명 · 템플릿 {h.capacities.TEMPLATES}건 · 테스트 {h.capacities.TEST_EVENTS}건 · 리허설{' '}
-                  {h.capacities.REHEARSAL_EVENTS}건 · 본행사 {h.capacities.MAIN_EVENTS}건
+                  {h.unitProducts.length === 0
+                    ? '포함 단위 상품 없음'
+                    : h.unitProducts.map((line) => `${line.unitProductName} 기본 ${line.includedQuantity}`).join(' · ')}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
               </li>

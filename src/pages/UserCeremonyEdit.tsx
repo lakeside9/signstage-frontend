@@ -12,35 +12,23 @@ import {
   Receipt,
   RefreshCw,
   Settings,
-  Sparkles,
 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
+import { UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
 import type {
   BillingPlanSummary,
-  CapacityAddOnSummary,
-  CapacityPurchaseSummary,
   CeremonyPlanHistorySummary,
   CeremonyStatus,
   CeremonySummary,
   EstimatedTotal,
-  OptionalFeaturePurchaseSummary,
-  OptionalFeatureSummary,
   PurchaseStatus,
+  PurchaseUnitProductLine,
+  UnitProductPurchaseSummary,
+  UnitProductSummary,
 } from '../types';
-
-const CAPACITY_TYPE_LABEL: Record<string, string> = {
-  SIGNERS: '서명자 수',
-  TEMPLATES: '템플릿 업로드 수',
-  TEST_EVENTS: '테스트 행사 수',
-  REHEARSAL_EVENTS: '리허설 행사 수',
-  MAIN_EVENTS: '본행사 수',
-  TABLETS: '태블릿 수',
-  ONSITE_SUPPORT: '현장지원 건수',
-  ONLINE_SUPPORT: '온라인지원 건수',
-};
 
 /** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
 const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
@@ -125,20 +113,13 @@ export const UserCeremonyEdit: FC = () => {
   const [contactEmailDraft, setContactEmailDraft] = useState('');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
 
-  const [capacityAddOns, setCapacityAddOns] = useState<CapacityAddOnSummary[]>([]);
-  const [isCapacityLoading, setIsCapacityLoading] = useState(true);
-  const [selectedAddOnId, setSelectedAddOnId] = useState<number | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [isPurchasingCapacity, setIsPurchasingCapacity] = useState(false);
-  const [capacityPurchases, setCapacityPurchases] = useState<CapacityPurchaseSummary[]>([]);
-  const [isCapacityHistoryLoading, setIsCapacityHistoryLoading] = useState(true);
-
-  const [optionalFeatures, setOptionalFeatures] = useState<OptionalFeatureSummary[]>([]);
-  const [isFeaturesLoading, setIsFeaturesLoading] = useState(true);
-  const [processingFeatureId, setProcessingFeatureId] = useState<number | null>(null);
-  const [featurePurchases, setFeaturePurchases] = useState<OptionalFeaturePurchaseSummary[]>([]);
-  const [isFeatureHistoryLoading, setIsFeatureHistoryLoading] = useState(true);
-  const [isFeatureHistoryModalOpen, setIsFeatureHistoryModalOpen] = useState(false);
+  const [purchasableProducts, setPurchasableProducts] = useState<UnitProductSummary[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [cartQuantities, setCartQuantities] = useState<Record<number, number>>({});
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchases, setPurchases] = useState<UnitProductPurchaseSummary[]>([]);
+  const [isPurchaseHistoryLoading, setIsPurchaseHistoryLoading] = useState(true);
+  const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
@@ -279,18 +260,18 @@ export const UserCeremonyEdit: FC = () => {
         // 전체 카탈로그가 아니라 이 행사의 플랜에서 구매 가능한(안 A 큐레이션) 상품만 받는다 —
         // 플랜에 없는 상품을 골라 제출한 뒤에야 거부당하는 UX를 피하기 위함이다(signstage-docs
         // business/optional-feature-display-scope-and-plan-capacity-addon-review.md 5.6절).
-        const response = await api.get(`${basePath}/available-capacity-addons`);
+        const response = await api.get(`${basePath}/purchasable-unit-products`);
         if (!cancelled) {
-          setCapacityAddOns(response.data as CapacityAddOnSummary[]);
+          setPurchasableProducts(response.data as UnitProductSummary[]);
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '용량 추가구매 상품을 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '추가구매 가능한 단위 상품을 불러오지 못했습니다.';
           showSnackbar(message, 'error');
         }
       } finally {
         if (!cancelled) {
-          setIsCapacityLoading(false);
+          setIsProductsLoading(false);
         }
       }
     })();
@@ -301,41 +282,9 @@ export const UserCeremonyEdit: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basePath]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const response = await api.get('/optional-features');
-        if (!cancelled) {
-          setOptionalFeatures(response.data as OptionalFeatureSummary[]);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : '선택옵션을 불러오지 못했습니다.';
-          showSnackbar(message, 'error');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsFeaturesLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchCapacityPurchases = async () => {
-    const response = await api.get(`${basePath}/capacity-purchases`);
-    return response.data as CapacityPurchaseSummary[];
-  };
-
-  const fetchFeaturePurchases = async () => {
-    const response = await api.get(`${basePath}/optional-feature-purchases`);
-    return response.data as OptionalFeaturePurchaseSummary[];
+  const fetchPurchases = async () => {
+    const response = await api.get(`${basePath}/unit-product-purchases`);
+    return response.data as UnitProductPurchaseSummary[];
   };
 
   useEffect(() => {
@@ -343,45 +292,18 @@ export const UserCeremonyEdit: FC = () => {
 
     (async () => {
       try {
-        const data = await fetchCapacityPurchases();
+        const data = await fetchPurchases();
         if (!cancelled) {
-          setCapacityPurchases(data);
+          setPurchases(data);
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '용량 추가구매 이력을 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '추가구매 이력을 불러오지 못했습니다.';
           showSnackbar(message, 'error');
         }
       } finally {
         if (!cancelled) {
-          setIsCapacityHistoryLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, ceremonyId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const data = await fetchFeaturePurchases();
-        if (!cancelled) {
-          setFeaturePurchases(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : '선택옵션 추가구매 이력을 불러오지 못했습니다.';
-          showSnackbar(message, 'error');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsFeatureHistoryLoading(false);
+          setIsPurchaseHistoryLoading(false);
         }
       }
     })();
@@ -457,55 +379,49 @@ export const UserCeremonyEdit: FC = () => {
     }
   };
 
-  const handlePurchaseCapacity = async (e: FormEvent) => {
+  const setCartQuantity = (unitProductId: number, next: number) => {
+    setCartQuantities((prev) => ({ ...prev, [unitProductId]: Math.max(0, next) }));
+  };
+
+  /**
+   * 단위 상품 추가구매 — 여러 줄을 한 번에 담아 제출하는 장바구니형 요청이다(signstage-docs
+   * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.4절) —
+   * 옛 용량/선택옵션 2개 요청을 통합했다.
+   */
+  const handlePurchase = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedAddOnId) {
-      showSnackbar('추가구매할 항목을 선택해주세요.', 'error');
-      return;
-    }
-    if (quantity < 1) {
-      showSnackbar('수량은 1 이상이어야 합니다.', 'error');
+    const lines: PurchaseUnitProductLine[] = Object.entries(cartQuantities)
+      .filter(([, quantity]) => quantity > 0)
+      .map(([unitProductId, quantity]) => ({ unitProductId: Number(unitProductId), quantity }));
+    if (lines.length === 0) {
+      showSnackbar('추가구매할 항목의 수량을 입력해주세요.', 'error');
       return;
     }
 
-    setIsPurchasingCapacity(true);
+    setIsPurchasing(true);
     try {
-      await api.post(`${basePath}/capacity-purchases`, {
-        capacityAddOnId: selectedAddOnId,
-        quantity,
-      });
-      showSnackbar('용량 추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
-      setQuantity(1);
-      setCapacityPurchases(await fetchCapacityPurchases());
+      await api.post(`${basePath}/unit-product-purchases`, { lines });
+      showSnackbar('추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
+      setCartQuantities({});
+      setPurchases(await fetchPurchases());
     } catch (err) {
-      const message = err instanceof Error ? err.message : '용량 추가구매 요청에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '추가구매 요청에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
-      setIsPurchasingCapacity(false);
+      setIsPurchasing(false);
     }
   };
 
-  const handlePurchaseFeature = async (optionalFeatureId: number) => {
-    setProcessingFeatureId(optionalFeatureId);
-    try {
-      await api.post(`${basePath}/optional-feature-purchases`, {
-        optionalFeatureId,
-      });
-      showSnackbar('선택옵션 추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
-      setFeaturePurchases(await fetchFeaturePurchases());
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '선택옵션 추가구매 요청에 실패했습니다.';
-      showSnackbar(message, 'error');
-    } finally {
-      setProcessingFeatureId(null);
-    }
-  };
-
-  /** REJECTED는 재요청할 수 있어야 하므로 PENDING/APPROVED가 있을 때만 구매 버튼을 막는다. */
-  const hasActiveFeaturePurchase = (optionalFeatureId: number) =>
-    featurePurchases.some(
-      (purchase) => purchase.optionalFeatureId === optionalFeatureId && purchase.status !== 'REJECTED',
-    );
+  /**
+   * 이벤트 효과 묶음(EVENT_EFFECT_BUNDLE)은 토글형이라 PENDING/APPROVED 요청이 있으면 재구매를
+   * 막는다(백엔드 검증과 같은 규칙, 3.6절) — REJECTED는 재요청할 수 있어야 하므로 제외한다.
+   * 그 외 종류(용량 계열)는 여러 번 구매해 누적할 수 있어 막지 않는다.
+   */
+  const activePurchaseStatus = (unitProductId: number): PurchaseStatus | undefined =>
+    purchases.find(
+      (purchase) => purchase.status !== 'REJECTED' && purchase.lines.some((line) => line.unitProductId === unitProductId),
+    )?.status;
+  const hasActiveEventEffectPurchase = (unitProductId: number) => activePurchaseStatus(unitProductId) !== undefined;
 
   if (isLoading) {
     return (
@@ -529,20 +445,26 @@ export const UserCeremonyEdit: FC = () => {
   const plan = planSnapshot
     ? {
         name: planSnapshot.planName,
-        currencyCode: planSnapshot.currencyCode,
-        supplyPrice: planSnapshot.planSupplyPrice,
-        salePrice: planSnapshot.planSalePrice,
         discountType: planSnapshot.planDiscountType,
         discountValue: planSnapshot.planDiscountValue,
-        capacities: {
-          SIGNERS: planSnapshot.planMaxSigners,
-          TEMPLATES: planSnapshot.planMaxTemplates,
-          TEST_EVENTS: planSnapshot.planMaxTestEvents,
-          REHEARSAL_EVENTS: planSnapshot.planMaxRehearsalEvents,
-          MAIN_EVENTS: planSnapshot.planMaxMainEvents,
-        },
+        currencyCode: planSnapshot.lines[0]?.currencyCode ?? 'KRW',
+        subtotal: planSnapshot.lines.reduce((sum, line) => sum + line.snapshotSalePrice * line.includedQuantity, 0),
+        includedQuantityOf: (type: string) =>
+          planSnapshot.lines.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
       }
-    : (plans.find((p) => p.id === ceremony.billingPlanId) ?? null);
+    : (() => {
+        const live = plans.find((p) => p.id === ceremony.billingPlanId);
+        if (!live) return null;
+        return {
+          name: live.name,
+          discountType: live.discountType,
+          discountValue: live.discountValue,
+          currencyCode: live.unitProducts[0]?.currencyCode ?? 'KRW',
+          subtotal: planSubtotal(live.unitProducts),
+          includedQuantityOf: (type: string) =>
+            live.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+        };
+      })();
 
   return (
     <div>
@@ -737,13 +659,13 @@ export const UserCeremonyEdit: FC = () => {
               <span className="text-gray-950 font-medium">{plan.name}</span>
             </div>
             {/* 공급가(원가)는 내부 전용이라 사용자 화면에 노출하지 않는다(signstage-docs
-                business/billing-catalog-operations-review.md 4장) — 이전엔 여기서
-                "공급가/판매가"로 같이 보여주고 있었다(2026-09-08 발견·수정). */}
+                business/billing-catalog-operations-review.md 4장). 플랜은 자기 가격이 없다 —
+                포함 단위 상품 소계로 대신 보여준다(signstage-docs
+                business/billing-catalog-unit-product-model-redesign-review.md 결정,
+                2026-09-10). */}
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">판매가</span>
-              <span className="text-gray-950">
-                {plan.salePrice === null ? '가격 정보 없음' : formatPrice(plan.salePrice, plan.currencyCode ?? 'KRW')}
-              </span>
+              <span className="text-gray-500">단위 상품 소계</span>
+              <span className="text-gray-950">{formatPrice(plan.subtotal, plan.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">할인</span>
@@ -753,23 +675,23 @@ export const UserCeremonyEdit: FC = () => {
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">서명자 한도</span>
-              <span className="text-gray-950">{plan.capacities.SIGNERS}명</span>
+              <span className="text-gray-950">{plan.includedQuantityOf('SIGNERS')}명</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">템플릿 한도</span>
-              <span className="text-gray-950">{plan.capacities.TEMPLATES}건</span>
+              <span className="text-gray-950">{plan.includedQuantityOf('TEMPLATES')}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">테스트 행사 한도</span>
-              <span className="text-gray-950">{plan.capacities.TEST_EVENTS}건</span>
+              <span className="text-gray-950">{plan.includedQuantityOf('TEST_EVENTS')}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">리허설 행사 한도</span>
-              <span className="text-gray-950">{plan.capacities.REHEARSAL_EVENTS}건</span>
+              <span className="text-gray-950">{plan.includedQuantityOf('REHEARSAL_EVENTS')}건</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">본행사 한도</span>
-              <span className="text-gray-950">{plan.capacities.MAIN_EVENTS}건</span>
+              <span className="text-gray-950">{plan.includedQuantityOf('MAIN_EVENTS')}건</span>
             </div>
           </div>
         )}
@@ -790,7 +712,9 @@ export const UserCeremonyEdit: FC = () => {
                   .map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}
-                      {candidate.salePrice === null ? '' : ` — ${formatPrice(candidate.salePrice, candidate.currencyCode ?? 'KRW')}`}
+                      {candidate.unitProducts.length === 0
+                        ? ''
+                        : ` — ${formatPrice(planSubtotal(candidate.unitProducts), candidate.unitProducts[0]?.currencyCode ?? 'KRW')}`}
                     </option>
                   ))}
               </select>
@@ -830,12 +754,8 @@ export const UserCeremonyEdit: FC = () => {
               <span className="text-gray-950">{formatPrice(estimatedTotal.planAppliedPrice, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">용량 추가구매(승인분)</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.capacityPurchasesTotal, estimatedTotal.currencyCode)}</span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">선택옵션 추가구매(승인분)</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.optionalFeaturePurchasesTotal, estimatedTotal.currencyCode)}</span>
+              <span className="text-gray-500">추가구매(승인분)</span>
+              <span className="text-gray-950">{formatPrice(estimatedTotal.unitProductPurchasesTotal, estimatedTotal.currencyCode)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">소계</span>
@@ -869,191 +789,115 @@ export const UserCeremonyEdit: FC = () => {
         </p>
       </section>
 
-      {/* 용량 추가구매 */}
-      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <Package size={14} />
-          용량 추가구매
-        </h2>
-        <p className="text-xs text-gray-400 mb-3">
-          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 유효 한도에 반영됩니다.
-        </p>
-        {isCapacityLoading ? (
-          <div className="flex items-center justify-center py-8 text-gray-400">
-            <Loader2 size={20} className="animate-spin" />
-          </div>
-        ) : isCompleted ? (
-          <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
-        ) : capacityAddOns.length === 0 ? (
-          <p className="text-sm text-gray-500">추가구매 가능한 상품이 없습니다.</p>
-        ) : (
-          <form onSubmit={handlePurchaseCapacity} className="flex flex-wrap items-end gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">항목</label>
-              <select
-                value={selectedAddOnId ?? ''}
-                onChange={(e) => setSelectedAddOnId(e.target.value ? Number(e.target.value) : null)}
-                disabled={isPurchasingCapacity}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
-              >
-                <option value="">선택</option>
-                {capacityAddOns
-                  .filter((addOn) => addOn.active)
-                  .map((addOn) => (
-                    <option key={addOn.id} value={addOn.id}>
-                      {CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +{addOn.unitAmount}
-                      {addOn.secondaryCapacityType &&
-                        ` · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`}{' '}
-                      — {addOn.salePrice === null ? '가격 정보 없음' : formatPrice(addOn.salePrice)}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">수량</label>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                disabled={isPurchasingCapacity}
-                className="w-20 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isPurchasingCapacity}
-              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-            >
-              {isPurchasingCapacity ? '요청 중...' : '구매 요청'}
-            </button>
-          </form>
-        )}
-
-        {isCapacityHistoryLoading ? (
-          <div className="flex items-center justify-center py-6 text-gray-400">
-            <Loader2 size={18} className="animate-spin" />
-          </div>
-        ) : capacityPurchases.length > 0 ? (
-          <ul className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
-            {capacityPurchases.map((purchase) => {
-              const addOn = capacityAddOns.find((item) => item.id === purchase.capacityAddOnId);
-              return (
-                <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm text-gray-950">
-                      {addOn ? CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType : `#${purchase.capacityAddOnId}`} +
-                      {purchase.purchasedUnitAmount * purchase.quantity}
-                      {addOn?.secondaryCapacityType && purchase.purchasedSecondaryUnitAmount != null && (
-                        <>
-                          {' · '}
-                          {CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +
-                          {purchase.purchasedSecondaryUnitAmount * purchase.quantity}
-                        </>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
-                    {purchase.status === 'REJECTED' && purchase.rejectionReason && (
-                      <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
-                    )}
-                  </div>
-                  <PurchaseStatusBadge status={purchase.status} />
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">아직 요청한 용량 추가구매가 없습니다.</p>
-        )}
-      </section>
-
-      {/* 선택옵션 추가구매 */}
+      {/* 단위 상품 추가구매 — 여러 줄을 한 번에 담는 장바구니형(signstage-docs
+          business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) —
+          옛 용량/선택옵션 추가구매 2개 섹션을 통합했다. */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-            <Sparkles size={14} />
-            선택옵션 추가구매
+            <Package size={14} />
+            단위 상품 추가구매
           </h2>
-          {!isFeatureHistoryLoading && featurePurchases.length > 0 && (
+          {!isPurchaseHistoryLoading && purchases.length > 0 && (
             <button
-              onClick={() => setIsFeatureHistoryModalOpen(true)}
+              onClick={() => setIsPurchaseHistoryModalOpen(true)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
             >
               <History size={12} />
-              이력 보기 ({featurePurchases.length})
+              이력 보기 ({purchases.length})
             </button>
           )}
         </div>
         <p className="text-xs text-gray-400 mb-3">
-          요청하면 바로 반영되지 않습니다 — 플랫폼 관리자가 승인해야 하위 행사에 적용할 수 있습니다. 이미 요청했거나
-          승인된 옵션은 아래 목록에 상태 뱃지로 표시되고, 지난 요청 이력은 "이력 보기"에서 따로 확인할 수 있습니다.
+          수량을 입력하고 한 번에 요청하세요 — 여러 항목을 함께 담을 수 있습니다. 요청하면 바로 반영되지 않습니다 —
+          플랫폼 관리자가 승인해야 유효 한도/적용 가능 목록에 반영됩니다.
         </p>
-        {isFeaturesLoading ? (
+        {isProductsLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : isCompleted ? (
           <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
-        ) : optionalFeatures.filter((feature) => feature.active || hasActiveFeaturePurchase(feature.id)).length === 0 ? (
-          <p className="text-sm text-gray-500">구매 가능한 선택옵션이 없습니다.</p>
+        ) : purchasableProducts.filter((p) => p.active || hasActiveEventEffectPurchase(p.id)).length === 0 ? (
+          <p className="text-sm text-gray-500">추가구매 가능한 단위 상품이 없습니다.</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
-            {/* 사용 중지된 옵션은 이미 구매(요청)한 게 있을 때만 상태 확인용으로 계속 보여준다. */}
-            {optionalFeatures
-              .filter((feature) => feature.active || hasActiveFeaturePurchase(feature.id))
-              .map((feature) => (
-              <li key={feature.id} className="flex items-center justify-between py-2">
-                <div>
-                  <p className="text-sm text-gray-950">{feature.name}</p>
-                  <p className="text-xs text-gray-500">{feature.salePrice === null ? '가격 정보 없음' : formatPrice(feature.salePrice)}</p>
-                </div>
-                {hasActiveFeaturePurchase(feature.id) ? (
-                  <PurchaseStatusBadge
-                    status={
-                      featurePurchases.find((p) => p.optionalFeatureId === feature.id && p.status !== 'REJECTED')
-                        ?.status ?? 'PENDING'
-                    }
-                  />
-                ) : (
-                  <button
-                    onClick={() => handlePurchaseFeature(feature.id)}
-                    disabled={processingFeatureId === feature.id}
-                    className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+          <form onSubmit={handlePurchase} className="space-y-1.5">
+            {/* 사용 중지된 상품은 이미 요청(대기중/승인)한 이벤트 효과 묶음일 때만 상태 확인용으로 계속 보여준다. */}
+            {purchasableProducts
+              .filter((p) => p.active || hasActiveEventEffectPurchase(p.id))
+              .map((product) => {
+                const isEventEffectBundle = product.type === 'EVENT_EFFECT_BUNDLE';
+                const blocked = isEventEffectBundle && hasActiveEventEffectPurchase(product.id);
+                return (
+                  <div
+                    key={product.id}
+                    className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2"
                   >
-                    {processingFeatureId === feature.id ? '요청 중...' : '구매 요청'}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-950">
+                        {product.name}
+                        {!product.active && <span className="ml-2 text-xs text-gray-400">사용 중지</span>}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
+                        {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                      </p>
+                    </div>
+                    {blocked ? (
+                      <PurchaseStatusBadge status={activePurchaseStatus(product.id) ?? 'PENDING'} />
+                    ) : (
+                      <input
+                        type="number"
+                        min={0}
+                        max={isEventEffectBundle ? 1 : undefined}
+                        value={cartQuantities[product.id] || ''}
+                        onChange={(e) => setCartQuantity(product.id, Number(e.target.value))}
+                        disabled={isPurchasing}
+                        placeholder="0"
+                        className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isPurchasing}
+                className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isPurchasing ? '요청 중...' : '구매 요청'}
+              </button>
+            </div>
+          </form>
         )}
       </section>
 
       <Modal
-        open={isFeatureHistoryModalOpen}
-        onClose={() => setIsFeatureHistoryModalOpen(false)}
-        title="선택옵션 추가구매 이력"
+        open={isPurchaseHistoryModalOpen}
+        onClose={() => setIsPurchaseHistoryModalOpen(false)}
+        title="추가구매 이력"
         widthClassName="max-w-lg"
       >
-        {featurePurchases.length === 0 ? (
-          <p className="text-sm text-gray-400">아직 요청한 선택옵션 추가구매가 없습니다.</p>
+        {purchases.length === 0 ? (
+          <p className="text-sm text-gray-400">아직 요청한 추가구매가 없습니다.</p>
         ) : (
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-            {featurePurchases.map((purchase) => {
-              return (
-                <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
-                  <div>
-                    {/* 구매 시점 이름 스냅샷을 쓴다 — 카탈로그 이름이 나중에 바뀌어도 안 바뀐다(9장). */}
-                    <p className="text-sm text-gray-950">{purchase.purchasedName}</p>
-                    <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
-                    {purchase.status === 'REJECTED' && purchase.rejectionReason && (
-                      <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
-                    )}
-                  </div>
-                  <PurchaseStatusBadge status={purchase.status} />
-                </li>
-              );
-            })}
+            {purchases.map((purchase) => (
+              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                <div>
+                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
+                  <p className="text-sm text-gray-950">
+                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
+                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                  )}
+                </div>
+                <PurchaseStatusBadge status={purchase.status} />
+              </li>
+            ))}
           </ul>
         )}
       </Modal>
@@ -1068,17 +912,20 @@ export const UserCeremonyEdit: FC = () => {
           <p className="text-sm text-gray-400">플랜 변경 이력이 없습니다.</p>
         ) : (
           <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-            {planHistory.map((history) => (
-              <li key={history.id} className="py-2">
-                <p className="text-sm text-gray-950 font-medium">{history.planName}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {formatPrice(history.planSalePrice)} · 서명자 {history.planMaxSigners}명 · 템플릿{' '}
-                  {history.planMaxTemplates}건 · 테스트 {history.planMaxTestEvents}건 · 본행사{' '}
-                  {history.planMaxMainEvents}건
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
-              </li>
-            ))}
+            {planHistory.map((history) => {
+              const subtotal = history.lines.reduce((sum, line) => sum + line.snapshotSalePrice * line.includedQuantity, 0);
+              const findQty = (type: string) => history.lines.find((line) => line.unitProductType === type)?.includedQuantity ?? 0;
+              return (
+                <li key={history.id} className="py-2">
+                  <p className="text-sm text-gray-950 font-medium">{history.planName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatPrice(subtotal, history.lines[0]?.currencyCode ?? 'KRW')} · 서명자 {findQty('SIGNERS')}명 · 템플릿{' '}
+                    {findQty('TEMPLATES')}건 · 테스트 {findQty('TEST_EVENTS')}건 · 본행사 {findQty('MAIN_EVENTS')}건
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(history.createdAt)}</p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Modal>

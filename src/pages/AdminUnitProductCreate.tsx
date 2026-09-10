@@ -5,52 +5,47 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, EffectDefinitionPicker, Field, FinalPricePreview } from './billingCatalog/components';
+import { ActiveField, EffectDefinitionPicker, Field } from './billingCatalog/components';
 import {
-  DEFAULT_CATEGORY_BY_CODE,
-  DISCOUNT_TYPE_OPTIONS,
-  MANAGEABLE_OPTIONAL_FEATURE_CODES,
-  OPTIONAL_FEATURE_CATEGORY_OPTIONS,
-  OPTIONAL_FEATURE_CODE_LABEL,
+  DEFAULT_CATEGORY_BY_TYPE,
+  UNIT_PRODUCT_CATEGORY_OPTIONS,
+  UNIT_PRODUCT_TYPE_LABEL,
+  UNIT_PRODUCT_TYPE_OPTIONS,
   inputClass,
   normalizeExclusivityGroup,
   todayIsoDate,
 } from './billingCatalog/constants';
-import type {
-  CeremonyEffectDefinition,
-  CreateOptionalFeatureRequest,
-  DiscountType,
-  OptionalFeatureCategory,
-  OptionalFeatureCode,
-  OptionalFeatureSummary,
-} from '../types';
+import type { CeremonyEffectDefinition, CreateUnitProductRequest, UnitProductCategory, UnitProductSummary, UnitProductType } from '../types';
 
-const EMPTY_DRAFT = (): CreateOptionalFeatureRequest => {
-  const code = MANAGEABLE_OPTIONAL_FEATURE_CODES[0];
+const EMPTY_DRAFT = (): CreateUnitProductRequest => {
+  const type = UNIT_PRODUCT_TYPE_OPTIONS[0].value;
   return {
-    code,
+    type,
     name: '',
+    category: DEFAULT_CATEGORY_BY_TYPE[type],
+    exclusivityGroup: '',
     currencyCode: 'KRW',
     supplyPrice: null,
     salePrice: 0,
-    discountType: 'PERCENT',
-    discountValue: 0,
     taxCode: 'KR_VAT_STANDARD',
     active: true,
     effectiveFrom: todayIsoDate(),
     effectiveTo: null,
-    exclusivityGroup: '',
-    category: DEFAULT_CATEGORY_BY_CODE[code] ?? 'APPLICATION',
     effectDefinitionIds: [],
   };
 };
 
-/** 선택옵션 등록 — 전용 페이지형(패턴 A), AdminBillingPlanCreate.tsx와 같은 구성. */
-export const AdminOptionalFeatureCreate: FC = () => {
-  const [draft, setDraft] = useState<CreateOptionalFeatureRequest>(EMPTY_DRAFT);
+/**
+ * 단위 상품 등록 — 옛 선택옵션/용량 추가구매 등록 2개를 통합했다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). 전용
+ * 페이지형(패턴 A), `AdminBillingPlanCreate.tsx`와 같은 구성. 등록 가능한 종류(type) 제한이
+ * 없다 — 이중 청구 위험이 통합으로 구조적으로 없어졌다(2장).
+ */
+export const AdminUnitProductCreate: FC = () => {
+  const [draft, setDraft] = useState<CreateUnitProductRequest>(EMPTY_DRAFT);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [created, setCreated] = useState<OptionalFeatureSummary | null>(null);
+  const [created, setCreated] = useState<UnitProductSummary | null>(null);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
@@ -73,20 +68,20 @@ export const AdminOptionalFeatureCreate: FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!draft.name.trim()) {
-      showSnackbar('선택옵션 이름을 입력해주세요.', 'error');
+      showSnackbar('단위 상품 이름을 입력해주세요.', 'error');
       return;
     }
     setIsLoading(true);
     try {
-      const response = await api.post('/platform-admin/optional-features', {
+      const response = await api.post('/platform-admin/unit-products', {
         ...draft,
         name: draft.name.trim(),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
-      setCreated(response.data as OptionalFeatureSummary);
-      showSnackbar('선택옵션을 등록했습니다.', 'success');
+      setCreated(response.data as UnitProductSummary);
+      showSnackbar('단위 상품을 등록했습니다.', 'success');
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '선택옵션 등록에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '단위 상품 등록에 실패했습니다.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -95,16 +90,16 @@ export const AdminOptionalFeatureCreate: FC = () => {
   return (
     <div>
       <Link
-        to="/admin/billing-catalog/optional-features"
+        to="/admin/billing-catalog/unit-products"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
       >
         <ArrowLeft size={16} />
-        선택옵션 목록으로
+        단위 상품 목록으로
       </Link>
 
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-950">선택옵션 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">코드/이름/분류를 정하고 최초 판매가격 기간을 함께 만듭니다.</p>
+        <h1 className="text-xl font-bold text-gray-950">단위 상품 등록</h1>
+        <p className="mt-1 text-sm text-gray-500">종류/이름/분류를 정하고 최초 판매가격 기간을 함께 만듭니다.</p>
       </div>
 
       {created ? (
@@ -123,25 +118,25 @@ export const AdminOptionalFeatureCreate: FC = () => {
             >
               계속 추가하기
             </Button>
-            <Button to={`/admin/billing-catalog/optional-features/${created.id}`}>상세로 이동</Button>
+            <Button to={`/admin/billing-catalog/unit-products/${created.id}`}>상세로 이동</Button>
           </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <Field label="코드">
+            <Field label="종류">
               <select
-                value={draft.code}
+                value={draft.type}
                 onChange={(e) => {
-                  const code = e.target.value as OptionalFeatureCode;
-                  setDraft((prev) => ({ ...prev, code, category: DEFAULT_CATEGORY_BY_CODE[code] ?? prev.category }));
+                  const type = e.target.value as UnitProductType;
+                  setDraft((prev) => ({ ...prev, type, category: DEFAULT_CATEGORY_BY_TYPE[type] ?? prev.category }));
                 }}
                 disabled={isLoading}
                 className={inputClass}
               >
-                {MANAGEABLE_OPTIONAL_FEATURE_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {OPTIONAL_FEATURE_CODE_LABEL[code] ?? code}
+                {UNIT_PRODUCT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {UNIT_PRODUCT_TYPE_LABEL[option.value] ?? option.label}
                   </option>
                 ))}
               </select>
@@ -190,30 +185,6 @@ export const AdminOptionalFeatureCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="할인 방식">
-              <select
-                value={draft.discountType}
-                onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
-                disabled={isLoading}
-                className={inputClass}
-              >
-                {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="할인 값">
-              <input
-                type="number"
-                min={0}
-                value={draft.discountValue === 0 ? '' : draft.discountValue}
-                onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
             <Field label="판매 시작일">
               <input
                 type="date"
@@ -243,21 +214,21 @@ export const AdminOptionalFeatureCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="카테고리">
+            <Field label="분류">
               <select
                 value={draft.category}
-                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as OptionalFeatureCategory }))}
+                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as UnitProductCategory }))}
                 disabled={isLoading}
                 className={inputClass}
               >
-                {OPTIONAL_FEATURE_CATEGORY_OPTIONS.map((option) => (
+                {UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
             </Field>
-            {draft.code === 'EVENT_EFFECT_BUNDLE' && (
+            {draft.type === 'EVENT_EFFECT_BUNDLE' && (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
                 selectedIds={draft.effectDefinitionIds ?? []}
@@ -266,22 +237,16 @@ export const AdminOptionalFeatureCreate: FC = () => {
               />
             )}
           </div>
-          <FinalPricePreview
-            salePrice={draft.salePrice}
-            discountType={draft.discountType}
-            discountValue={draft.discountValue}
-            currencyCode={draft.currencyCode}
-          />
           <p className="text-xs text-gray-400">
-            배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 옵션들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명 하이라이트
-            색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
+            배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 단위 상품들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명
+            하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
           </p>
           <div className="flex justify-end gap-2">
-            <Button to="/admin/billing-catalog/optional-features" variant="secondary">
+            <Button to="/admin/billing-catalog/unit-products" variant="secondary">
               취소
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? '등록 중...' : '선택옵션 등록'}
+              {isLoading ? '등록 중...' : '단위 상품 등록'}
             </Button>
           </div>
         </form>

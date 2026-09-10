@@ -10,15 +10,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
-import type {
-  CapacityAddOnSummary,
-  CapacityType,
-  OptionalFeatureSummary,
-  PageResponse,
-  PlatformAdminCapacityPurchaseRequestSummary,
-  PlatformAdminOptionalFeaturePurchaseRequestSummary,
-  PurchaseStatus,
-} from '../types';
+import type { PageResponse, PlatformAdminUnitProductPurchaseRequestSummary, PurchaseStatus } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -35,24 +27,15 @@ const STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
 };
 
-const CAPACITY_TYPE_LABEL: Record<CapacityType, string> = {
-  SIGNERS: '서명자',
-  TEMPLATES: '템플릿',
-  TEST_EVENTS: '테스트 행사',
-  REHEARSAL_EVENTS: '리허설 행사',
-  MAIN_EVENTS: '본행사',
-  TABLETS: '태블릿',
-  ONSITE_SUPPORT: '현장지원',
-  ONLINE_SUPPORT: '온라인지원',
-};
-
 /** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
 const EMPTY_SEARCH: { status: PurchaseStatus | 'ALL' } = { status: 'PENDING' };
 
 /**
- * 플랫폼 관리자의 행사 용량/선택옵션 추가구매 요청 승인/반려 화면 — signstage-docs
- * business/ceremony-billing-options-review.md. 조회는 PLATFORM_SUPPORT 이상, 승인/반려는
- * PLATFORM_OPS 이상만 가능하다({@link AdminOrganizationRequestList}와 같은 등급 규칙).
+ * 플랫폼 관리자의 행사 단위 상품 추가구매 요청 승인/반려 화면 — signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정(2026-09-10) 옛
+ * 용량/선택옵션 2종 승인 큐를 하나로 합쳤다(장바구니형 요청이라 승인/반려도 요청 전체
+ * 단위다). 조회는 PLATFORM_SUPPORT 이상, 승인/반려는 PLATFORM_OPS 이상만 가능하다
+ * ({@link AdminOrganizationRequestList}와 같은 등급 규칙).
  *
  * 승인은 입력할 값이 없어(이미 존재하는 PENDING 행의 상태만 바꾼다) 조직 생성 요청 승인처럼
  * 펼침 입력폼을 열지 않고 버튼 한 번으로 바로 확정한다. 반려는 사유가 필요해 펼침 입력폼을 쓴다.
@@ -62,6 +45,107 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
   const canManage = canManagePlatform(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
+  const [formValues, setFormValues] = useState(EMPTY_SEARCH);
+  const [searchParams, setSearchParams] = useState(EMPTY_SEARCH);
+  const [page, setPage] = useState(0);
+  const [pageData, setPageData] = useState<PageResponse<PlatformAdminUnitProductPurchaseRequestSummary> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [reasonDraft, setReasonDraft] = useState('');
+
+  const fetchRequests = async () => {
+    const query = new URLSearchParams();
+    if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
+    query.set('page', String(page));
+    query.set('size', String(PAGE_SIZE));
+
+    const response = await api.get(`/platform-admin/unit-product-purchases?${query.toString()}`);
+    return response.data as PageResponse<PlatformAdminUnitProductPurchaseRequestSummary>;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchRequests();
+        if (!cancelled) setPageData(data);
+      } catch (err) {
+        if (!cancelled) {
+          showSnackbar(err instanceof Error ? err.message : '단위 상품 추가구매 요청 목록을 불러오지 못했습니다.', 'error');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, page]);
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setPage(0);
+    // 새 객체로 복사해서 넣는다 — formValues가 searchParams와 참조가 같으면(예: 아무 것도
+    // 안 건드리고 바로 "검색"을 누르거나, 검색 조건을 안 바꾸고 다시 누르는 경우) React가
+    // 같은 참조는 상태 변경으로 안 치고 넘어가 아래 useEffect가 다시 안 돌고, 방금 켠
+    // isLoading만 true로 영원히 남는다(2026-08-25 발견 — 검색 화면 공통 버그).
+    setSearchParams({ ...formValues });
+  };
+
+  const handleReset = () => {
+    setIsLoading(true);
+    setFormValues(EMPTY_SEARCH);
+    setPage(0);
+    setSearchParams({ ...EMPTY_SEARCH });
+  };
+
+  const refresh = async () => {
+    setPageData(await fetchRequests());
+  };
+
+  const handleApprove = async (requestId: number) => {
+    setProcessingId(requestId);
+    try {
+      await api.post(`/platform-admin/unit-product-purchases/${requestId}/approve`, {});
+      showSnackbar('요청을 승인했습니다.', 'success');
+      await refresh();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '승인에 실패했습니다.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const openReject = (requestId: number) => {
+    setRejectingId(requestId);
+    setReasonDraft('');
+  };
+
+  const handleReject = async (requestId: number) => {
+    if (!reasonDraft.trim()) {
+      showSnackbar('반려 사유를 입력해주세요.', 'error');
+      return;
+    }
+    setProcessingId(requestId);
+    try {
+      await api.put(`/platform-admin/unit-product-purchases/${requestId}/reject`, { rejectionReason: reasonDraft.trim() });
+      showSnackbar('요청을 반려했습니다.', 'success');
+      setRejectingId(null);
+      await refresh();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '반려에 실패했습니다.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requests = pageData?.content ?? [];
+  const columnCount = canManage ? 6 : 5;
+
   return (
     <div className="space-y-8">
       <div>
@@ -70,539 +154,148 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
           추가구매 요청
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          행사의 용량/선택옵션 추가구매 요청입니다. 승인해야 파트너가 실제로 사용할 수 있습니다.
+          행사의 단위 상품 추가구매 요청입니다(장바구니형 — 요청 하나에 여러 줄이 담길 수 있습니다). 승인해야
+          파트너가 실제로 사용할 수 있습니다.
         </p>
       </div>
 
-      <CapacityPurchaseRequestSection canManage={canManage} showSnackbar={showSnackbar} />
-      <OptionalFeaturePurchaseRequestSection canManage={canManage} showSnackbar={showSnackbar} />
+      <section>
+        <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+          <SearchField label="상태">
+            <select
+              value={formValues.status}
+              onChange={(e) => setFormValues({ status: e.target.value as PurchaseStatus | 'ALL' })}
+              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </SearchField>
+        </SearchBar>
+
+        <ListContainer
+          isLoading={isLoading}
+          isEmpty={requests.length === 0}
+          emptyMessage="해당 조건의 추가구매 요청이 없습니다."
+          pagination={
+            pageData
+              ? {
+                  page: pageData.page,
+                  totalPages: pageData.totalPages,
+                  hasNext: pageData.hasNext,
+                  totalElements: pageData.totalElements,
+                  onPageChange: (nextPage) => {
+                    setIsLoading(true);
+                    setPage(nextPage);
+                  },
+                }
+              : undefined
+          }
+        >
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium">요청자</th>
+                <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
+                <th className="text-left px-4 py-3 font-medium">단위 상품</th>
+                <th className="text-left px-4 py-3 font-medium">상태</th>
+                <th className="text-left px-4 py-3 font-medium">요청일</th>
+                {canManage && <th className="text-right px-4 py-3 font-medium">처리</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {requests.map((request) => (
+                <Fragment key={request.id}>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-950 font-medium">
+                      {request.requesterLoginId}
+                      <Link
+                        to={`/admin/users/${request.requesterId}`}
+                        className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
+                      >
+                        상세
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/admin/organizations/${request.organizationId}`}
+                        className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
+                      >
+                        <Building2 size={14} className="text-gray-400" />
+                        {request.ceremonyTitle}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {request.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[request.status]}`}
+                      >
+                        {request.status}
+                      </span>
+                      {request.status === 'REJECTED' && request.rejectionReason && (
+                        <p className="mt-1 text-xs text-red-600">{request.rejectionReason}</p>
+                      )}
+                      {request.status !== 'PENDING' && request.reviewerLoginId && request.reviewedAt && (
+                        <p className="mt-1 text-xs text-gray-400">
+                          {request.reviewerLoginId} · {formatDateTime(request.reviewedAt)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                      {formatDateTime(request.createdAt)}
+                    </td>
+                    {canManage && (
+                      <td className="px-4 py-3 text-right">
+                        {request.status === 'PENDING' &&
+                          (rejectingId === request.id ? (
+                            <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
+                              취소
+                            </Button>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
+                                <Check size={12} />
+                                승인
+                              </Button>
+                              <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
+                                반려
+                              </Button>
+                            </div>
+                          ))}
+                      </td>
+                    )}
+                  </tr>
+                  {canManage && rejectingId === request.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={columnCount} className="px-4 py-3">
+                        <div className="flex items-center gap-2 max-w-md">
+                          <input
+                            type="text"
+                            value={reasonDraft}
+                            onChange={(e) => setReasonDraft(e.target.value)}
+                            disabled={processingId === request.id}
+                            placeholder="반려 사유"
+                            className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
+                          />
+                          <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
+                            <X size={12} />
+                            반려 확정
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </ListContainer>
+      </section>
     </div>
-  );
-};
-
-interface SectionProps {
-  canManage: boolean;
-  showSnackbar: (message: string, variant: 'success' | 'error') => void;
-}
-
-const CapacityPurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
-  const [formValues, setFormValues] = useState(EMPTY_SEARCH);
-  const [searchParams, setSearchParams] = useState(EMPTY_SEARCH);
-  const [page, setPage] = useState(0);
-  const [pageData, setPageData] = useState<PageResponse<PlatformAdminCapacityPurchaseRequestSummary> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [addOns, setAddOns] = useState<CapacityAddOnSummary[]>([]);
-
-  const [processingId, setProcessingId] = useState<number | null>(null);
-  const [rejectingId, setRejectingId] = useState<number | null>(null);
-  const [reasonDraft, setReasonDraft] = useState('');
-
-  const addOnLabel = (id: number) => {
-    const addOn = addOns.find((a) => a.id === id);
-    if (!addOn) return `#${id}`;
-    const primary = `${CAPACITY_TYPE_LABEL[addOn.capacityType] ?? addOn.capacityType} +${addOn.unitAmount}`;
-    if (!addOn.secondaryCapacityType) return primary;
-    return `${primary} · ${CAPACITY_TYPE_LABEL[addOn.secondaryCapacityType] ?? addOn.secondaryCapacityType} +${addOn.secondaryUnitAmount}`;
-  };
-
-  const fetchRequests = async () => {
-    const query = new URLSearchParams();
-    if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
-    query.set('page', String(page));
-    query.set('size', String(PAGE_SIZE));
-
-    const [requestsResponse, addOnsResponse] = await Promise.all([
-      api.get(`/platform-admin/capacity-purchases?${query.toString()}`),
-      api.get('/capacity-addons'),
-    ]);
-    return {
-      requests: requestsResponse.data as PageResponse<PlatformAdminCapacityPurchaseRequestSummary>,
-      addOns: addOnsResponse.data as CapacityAddOnSummary[],
-    };
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchRequests();
-        if (!cancelled) {
-          setPageData(data.requests);
-          setAddOns(data.addOns);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          showSnackbar(err instanceof Error ? err.message : '용량 추가구매 요청 목록을 불러오지 못했습니다.', 'error');
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page]);
-
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setPage(0);
-    // 새 객체로 복사해서 넣는다 — formValues가 searchParams와 참조가 같으면(예: 아무 것도
-    // 안 건드리고 바로 "검색"을 누르거나, 검색 조건을 안 바꾸고 다시 누르는 경우) React가
-    // 같은 참조는 상태 변경으로 안 치고 넘어가 아래 useEffect가 다시 안 돌고, 방금 켠
-    // isLoading만 true로 영원히 남는다(2026-08-25 발견 — 검색 화면 공통 버그).
-    setSearchParams({ ...formValues });
-  };
-
-  const handleReset = () => {
-    setIsLoading(true);
-    setFormValues(EMPTY_SEARCH);
-    setPage(0);
-    setSearchParams({ ...EMPTY_SEARCH });
-  };
-
-  const refresh = async () => {
-    setPageData((await fetchRequests()).requests);
-  };
-
-  const handleApprove = async (requestId: number) => {
-    setProcessingId(requestId);
-    try {
-      await api.post(`/platform-admin/capacity-purchases/${requestId}/approve`, {});
-      showSnackbar('요청을 승인했습니다.', 'success');
-      await refresh();
-    } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '승인에 실패했습니다.', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const openReject = (requestId: number) => {
-    setRejectingId(requestId);
-    setReasonDraft('');
-  };
-
-  const handleReject = async (requestId: number) => {
-    if (!reasonDraft.trim()) {
-      showSnackbar('반려 사유를 입력해주세요.', 'error');
-      return;
-    }
-    setProcessingId(requestId);
-    try {
-      await api.put(`/platform-admin/capacity-purchases/${requestId}/reject`, { rejectionReason: reasonDraft.trim() });
-      showSnackbar('요청을 반려했습니다.', 'success');
-      setRejectingId(null);
-      await refresh();
-    } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '반려에 실패했습니다.', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const requests = pageData?.content ?? [];
-  const columnCount = canManage ? 6 : 5;
-
-  return (
-    <section>
-      <h2 className="text-sm font-bold text-gray-950 mb-3">용량 추가구매 요청</h2>
-
-      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
-        <SearchField label="상태">
-          <select
-            value={formValues.status}
-            onChange={(e) => setFormValues({ status: e.target.value as PurchaseStatus | 'ALL' })}
-            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </SearchField>
-      </SearchBar>
-
-      <ListContainer
-        isLoading={isLoading}
-        isEmpty={requests.length === 0}
-        emptyMessage="해당 조건의 용량 추가구매 요청이 없습니다."
-        pagination={
-          pageData
-            ? {
-                page: pageData.page,
-                totalPages: pageData.totalPages,
-                hasNext: pageData.hasNext,
-                totalElements: pageData.totalElements,
-                onPageChange: (nextPage) => {
-                  setIsLoading(true);
-                  setPage(nextPage);
-                },
-              }
-            : undefined
-        }
-      >
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium">요청자</th>
-              <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
-              <th className="text-left px-4 py-3 font-medium">용량</th>
-              <th className="text-left px-4 py-3 font-medium">상태</th>
-              <th className="text-left px-4 py-3 font-medium">요청일</th>
-              {canManage && <th className="text-right px-4 py-3 font-medium">처리</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {requests.map((request) => (
-              <Fragment key={request.id}>
-                <tr>
-                  <td className="px-4 py-3 text-gray-950 font-medium">
-                    {request.requesterLoginId}
-                    <Link
-                      to={`/admin/users/${request.requesterId}`}
-                      className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
-                    >
-                      상세
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      to={`/admin/organizations/${request.organizationId}`}
-                      className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
-                    >
-                      <Building2 size={14} className="text-gray-400" />
-                      {request.ceremonyTitle}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {addOnLabel(request.capacityAddOnId)} × {request.quantity}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[request.status]}`}
-                    >
-                      {request.status}
-                    </span>
-                    {request.status === 'REJECTED' && request.rejectionReason && (
-                      <p className="mt-1 text-xs text-red-600">{request.rejectionReason}</p>
-                    )}
-                    {request.status !== 'PENDING' && request.reviewerLoginId && request.reviewedAt && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {request.reviewerLoginId} · {formatDateTime(request.reviewedAt)}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {formatDateTime(request.createdAt)}
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-3 text-right">
-                      {request.status === 'PENDING' &&
-                        (rejectingId === request.id ? (
-                          <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
-                            취소
-                          </Button>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
-                              <Check size={12} />
-                              승인
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
-                              반려
-                            </Button>
-                          </div>
-                        ))}
-                    </td>
-                  )}
-                </tr>
-                {canManage && rejectingId === request.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={columnCount} className="px-4 py-3">
-                      <div className="flex items-center gap-2 max-w-md">
-                        <input
-                          type="text"
-                          value={reasonDraft}
-                          onChange={(e) => setReasonDraft(e.target.value)}
-                          disabled={processingId === request.id}
-                          placeholder="반려 사유"
-                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
-                        />
-                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
-                          <X size={12} />
-                          반려 확정
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </ListContainer>
-    </section>
-  );
-};
-
-const OptionalFeaturePurchaseRequestSection: FC<SectionProps> = ({ canManage, showSnackbar }) => {
-  const [formValues, setFormValues] = useState(EMPTY_SEARCH);
-  const [searchParams, setSearchParams] = useState(EMPTY_SEARCH);
-  const [page, setPage] = useState(0);
-  const [pageData, setPageData] = useState<PageResponse<PlatformAdminOptionalFeaturePurchaseRequestSummary> | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [features, setFeatures] = useState<OptionalFeatureSummary[]>([]);
-
-  const [processingId, setProcessingId] = useState<number | null>(null);
-  const [rejectingId, setRejectingId] = useState<number | null>(null);
-  const [reasonDraft, setReasonDraft] = useState('');
-
-  const featureName = (id: number) => features.find((f) => f.id === id)?.name ?? `#${id}`;
-
-  const fetchRequests = async () => {
-    const query = new URLSearchParams();
-    if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
-    query.set('page', String(page));
-    query.set('size', String(PAGE_SIZE));
-
-    const [requestsResponse, featuresResponse] = await Promise.all([
-      api.get(`/platform-admin/optional-feature-purchases?${query.toString()}`),
-      api.get('/optional-features'),
-    ]);
-    return {
-      requests: requestsResponse.data as PageResponse<PlatformAdminOptionalFeaturePurchaseRequestSummary>,
-      features: featuresResponse.data as OptionalFeatureSummary[],
-    };
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchRequests();
-        if (!cancelled) {
-          setPageData(data.requests);
-          setFeatures(data.features);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          showSnackbar(err instanceof Error ? err.message : '선택옵션 추가구매 요청 목록을 불러오지 못했습니다.', 'error');
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page]);
-
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setPage(0);
-    // 새 객체로 복사해서 넣는다 — formValues가 searchParams와 참조가 같으면(예: 아무 것도
-    // 안 건드리고 바로 "검색"을 누르거나, 검색 조건을 안 바꾸고 다시 누르는 경우) React가
-    // 같은 참조는 상태 변경으로 안 치고 넘어가 아래 useEffect가 다시 안 돌고, 방금 켠
-    // isLoading만 true로 영원히 남는다(2026-08-25 발견 — 검색 화면 공통 버그).
-    setSearchParams({ ...formValues });
-  };
-
-  const handleReset = () => {
-    setIsLoading(true);
-    setFormValues(EMPTY_SEARCH);
-    setPage(0);
-    setSearchParams({ ...EMPTY_SEARCH });
-  };
-
-  const refresh = async () => {
-    setPageData((await fetchRequests()).requests);
-  };
-
-  const handleApprove = async (requestId: number) => {
-    setProcessingId(requestId);
-    try {
-      await api.post(`/platform-admin/optional-feature-purchases/${requestId}/approve`, {});
-      showSnackbar('요청을 승인했습니다.', 'success');
-      await refresh();
-    } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '승인에 실패했습니다.', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const openReject = (requestId: number) => {
-    setRejectingId(requestId);
-    setReasonDraft('');
-  };
-
-  const handleReject = async (requestId: number) => {
-    if (!reasonDraft.trim()) {
-      showSnackbar('반려 사유를 입력해주세요.', 'error');
-      return;
-    }
-    setProcessingId(requestId);
-    try {
-      await api.put(`/platform-admin/optional-feature-purchases/${requestId}/reject`, {
-        rejectionReason: reasonDraft.trim(),
-      });
-      showSnackbar('요청을 반려했습니다.', 'success');
-      setRejectingId(null);
-      await refresh();
-    } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '반려에 실패했습니다.', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const requests = pageData?.content ?? [];
-  const columnCount = canManage ? 6 : 5;
-
-  return (
-    <section>
-      <h2 className="text-sm font-bold text-gray-950 mb-3">선택옵션 추가구매 요청</h2>
-
-      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
-        <SearchField label="상태">
-          <select
-            value={formValues.status}
-            onChange={(e) => setFormValues({ status: e.target.value as PurchaseStatus | 'ALL' })}
-            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </SearchField>
-      </SearchBar>
-
-      <ListContainer
-        isLoading={isLoading}
-        isEmpty={requests.length === 0}
-        emptyMessage="해당 조건의 선택옵션 추가구매 요청이 없습니다."
-        pagination={
-          pageData
-            ? {
-                page: pageData.page,
-                totalPages: pageData.totalPages,
-                hasNext: pageData.hasNext,
-                totalElements: pageData.totalElements,
-                onPageChange: (nextPage) => {
-                  setIsLoading(true);
-                  setPage(nextPage);
-                },
-              }
-            : undefined
-        }
-      >
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium">요청자</th>
-              <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
-              <th className="text-left px-4 py-3 font-medium">선택옵션</th>
-              <th className="text-left px-4 py-3 font-medium">상태</th>
-              <th className="text-left px-4 py-3 font-medium">요청일</th>
-              {canManage && <th className="text-right px-4 py-3 font-medium">처리</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {requests.map((request) => (
-              <Fragment key={request.id}>
-                <tr>
-                  <td className="px-4 py-3 text-gray-950 font-medium">
-                    {request.requesterLoginId}
-                    <Link
-                      to={`/admin/users/${request.requesterId}`}
-                      className="ml-1.5 text-xs text-gray-400 hover:text-gray-950 hover:underline"
-                    >
-                      상세
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      to={`/admin/organizations/${request.organizationId}`}
-                      className="inline-flex items-center gap-1.5 text-gray-950 hover:underline"
-                    >
-                      <Building2 size={14} className="text-gray-400" />
-                      {request.ceremonyTitle}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{featureName(request.optionalFeatureId)}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE_CLASS[request.status]}`}
-                    >
-                      {request.status}
-                    </span>
-                    {request.status === 'REJECTED' && request.rejectionReason && (
-                      <p className="mt-1 text-xs text-red-600">{request.rejectionReason}</p>
-                    )}
-                    {request.status !== 'PENDING' && request.reviewerLoginId && request.reviewedAt && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {request.reviewerLoginId} · {formatDateTime(request.reviewedAt)}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {formatDateTime(request.createdAt)}
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-3 text-right">
-                      {request.status === 'PENDING' &&
-                        (rejectingId === request.id ? (
-                          <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
-                            취소
-                          </Button>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
-                              <Check size={12} />
-                              승인
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
-                              반려
-                            </Button>
-                          </div>
-                        ))}
-                    </td>
-                  )}
-                </tr>
-                {canManage && rejectingId === request.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={columnCount} className="px-4 py-3">
-                      <div className="flex items-center gap-2 max-w-md">
-                        <input
-                          type="text"
-                          value={reasonDraft}
-                          onChange={(e) => setReasonDraft(e.target.value)}
-                          disabled={processingId === request.id}
-                          placeholder="반려 사유"
-                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
-                        />
-                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
-                          <X size={12} />
-                          반려 확정
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </ListContainer>
-    </section>
   );
 };
