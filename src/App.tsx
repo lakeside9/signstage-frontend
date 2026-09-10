@@ -13,6 +13,8 @@ import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { AdminBillingPlanList } from './pages/AdminBillingPlanList';
+import { AdminSubscriptionPlanCatalog } from './pages/AdminSubscriptionPlanCatalog';
+import { AdminSubscriptionRequestList } from './pages/AdminSubscriptionRequestList';
 import { AdminBillingPlanCreate } from './pages/AdminBillingPlanCreate';
 import { AdminBillingPlanDetail } from './pages/AdminBillingPlanDetail';
 import { AdminBillingPlanEdit } from './pages/AdminBillingPlanEdit';
@@ -129,6 +131,8 @@ function App() {
           <Route path="billing-catalog/plans/new" element={<AdminBillingPlanCreate />} />
           <Route path="billing-catalog/plans/:id" element={<AdminBillingPlanDetail />} />
           <Route path="billing-catalog/plans/:id/edit" element={<AdminBillingPlanEdit />} />
+          <Route path="billing-catalog/subscription-plans" element={<AdminSubscriptionPlanCatalog />} />
+          <Route path="subscription-requests" element={<AdminSubscriptionRequestList />} />
           <Route path="billing-catalog/unit-products" element={<AdminUnitProductList />} />
           <Route path="billing-catalog/unit-products/new" element={<AdminUnitProductCreate />} />
           <Route path="billing-catalog/unit-products/:id" element={<AdminUnitProductDetail />} />

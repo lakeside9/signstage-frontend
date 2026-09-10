@@ -6,6 +6,7 @@ import {
   Boxes,
   Building2,
   Calculator,
+  CalendarClock,
   ChevronLeft,
   ClipboardCheck,
   ClipboardList,
@@ -67,6 +68,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Layers: <Layers size={20} />,
   ListChecks: <ListChecks size={20} />,
   Boxes: <Boxes size={20} />,
+  CalendarClock: <CalendarClock size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

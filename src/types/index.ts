@@ -604,6 +604,16 @@ export interface BillingPlanSummary {
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   createdAt: string;
+  /**
+   * 구독형 플랜 조건(생성 후 불변) — signstage-docs
+   * business/organization-event-discount-pricing-review.md 8장 결정(2026-09-10). STANDARD면
+   * subscription이 false이고 나머지 3개는 전부 null이다.
+   */
+  planType: 'STANDARD' | 'SUBSCRIPTION';
+  subscription: boolean;
+  subscriptionType: 'PERIOD_AND_COUNT' | 'COUNT_ONLY' | null;
+  subscriptionPeriodMonths: number | null;
+  subscriptionAllowedCount: number | null;
   discountType: DiscountType | null;
   discountValue: number | null;
   /** 사용여부(오늘 유효한 기간의 값). false거나 null이면 새 행사 생성/플랜 변경 대상에서 제외된다. */
@@ -639,6 +649,11 @@ export interface CreateBillingPlanRequest {
   active: boolean;
   effectiveFrom: string;
   effectiveTo: string | null;
+  /** 생략하면 STANDARD(일반 플랜)로 만든다 — 4개 전부 생성 후 불변이라 수정 API엔 없다. */
+  planType?: 'STANDARD' | 'SUBSCRIPTION';
+  subscriptionType?: 'PERIOD_AND_COUNT' | 'COUNT_ONLY';
+  subscriptionPeriodMonths?: number;
+  subscriptionAllowedCount?: number;
 }
 
 /**
@@ -1593,4 +1608,71 @@ export interface ProjectorExhibitionDocument {
 export interface ProjectorSignerInfo {
   id: number;
   name: string;
+}
+
+// ==================== 조직 구독/계약 ====================
+// signstage-docs business/organization-event-discount-pricing-review.md 8장 결정(2026-09-10).
+// 조직(OWNER)이 구독형 플랜을 신청 → 플랫폼 관리자가 승인해야 사용할 수 있다. 중도 해지도
+// 같은 요청→승인 구조. OrganizationCreationRequestSummary/PlatformAdminOrganizationRequestSummary와
+// 같은 패턴.
+
+export type OrganizationSubscriptionStatus =
+  | 'PENDING'
+  | 'ACTIVE'
+  | 'CANCELLATION_REQUESTED'
+  | 'EXPIRED'
+  | 'EXHAUSTED'
+  | 'CANCELLED'
+  | 'SUPERSEDED'
+  | 'REJECTED';
+
+/**
+ * GET .../subscriptions/current, POST .../subscriptions, GET /api/platform-admin/subscriptions
+ * 응답(OrganizationSubscriptionDto.Response.SubscriptionSummary)과 맞춘다. 승인 시점 스냅샷
+ * (planNameSnapshot 이하 4개)과 usedCount/remainingCount는 승인 전(PENDING)엔 전부 null이다.
+ */
+export interface OrganizationSubscriptionSummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  billingPlanId: number;
+  billingPlanName: string;
+  status: OrganizationSubscriptionStatus;
+  requesterLoginId: string;
+  planNameSnapshot: string | null;
+  subscriptionTypeSnapshot: 'PERIOD_AND_COUNT' | 'COUNT_ONLY' | null;
+  periodMonthsSnapshot: number | null;
+  allowedCountSnapshot: number | null;
+  usedCount: number | null;
+  remainingCount: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  approvalSource: 'MANUAL' | 'PAYMENT';
+  reviewerLoginId: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+}
+
+/** GET /api/platform-admin/subscriptions/{id}/history 응답 — 상태 전이 이력 한 행, 최신순. */
+export interface OrganizationSubscriptionHistorySummary {
+  id: number;
+  status: OrganizationSubscriptionStatus;
+  reviewedBy: number | null;
+  note: string | null;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+export interface CreateOrganizationSubscriptionRequest {
+  billingPlanId: number;
+}
+
+export interface RequestSubscriptionCancellationRequest {
+  cancellationReason: string;
+}
+
+export interface RejectOrganizationSubscriptionRequest {
+  rejectionReason: string;
 }
