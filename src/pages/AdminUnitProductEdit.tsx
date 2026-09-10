@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { EffectDefinitionPicker, Field, UsageWarning } from './billingCatalog/components';
+import { EffectDefinitionPicker, ExclusivityGroupField, Field, UsageWarning } from './billingCatalog/components';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, inputClass, normalizeExclusivityGroup } from './billingCatalog/constants';
 import type { CeremonyEffectDefinition, UnitProductCategory, UnitProductSummary, UpdateUnitProductRequest } from '../types';
 
@@ -22,6 +22,7 @@ export const AdminUnitProductEdit: FC = () => {
 
   const [product, setProduct] = useState<UnitProductSummary | null>(null);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
+  const [existingGroups, setExistingGroups] = useState<string[]>([]);
   const [draft, setDraft] = useState<UpdateUnitProductRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,7 +34,8 @@ export const AdminUnitProductEdit: FC = () => {
     (async () => {
       try {
         const [productsRes, effectsRes] = await Promise.all([api.get('/unit-products'), api.get('/ceremony-effects')]);
-        const found = (productsRes.data as UnitProductSummary[]).find((p) => p.id === productId) ?? null;
+        const allProducts = productsRes.data as UnitProductSummary[];
+        const found = allProducts.find((p) => p.id === productId) ?? null;
         if (!cancelled) {
           if (!found) {
             showSnackbar('단위 상품을 찾을 수 없습니다.', 'error');
@@ -42,6 +44,8 @@ export const AdminUnitProductEdit: FC = () => {
           }
           setProduct(found);
           setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
+          const groups = allProducts.map((p) => p.exclusivityGroup).filter((g): g is string => g !== null);
+          setExistingGroups([...new Set(groups)].sort());
           setDraft({
             name: found.name,
             exclusivityGroup: found.exclusivityGroup ?? '',
@@ -122,16 +126,12 @@ export const AdminUnitProductEdit: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="배타 그룹">
-              <input
-                type="text"
-                value={draft.exclusivityGroup ?? ''}
-                onChange={(e) => setDraft((prev) => prev && { ...prev, exclusivityGroup: e.target.value })}
-                disabled={isSaving}
-                placeholder="예: SIGNER_HIGHLIGHT_COLOR"
-                className={inputClass}
-              />
-            </Field>
+            <ExclusivityGroupField
+              value={draft.exclusivityGroup ?? ''}
+              existingGroups={existingGroups}
+              disabled={isSaving}
+              onChange={(exclusivityGroup) => setDraft((prev) => prev && { ...prev, exclusivityGroup })}
+            />
             <Field label="분류">
               <select
                 value={draft.category}

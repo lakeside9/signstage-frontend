@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, EffectDefinitionPicker, Field } from './billingCatalog/components';
+import { ActiveField, EffectDefinitionPicker, ExclusivityGroupField, Field } from './billingCatalog/components';
 import {
   DEFAULT_CATEGORY_BY_TYPE,
   UNIT_PRODUCT_CATEGORY_OPTIONS,
@@ -44,6 +44,7 @@ const EMPTY_DRAFT = (): CreateUnitProductRequest => {
 export const AdminUnitProductCreate: FC = () => {
   const [draft, setDraft] = useState<CreateUnitProductRequest>(EMPTY_DRAFT);
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
+  const [existingGroups, setExistingGroups] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [created, setCreated] = useState<UnitProductSummary | null>(null);
 
@@ -53,8 +54,14 @@ export const AdminUnitProductCreate: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await api.get('/ceremony-effects');
-        if (!cancelled) setEffectDefinitions(response.data as CeremonyEffectDefinition[]);
+        const [effectsRes, productsRes] = await Promise.all([api.get('/ceremony-effects'), api.get('/unit-products')]);
+        if (!cancelled) {
+          setEffectDefinitions(effectsRes.data as CeremonyEffectDefinition[]);
+          const groups = (productsRes.data as UnitProductSummary[])
+            .map((p) => p.exclusivityGroup)
+            .filter((g): g is string => g !== null);
+          setExistingGroups([...new Set(groups)].sort());
+        }
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '이벤트 효과 목록을 불러오지 못했습니다.', 'error');
       }
@@ -204,16 +211,12 @@ export const AdminUnitProductCreate: FC = () => {
               />
             </Field>
             <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
-            <Field label="배타 그룹">
-              <input
-                type="text"
-                value={draft.exclusivityGroup ?? ''}
-                onChange={(e) => setDraft((prev) => ({ ...prev, exclusivityGroup: e.target.value }))}
-                disabled={isLoading}
-                placeholder="예: SIGNER_HIGHLIGHT_COLOR"
-                className={inputClass}
-              />
-            </Field>
+            <ExclusivityGroupField
+              value={draft.exclusivityGroup ?? ''}
+              existingGroups={existingGroups}
+              disabled={isLoading}
+              onChange={(exclusivityGroup) => setDraft((prev) => ({ ...prev, exclusivityGroup }))}
+            />
             <Field label="분류">
               <select
                 value={draft.category}

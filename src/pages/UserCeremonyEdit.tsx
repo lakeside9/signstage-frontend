@@ -17,7 +17,7 @@ import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
-import { UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
+import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
 import type {
   BillingPlanSummary,
   CeremonyPlanHistorySummary,
@@ -437,6 +437,14 @@ export const UserCeremonyEdit: FC = () => {
 
   const isCompleted = ceremony.status === 'COMPLETED';
   const isDraft = ceremony.status === 'DRAFT';
+  // 추가구매 후보를 장비/인력/애플리케이션(+필수) 카테고리별로 묶어 보여준다 — AdminBillingSimulator.tsx의
+  // groupedPurchasable과 같은 패턴이다(billing-catalog-unit-product-model-redesign-review.md §9,
+  // 원래도 범위 밖으로 명시했던 "구매 화면 카테고리별 재구성" 후속 작업).
+  const purchasableInCeremony = purchasableProducts.filter((p) => p.active || hasActiveEventEffectPurchase(p.id));
+  const groupedPurchasable = UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => ({
+    category: option.label,
+    items: purchasableInCeremony.filter((p) => p.category === option.value),
+  })).filter(({ items }) => items.length > 0);
   // "선택한 플랜" 표시는 라이브 카탈로그가 아니라 확정 시점(또는 가장 최근 변경 시점) 스냅샷을
   // 쓴다 — 카탈로그 관리자가 나중에 값을 고쳐도 표시가 안 바뀐다(9장). planHistory는 최신순
   // 정렬이라 [0]이 그 스냅샷이다. 이력이 없는 경우(이 기능 배포 전 기존 행사)만 라이브 값으로
@@ -818,48 +826,53 @@ export const UserCeremonyEdit: FC = () => {
           </div>
         ) : isCompleted ? (
           <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
-        ) : purchasableProducts.filter((p) => p.active || hasActiveEventEffectPurchase(p.id)).length === 0 ? (
+        ) : purchasableInCeremony.length === 0 ? (
           <p className="text-sm text-gray-500">추가구매 가능한 단위 상품이 없습니다.</p>
         ) : (
-          <form onSubmit={handlePurchase} className="space-y-1.5">
+          <form onSubmit={handlePurchase} className="space-y-4">
             {/* 사용 중지된 상품은 이미 요청(대기중/승인)한 이벤트 효과 묶음일 때만 상태 확인용으로 계속 보여준다. */}
-            {purchasableProducts
-              .filter((p) => p.active || hasActiveEventEffectPurchase(p.id))
-              .map((product) => {
-                const isEventEffectBundle = product.type === 'EVENT_EFFECT_BUNDLE';
-                const blocked = isEventEffectBundle && hasActiveEventEffectPurchase(product.id);
-                return (
-                  <div
-                    key={product.id}
-                    className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm text-gray-950">
-                        {product.name}
-                        {!product.active && <span className="ml-2 text-xs text-gray-400">사용 중지</span>}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
-                        {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
-                      </p>
-                    </div>
-                    {blocked ? (
-                      <PurchaseStatusBadge status={activePurchaseStatus(product.id) ?? 'PENDING'} />
-                    ) : (
-                      <input
-                        type="number"
-                        min={0}
-                        max={isEventEffectBundle ? 1 : undefined}
-                        value={cartQuantities[product.id] || ''}
-                        onChange={(e) => setCartQuantity(product.id, Number(e.target.value))}
-                        disabled={isPurchasing}
-                        placeholder="0"
-                        className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                      />
-                    )}
-                  </div>
-                );
-              })}
+            {groupedPurchasable.map(({ category, items }) => (
+              <div key={category}>
+                <h3 className="text-xs font-bold text-gray-500 mb-1.5">{category}</h3>
+                <div className="space-y-1.5">
+                  {items.map((product) => {
+                    const isEventEffectBundle = product.type === 'EVENT_EFFECT_BUNDLE';
+                    const blocked = isEventEffectBundle && hasActiveEventEffectPurchase(product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-950">
+                            {product.name}
+                            {!product.active && <span className="ml-2 text-xs text-gray-400">사용 중지</span>}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
+                            {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                          </p>
+                        </div>
+                        {blocked ? (
+                          <PurchaseStatusBadge status={activePurchaseStatus(product.id) ?? 'PENDING'} />
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            max={isEventEffectBundle ? 1 : undefined}
+                            value={cartQuantities[product.id] || ''}
+                            onChange={(e) => setCartQuantity(product.id, Number(e.target.value))}
+                            disabled={isPurchasing}
+                            placeholder="0"
+                            className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             <div className="pt-2 flex justify-end">
               <button
                 type="submit"
