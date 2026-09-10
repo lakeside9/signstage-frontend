@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Package, Pencil } from 'lucide-react';
+import { ArrowLeft, Loader2, Package, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -26,6 +27,9 @@ export const AdminBillingPlanDetail: FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<BillingPlanHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_BILLING_CATALOG_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
@@ -59,6 +63,19 @@ export const AdminBillingPlanDetail: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/platform-admin/billing-plans/${planId}`);
+      showSnackbar('과금 플랜을 삭제했습니다.', 'success');
+      navigate('/admin/billing-catalog/plans', { replace: true });
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '과금 플랜 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const openHistory = async () => {
     setIsHistoryOpen(true);
@@ -102,8 +119,20 @@ export const AdminBillingPlanDetail: FC = () => {
                   수정
                 </Button>
               )}
+              {canManage && plan.canDelete && (
+                <Button variant="danger" size="sm" onClick={() => setIsDeleteConfirmOpen(true)}>
+                  <Trash2 size={12} />
+                  삭제
+                </Button>
+              )}
             </div>
           </div>
+
+          {canManage && !plan.canDelete && (
+            <p className="mb-4 text-xs text-gray-400">
+              행사·조직 구독·조직×플랜 할인 오버라이드 중 하나라도 사용된 적이 있어 삭제할 수 없습니다.
+            </p>
+          )}
 
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="이름" value={plan.name} />
@@ -143,14 +172,19 @@ export const AdminBillingPlanDetail: FC = () => {
             />
             <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
             <DetailRow
-              label="포함 단위 상품"
+              label="단위 상품 구성"
               value={
                 plan.unitProducts.length === 0
                   ? '없음'
                   : plan.unitProducts
                       .map(
                         (line) =>
-                          `${line.unitProductName}(${UNIT_PRODUCT_TYPE_LABEL[line.unitProductType] ?? line.unitProductType}) 기본 ${line.includedQuantity}${line.purchasable ? ' · 추가구매 가능' : ''}`,
+                          // 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매
+                          // 후보다(2026-09-10, purchasable 필드 폐지) — 0이면 기본 포함 없이
+                          // 추가구매만 가능하다는 뜻이다.
+                          `${line.unitProductName}(${UNIT_PRODUCT_TYPE_LABEL[line.unitProductType] ?? line.unitProductType}) ${
+                            line.includedQuantity > 0 ? `기본 ${line.includedQuantity} · 추가구매 가능` : '추가구매만 가능'
+                          }`,
                       )
                       .join(', ')
               }
@@ -185,6 +219,15 @@ export const AdminBillingPlanDetail: FC = () => {
               </li>
             ))}
           </HistoryModal>
+
+          <ConfirmDialog
+            open={isDeleteConfirmOpen}
+            title="과금 플랜 삭제"
+            message={`"${plan.name}" 과금 플랜을 정말 삭제할까요? 삭제하면 되돌릴 수 없습니다.`}
+            isSubmitting={isDeleting}
+            onConfirm={handleDelete}
+            onCancel={() => setIsDeleteConfirmOpen(false)}
+          />
         </>
       )}
     </div>

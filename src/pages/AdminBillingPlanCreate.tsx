@@ -8,7 +8,7 @@ import { api } from '../utils/api';
 import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
 import {
   DISCOUNT_TYPE_OPTIONS,
-  PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES,
+  TOGGLE_UNIT_PRODUCT_TYPES,
   UNIT_PRODUCT_TYPE_LABEL,
   formatPrice,
   inputClass,
@@ -26,20 +26,27 @@ const EMPTY_DRAFT = (): CreateBillingPlanRequest => ({
   planType: 'STANDARD',
 });
 
+/**
+ * `includedQuantity: null`은 "이 단위 상품은 이 플랜 구성에 아예 없음"(추가구매도 안 됨)이다 —
+ * 숫자(0 포함)를 입력해야 비로소 이 플랜의 행사가 그 상품을 추가구매할 수 있게 된다(행이
+ * 존재하는 것 자체가 추가구매 후보라는 뜻, 2026-09-10 `purchasable` 필드 폐지). 그래서 빈
+ * 입력칸과 명시적으로 입력한 "0"을 구분해야 하고, 값을 그냥 `number`로 두면 그 구분이 없어진다.
+ */
 interface LineDraft {
-  includedQuantity: number;
-  purchasable: boolean;
+  includedQuantity: number | null;
 }
 
 const emptyLineDrafts = (products: UnitProductSummary[]): Record<number, LineDraft> =>
-  Object.fromEntries(products.map((p) => [p.id, { includedQuantity: 0, purchasable: false }]));
+  Object.fromEntries(products.map((p) => [p.id, { includedQuantity: null }]));
 
 /**
  * 과금 플랜 등록 — 전용 페이지형(detail-form-screen-convention.md 패턴 A). 제출 성공 시 같은
  * 페이지 안에서 "생성 완료" 뷰로 전환하고 "상세로 이동"/"계속 추가하기" 두 버튼으로 통일한다.
- * 플랜은 이제 자기 가격이 없다 — 단위 상품 구성(기본 포함 수량 + 추가구매 가능 여부)과 할인만
- * 갖는다(signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 결정,
- * 2026-09-10, 3.3절).
+ * 플랜은 이제 자기 가격이 없다 — 단위 상품 구성(기본 포함 수량)과 할인만 갖는다(signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.3절).
+ * "추가구매 후보" 체크박스는 없다 — 구성에 올린 상품(수량이 0이든 N이든)은 전부 그 자체로
+ * 추가구매 후보다(같은 문서 11장, 2026-09-10 후속 정리 — 사용자 지적으로 태블릿/현장지원/
+ * 온라인지원도 수량을 자유롭게 입력할 수 있게 됐고, 별도 플래그는 필요 없어졌다).
  */
 export const AdminBillingPlanCreate: FC = () => {
   const [draft, setDraft] = useState<CreateBillingPlanRequest>(EMPTY_DRAFT);
@@ -74,7 +81,7 @@ export const AdminBillingPlanCreate: FC = () => {
     () =>
       products.reduce((sum, p) => {
         const line = lineDrafts[p.id];
-        if (!line || p.salePrice === null) return sum;
+        if (!line || p.salePrice === null || line.includedQuantity === null) return sum;
         return sum + p.salePrice * line.includedQuantity;
       }, 0),
     [products, lineDrafts],
@@ -83,11 +90,10 @@ export const AdminBillingPlanCreate: FC = () => {
 
   const buildLines = (): PlanUnitProductLine[] =>
     Object.entries(lineDrafts)
-      .filter(([, line]) => line.includedQuantity > 0 || line.purchasable)
+      .filter((entry): entry is [string, { includedQuantity: number }] => entry[1].includedQuantity !== null)
       .map(([unitProductId, line]) => ({
         unitProductId: Number(unitProductId),
         includedQuantity: line.includedQuantity,
-        purchasable: line.purchasable,
       }));
 
   const handleSubmit = async (e: FormEvent) => {
@@ -308,13 +314,12 @@ export const AdminBillingPlanCreate: FC = () => {
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">단위 상품</th>
                       <th className="text-left px-3 py-2 font-medium w-32">기본 포함 수량</th>
-                      <th className="text-left px-3 py-2 font-medium w-28">추가구매 후보</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => {
-                      const line = lineDrafts[product.id] ?? { includedQuantity: 0, purchasable: false };
-                      const includable = PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.includes(product.type);
+                      const line = lineDrafts[product.id] ?? { includedQuantity: null };
+                      const isToggle = TOGGLE_UNIT_PRODUCT_TYPES.includes(product.type);
                       return (
                         <tr key={product.id}>
                           <td className="px-3 py-2">
@@ -327,26 +332,18 @@ export const AdminBillingPlanCreate: FC = () => {
                             <input
                               type="number"
                               min={0}
-                              value={!includable || line.includedQuantity === 0 ? '' : line.includedQuantity}
-                              disabled={isLoading || !includable}
-                              placeholder={includable ? '0' : '—'}
-                              onChange={(e) =>
+                              max={isToggle ? 1 : undefined}
+                              value={line.includedQuantity ?? ''}
+                              disabled={isLoading}
+                              placeholder="—"
+                              onChange={(e) => {
+                                const raw = e.target.value;
                                 setLineDrafts((prev) => ({
                                   ...prev,
-                                  [product.id]: { ...line, includedQuantity: Number(e.target.value) },
-                                }))
-                              }
+                                  [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
+                                }));
+                              }}
                               className={`${inputClass} w-24`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={line.purchasable}
-                              disabled={isLoading}
-                              onChange={(e) =>
-                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, purchasable: e.target.checked } }))
-                              }
                             />
                           </td>
                         </tr>
@@ -357,9 +354,11 @@ export const AdminBillingPlanCreate: FC = () => {
               </div>
             )}
             <p className="mt-1 text-xs text-gray-400">
-              기본 포함 수량은 필수 5종(서명자/템플릿/테스트·리허설·본행사)만 입력할 수 있습니다. 추가구매 후보로 체크한 상품만
-              이 플랜의 행사가 추가구매할 수 있습니다(무료 포함 아님 — 여전히 사용자가 구매 요청하고 관리자가 승인해야
-              합니다). 이 구성은 이후 수정 화면에서도 통째로 바꿀 수 있습니다.
+              수량을 입력한 상품(0 포함)만 이 플랜 구성에 포함됩니다 — 빈 칸으로 두면 이 플랜과 무관한 상품입니다. 0을
+              입력하면 기본 포함은 없지만 이 플랜의 행사가 추가구매할 수 있고, 1 이상을 입력하면 그 수량만큼 기본
+              포함되면서 더 필요하면 추가구매도 할 수 있습니다(추가구매는 여전히 사용자가 요청하고 관리자가 승인해야
+              합니다). 이벤트 효과 묶음은 토글형이라 수량이 0 또는 1만 가능합니다. 이 구성은 이후 수정 화면에서도
+              통째로 바꿀 수 있습니다.
             </p>
           </div>
 

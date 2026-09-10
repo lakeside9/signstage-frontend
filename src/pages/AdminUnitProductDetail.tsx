@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Boxes, Loader2, Pencil } from 'lucide-react';
+import { ArrowLeft, Boxes, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -28,6 +29,9 @@ export const AdminUnitProductDetail: FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<UnitProductHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_BILLING_CATALOG_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
@@ -65,6 +69,19 @@ export const AdminUnitProductDetail: FC = () => {
   }, [productId]);
 
   const effectName = (eid: number) => effectDefinitions.find((d) => d.id === eid)?.displayName ?? `#${eid}`;
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/platform-admin/unit-products/${productId}`);
+      showSnackbar('단위 상품을 삭제했습니다.', 'success');
+      navigate('/admin/billing-catalog/unit-products', { replace: true });
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '단위 상품 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const openHistory = async () => {
     setIsHistoryOpen(true);
@@ -108,8 +125,20 @@ export const AdminUnitProductDetail: FC = () => {
                   수정
                 </Button>
               )}
+              {canManage && product.canDelete && (
+                <Button variant="danger" size="sm" onClick={() => setIsDeleteConfirmOpen(true)}>
+                  <Trash2 size={12} />
+                  삭제
+                </Button>
+              )}
             </div>
           </div>
+
+          {canManage && !product.canDelete && (
+            <p className="mb-4 text-xs text-gray-400">
+              플랜 구성·행사 스냅샷·추가구매·행사 적용·이벤트 효과 묶음 중 하나라도 사용된 적이 있어 삭제할 수 없습니다.
+            </p>
+          )}
 
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="종류" value={UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} />
@@ -163,6 +192,15 @@ export const AdminUnitProductDetail: FC = () => {
               </li>
             ))}
           </HistoryModal>
+
+          <ConfirmDialog
+            open={isDeleteConfirmOpen}
+            title="단위 상품 삭제"
+            message={`"${product.name}" 단위 상품을 정말 삭제할까요? 삭제하면 되돌릴 수 없습니다.`}
+            isSubmitting={isDeleting}
+            onConfirm={handleDelete}
+            onCancel={() => setIsDeleteConfirmOpen(false)}
+          />
         </>
       )}
     </div>

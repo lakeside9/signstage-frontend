@@ -169,8 +169,10 @@ export const AdminBillingSimulator: FC = () => {
   };
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
+  // 플랜 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매 후보다
+  // (2026-09-10, purchasable 필드 폐지 — AdminBillingPlanDetail.tsx와 같은 이유).
   const purchasableProducts = useMemo(() => {
-    const purchasableIds = new Set(selectedPlan?.unitProducts.filter((l) => l.purchasable).map((l) => l.unitProductId) ?? []);
+    const purchasableIds = new Set(selectedPlan?.unitProducts.map((l) => l.unitProductId) ?? []);
     return products.filter((p) => purchasableIds.has(p.id));
   }, [selectedPlan, products]);
   const groupedPurchasable = UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => ({
@@ -358,9 +360,9 @@ export const AdminBillingSimulator: FC = () => {
           <section className="bg-white border border-gray-200 rounded-lg p-4">
             <h2 className="text-sm font-bold text-gray-950 mb-1">② 단위 상품 추가구매</h2>
             <p className="text-xs text-gray-400 mb-3">
-              선택한 플랜에서 추가구매 후보(purchasable)로 열어둔 단위 상품만 보여줍니다. 단위 상품은 할인이 없어
+              선택한 플랜의 구성에 올라간(포함 수량이 0이든 N이든) 단위 상품만 보여줍니다. 단위 상품은 할인이 없어
               정가 × 수량 그대로 계산됩니다(signstage-docs
-              business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10).
+              business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 11장).
             </p>
             {purchasableProducts.length === 0 ? (
               <p className="text-sm text-gray-400">이 플랜에서 추가구매할 수 있는 단위 상품이 없습니다.</p>

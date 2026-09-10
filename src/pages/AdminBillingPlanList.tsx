@@ -9,7 +9,7 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { PeriodStatusBadge } from './billingCatalog/components';
-import { CATALOG_PAGE_SIZE, PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES, calculateFinalPrice, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
+import { CATALOG_PAGE_SIZE, ESSENTIAL_UNIT_PRODUCT_TYPES, calculateFinalPrice, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
 import type { BillingPlanSummary } from '../types';
 
 /**
@@ -136,7 +136,7 @@ export const AdminBillingPlanList: FC = () => {
                       : formatPrice(calculateFinalPrice(subtotal, plan.discountType, plan.discountValue), currencyCode)}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.map(
+                    {ESSENTIAL_UNIT_PRODUCT_TYPES.map(
                       (type) => plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
                     ).join('/')}
                   </td>
