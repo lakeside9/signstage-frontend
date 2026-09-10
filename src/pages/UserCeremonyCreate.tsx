@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileSignature, Loader2 } from 'lucide-react';
+import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
@@ -219,13 +220,14 @@ export const UserCeremonyCreate: FC = () => {
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-          >
-            {isLoading ? '등록 중...' : '행사 등록'}
-          </button>
+          <div className="flex justify-end gap-2">
+            <Button to={`/ceremonies/${organizationId}`} variant="secondary">
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? '등록 중...' : '행사 등록'}
+            </Button>
+          </div>
         </form>
       )}
     </div>
