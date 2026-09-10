@@ -1739,3 +1739,57 @@ export interface UpsertDemoConfigRequest {
   spacing?: 'spaced' | 'joined';
   enabled?: boolean;
 }
+
+// ==================== 확정 견적(billing quote) ====================
+// signstage-docs business/currency-tax-internationalization-review.md 9/10장(2026-09-10).
+// "예상 청구 금액"(EstimatedTotal, 조회 시점 계산)과 계산 로직은 완전히 같고, 이 타입들은
+// 그 계산 결과를 스냅샷으로 고정한 뒤 조회/무효화하는 데만 쓴다.
+
+export type BillingQuoteStatus = 'FINALIZED' | 'VOID';
+
+/** GET .../quotes 응답 한 행(BillingQuoteDto.Response.QuoteSummary)과 맞춘다. */
+export interface BillingQuoteSummary {
+  id: number;
+  version: number;
+  status: BillingQuoteStatus;
+  currencyCode: string;
+  currencyFractionDigits: number;
+  netAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  grossAmount: number;
+  pricingCalculatedAt: string;
+  taxPointDate: string;
+  createdByLoginId: string | null;
+  createdAt: string;
+  /** VOID 상태일 때만 값이 있다. */
+  voidReason: string | null;
+}
+
+export interface BillingQuoteLineSummary {
+  lineType: 'PLAN_UNIT_PRODUCT' | 'UNIT_PRODUCT_PURCHASE';
+  itemId: number;
+  itemName: string;
+  quantity: number;
+  unitListAmount: number;
+  listAmount: number;
+  itemDiscountAmount: number;
+  ceremonyDiscountAmount: number;
+  netAmount: number;
+  taxCode: string;
+  taxCategory: string;
+  taxRatePercent: number;
+  priceInclusion: string;
+  taxAmount: number;
+  grossAmount: number;
+}
+
+/** GET .../quotes/{id} 응답(BillingQuoteDto.Response.QuoteDetail)과 맞춘다. */
+export interface BillingQuoteDetail {
+  summary: BillingQuoteSummary;
+  lines: BillingQuoteLineSummary[];
+}
+
+export interface VoidBillingQuoteRequest {
+  reason: string;
+}

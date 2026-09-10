@@ -18,6 +18,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
+import { BillingQuoteSection } from './ceremony/BillingQuoteSection';
 import type {
   BillingPlanSummary,
   CeremonyPlanHistorySummary,
@@ -796,6 +797,8 @@ export const UserCeremonyEdit: FC = () => {
           기능은 아직 없습니다.
         </p>
       </section>
+
+      {organizationId && ceremonyId && <BillingQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} />}
 
       {/* 단위 상품 추가구매 — 여러 줄을 한 번에 담는 장바구니형(signstage-docs
           business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) —
