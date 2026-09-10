@@ -23,6 +23,7 @@ const EMPTY_DRAFT = (): CreateBillingPlanRequest => ({
   active: true,
   effectiveFrom: todayIsoDate(),
   effectiveTo: null,
+  planType: 'STANDARD',
 });
 
 interface LineDraft {
@@ -95,12 +96,25 @@ export const AdminBillingPlanCreate: FC = () => {
       showSnackbar('플랜 이름을 입력해주세요.', 'error');
       return;
     }
+    if (draft.planType === 'SUBSCRIPTION') {
+      if (!draft.subscriptionType || !draft.subscriptionAllowedCount) {
+        showSnackbar('구독 유형과 허용 횟수를 입력해주세요.', 'error');
+        return;
+      }
+      if (draft.subscriptionType === 'PERIOD_AND_COUNT' && !draft.subscriptionPeriodMonths) {
+        showSnackbar('기간형(PERIOD_AND_COUNT)은 기간(6 또는 12개월)을 선택해주세요.', 'error');
+        return;
+      }
+    }
     setIsLoading(true);
     try {
       const response = await api.post('/platform-admin/billing-plans', {
         ...draft,
         name: draft.name.trim(),
         unitProducts: buildLines(),
+        subscriptionPeriodMonths: draft.planType === 'SUBSCRIPTION' && draft.subscriptionType === 'PERIOD_AND_COUNT'
+          ? draft.subscriptionPeriodMonths
+          : undefined,
       });
       setCreated(response.data as BillingPlanSummary);
       showSnackbar('과금 플랜을 등록했습니다.', 'success');
@@ -201,6 +215,74 @@ export const AdminBillingPlanCreate: FC = () => {
               />
             </Field>
             <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-950 mb-3">
+              <input
+                type="checkbox"
+                checked={draft.planType === 'SUBSCRIPTION'}
+                disabled={isLoading}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    planType: e.target.checked ? 'SUBSCRIPTION' : 'STANDARD',
+                    subscriptionType: e.target.checked ? (prev.subscriptionType ?? 'PERIOD_AND_COUNT') : undefined,
+                    subscriptionPeriodMonths: e.target.checked ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
+                    subscriptionAllowedCount: e.target.checked ? prev.subscriptionAllowedCount : undefined,
+                  }))
+                }
+              />
+              구독형 플랜(N회 이용권)으로 만들기
+            </label>
+            {draft.planType === 'SUBSCRIPTION' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <Field label="구독 유형">
+                  <select
+                    value={draft.subscriptionType ?? 'PERIOD_AND_COUNT'}
+                    disabled={isLoading}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        subscriptionType: e.target.value as 'PERIOD_AND_COUNT' | 'COUNT_ONLY',
+                        subscriptionPeriodMonths: e.target.value === 'PERIOD_AND_COUNT' ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="PERIOD_AND_COUNT">기간+횟수 (예: 6개월 5회)</option>
+                    <option value="COUNT_ONLY">횟수제 (기간 제한 없음)</option>
+                  </select>
+                </Field>
+                {draft.subscriptionType !== 'COUNT_ONLY' && (
+                  <Field label="기간">
+                    <select
+                      value={draft.subscriptionPeriodMonths ?? 6}
+                      disabled={isLoading}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, subscriptionPeriodMonths: Number(e.target.value) }))}
+                      className={inputClass}
+                    >
+                      <option value={6}>6개월</option>
+                      <option value={12}>12개월</option>
+                    </select>
+                  </Field>
+                )}
+                <Field label="허용 횟수">
+                  <input
+                    type="number"
+                    min={1}
+                    value={draft.subscriptionAllowedCount ?? ''}
+                    disabled={isLoading}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, subscriptionAllowedCount: Number(e.target.value) }))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-400">
+              구독형 플랜은 조직이 신청 → 관리자가 승인해야 사용할 수 있고, 이 조건 4개는 등록 후 바꿀 수 없습니다(조건을
+              바꾸려면 새 플랜을 등록해주세요).
+            </p>
           </div>
 
           <div>

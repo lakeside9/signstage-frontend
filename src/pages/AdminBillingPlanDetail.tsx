@@ -108,6 +108,14 @@ export const AdminBillingPlanDetail: FC = () => {
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="이름" value={plan.name} />
             <DetailRow
+              label="플랜 유형"
+              value={
+                plan.subscription
+                  ? `구독형 — ${plan.subscriptionType === 'PERIOD_AND_COUNT' ? `${plan.subscriptionPeriodMonths}개월 ` : ''}${plan.subscriptionAllowedCount}회`
+                  : '일반'
+              }
+            />
+            <DetailRow
               label="단위 상품 소계"
               value={formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
             />
