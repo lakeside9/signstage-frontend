@@ -1465,6 +1465,8 @@ export interface PortalContext {
   /** 서명자 포털 도구모음의 구분 뱃지에 쓴다(2026-08-27 legacy 포팅). */
   eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
+  /** {@link ProjectorContext.isDemo}와 같은 용도(전체 화면 워터마크). */
+  isDemo: boolean;
   signerId: number;
   signerName: string;
   signerPosition: string | null;
@@ -1581,6 +1583,9 @@ export interface ProjectorContext {
   eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
+  /** 이 행사의 조직이 데모 조직인가 — 전체 화면 워터마크 조건에 쓴다(signstage-docs
+   * business/demo-account-exhibition-signer-preview-review.md 6.1절). */
+  isDemo: boolean;
   exhibition: ProjectorExhibitionDocument | null;
   /**
    * 이 하위 행사에 실제로 적용된 단위 상품 유형(`UnitProductType.name()`) 목록 — 옛
@@ -1608,6 +1613,17 @@ export interface ProjectorExhibitionDocument {
 export interface ProjectorSignerInfo {
   id: number;
   name: string;
+}
+
+/**
+ * GET /api/demo-viewer/scenarios 응답(DemoScenarioDto.Response.DemoScenario)과 맞춘다 —
+ * signstage-docs business/demo-account-exhibition-signer-preview-review.md 4.2/5.4절.
+ */
+export interface DemoScenario {
+  ceremonyEventId: number;
+  title: string;
+  eventAccessKey: string;
+  signerAccessKey: string;
 }
 
 // ==================== 조직 구독/계약 ====================
@@ -1675,4 +1691,51 @@ export interface RequestSubscriptionCancellationRequest {
 
 export interface RejectOrganizationSubscriptionRequest {
   rejectionReason: string;
+}
+
+// ==================== 체험형 데모 사이트(legacy demo-signstage-frontend 재사용) ====================
+// signstage-docs business/demo-account-exhibition-signer-preview-review.md 13장(2026-09-10).
+// 공개 API(GET /demo/config, /demo/configs)는 legacy 데모 셸이 이미 소비하는 계약이라 여기
+// 타입은 관리자 콘솔(플랫폼 관리자 전용, /api/platform-admin/demo-configs)에서만 쓴다.
+
+/** GET/PUT /api/platform-admin/demo-configs 응답(DemoConfigDto.Response.Config)과 맞춘다. */
+export interface DemoConfigSummary {
+  slug: string;
+  eventAccessKey: string;
+  signerAccessKeys: string[];
+  pages: number | null;
+  startPage: number | null;
+  spacing: string | null;
+  enabled: boolean;
+  /** origin 없는 상대 경로 — 데모 사이트가 자신이 아는 origin을 앞에 붙여 iframe src로 쓴다. */
+  projectorUrl: string;
+  signerUrls: string[];
+  updatedAt: string;
+}
+
+export interface DemoSignerOption {
+  signerId: number;
+  signerAccessKey: string;
+  name: string;
+  affiliation: string | null;
+  position: string | null;
+}
+
+/** GET /api/platform-admin/demo-configs/event-options 응답 한 건. */
+export interface DemoEventOption {
+  ceremonyEventId: number;
+  eventAccessKey: string;
+  eventName: string;
+  ceremonyTitle: string;
+  signers: DemoSignerOption[];
+}
+
+export interface UpsertDemoConfigRequest {
+  slug: string;
+  eventAccessKey: string;
+  signerAccessKeys: string[];
+  pages?: number;
+  startPage?: number;
+  spacing?: 'spaced' | 'joined';
+  enabled?: boolean;
 }

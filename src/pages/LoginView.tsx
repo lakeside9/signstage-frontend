@@ -30,6 +30,9 @@ interface LoginResponseData {
   tokenType: string | null;
   accessToken: string | null;
   platformAdmin: PlatformAdminInfo | null;
+  /** 데모 조직 소속 VIEWER(데모 체험 계정)면 true — signstage-docs
+   * business/demo-account-exhibition-signer-preview-review.md 4.1/4.2절. */
+  isDemoViewer: boolean;
 }
 
 type Step = 'login' | 'change-password';
@@ -73,9 +76,9 @@ export const LoginView: FC = () => {
       }
 
       if (data.accessToken) {
-        login(data.accessToken, data.platformAdmin);
+        login(data.accessToken, data.platformAdmin, data.isDemoViewer);
         showSnackbar(t('auth.signedIn'), 'success');
-        navigate(data.platformAdmin ? '/admin' : '/', { replace: true });
+        navigate(data.platformAdmin ? '/admin' : data.isDemoViewer ? '/demo' : '/', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : t('auth.communicationFailed');

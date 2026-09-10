@@ -15,6 +15,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  Link as LinkIcon,
   ListChecks,
   LogOut,
   Menu,
@@ -69,6 +70,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   ListChecks: <ListChecks size={20} />,
   Boxes: <Boxes size={20} />,
   CalendarClock: <CalendarClock size={20} />,
+  Link: <LinkIcon size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
