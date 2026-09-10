@@ -47,6 +47,64 @@ export const Field: FC<{ label: string; children: ReactNode }> = ({ label, child
   </div>
 );
 
+const EXCLUSIVITY_GROUP_CUSTOM_OPTION = '__custom__';
+
+/**
+ * 단위 상품 등록/수정 폼의 배타 그룹 입력 — 완전 자유 텍스트 대신 기존에 등록된 그룹값을
+ * select로 불러오고, "새 그룹 직접 입력"을 고를 때만 텍스트 입력을 보여준다(signstage-docs
+ * business/billing-catalog-pricing-input-validation-review.md §3.6 권장). 같은 그룹인데
+ * 대소문자·철자가 달라 배타 관계가 조용히 깨지는 오타 위험을 없앤다. `value`는 항상 원본
+ * 문자열을 그대로 부모에 돌려준다 — ''(빈 문자열)→null 정규화는 제출 시점에 호출부
+ * (`normalizeExclusivityGroup`)가 한다.
+ */
+export const ExclusivityGroupField: FC<{
+  value: string;
+  existingGroups: string[];
+  disabled: boolean;
+  onChange: (value: string) => void;
+}> = ({ value, existingGroups, disabled, onChange }) => {
+  const isKnownGroup = value !== '' && existingGroups.includes(value);
+  const [customMode, setCustomMode] = useState(value !== '' && !isKnownGroup);
+  const selectValue = customMode ? EXCLUSIVITY_GROUP_CUSTOM_OPTION : value;
+
+  return (
+    <Field label="배타 그룹">
+      <select
+        value={selectValue}
+        disabled={disabled}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (next === EXCLUSIVITY_GROUP_CUSTOM_OPTION) {
+            setCustomMode(true);
+            return;
+          }
+          setCustomMode(false);
+          onChange(next);
+        }}
+        className={inputClass}
+      >
+        <option value="">없음</option>
+        {existingGroups.map((group) => (
+          <option key={group} value={group}>
+            {group}
+          </option>
+        ))}
+        <option value={EXCLUSIVITY_GROUP_CUSTOM_OPTION}>새 그룹 직접 입력…</option>
+      </select>
+      {customMode && (
+        <input
+          type="text"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="예: SIGNER_HIGHLIGHT_COLOR"
+          className={`${inputClass} mt-1.5`}
+        />
+      )}
+    </Field>
+  );
+};
+
 /** 상세 화면이 공유하는 읽기 전용 행 — AdminOrganizationDetail.tsx의 DetailRow와 같은 모양. */
 export const DetailRow: FC<{ icon?: ReactNode; label: string; value: ReactNode }> = ({ icon, label, value }) => (
   <div className="flex items-center gap-3 px-4 py-3">
