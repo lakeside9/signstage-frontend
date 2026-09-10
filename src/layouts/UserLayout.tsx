@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  ShieldCheck,
   User,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
@@ -31,6 +32,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Settings: <Settings size={20} />,
   Building2: <Building2 size={20} />,
   User: <User size={20} />,
+  ShieldCheck: <ShieldCheck size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
