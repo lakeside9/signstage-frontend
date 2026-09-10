@@ -699,10 +699,11 @@ export interface BillingPlanDiscountPeriodRequest {
 
 /**
  * POST/PUT .../billing-discounts/plans/{id}[/periods/{periodId}] 요청과 맞춘다 — 행 하나가
- * 기간 하나(다중 버전, 안 B). effectiveFrom은 결정 #5(오늘 판단 타임존)가 유보라 자동
- * 기본값이 없다 — 항상 명시적으로 보낸다. signstage-docs
+ * 기간 하나(다중 버전, 안 B). signstage-docs
  * business/organization-discount-override-security-and-validity-period-review.md 결정
- * #4(2026-09-08).
+ * #4(2026-09-08). effectiveFrom은 서버가 생성(POST) 시 생략을 허용하고 이 조직의
+ * defaultTimeZoneId 기준 오늘로 채운다(결정 #5, 2026-09-10) — 이 화면은 편집 UX상 항상
+ * 값을 채워 보내므로 타입은 그대로 필수로 둔다.
  */
 export interface SetOrganizationDiscountRequest {
   discountType: DiscountType;
