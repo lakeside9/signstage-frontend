@@ -6,12 +6,17 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, UsageWarning } from './billingCatalog/components';
-import { PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, inputClass } from './billingCatalog/constants';
+import { TOGGLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, inputClass } from './billingCatalog/constants';
 import type { BillingPlanSummary, PlanUnitProductLine, UnitProductSummary, UpdateBillingPlanRequest } from '../types';
 
+/**
+ * `includedQuantity: null`은 "이 단위 상품은 이 플랜 구성에 아예 없음"(추가구매도 안 됨)이다 —
+ * 숫자(0 포함)를 입력해야 비로소 이 플랜의 행사가 그 상품을 추가구매할 수 있다(행이 존재하는 것
+ * 자체가 추가구매 후보라는 뜻, 2026-09-10 `purchasable` 필드 폐지 — `AdminBillingPlanCreate.tsx`
+ * 와 같은 이유).
+ */
 interface LineDraft {
-  includedQuantity: number;
-  purchasable: boolean;
+  includedQuantity: number | null;
 }
 
 /** 과금 플랜 수정 — 인라인 편집이 아니라 별도 페이지로 구성한다(사용자 요청, 2026-09-09).
@@ -49,10 +54,10 @@ export const AdminBillingPlanEdit: FC = () => {
           setProducts(allProducts);
           setName(found.name);
           const drafts: Record<number, LineDraft> = Object.fromEntries(
-            allProducts.map((p) => [p.id, { includedQuantity: 0, purchasable: false }]),
+            allProducts.map((p) => [p.id, { includedQuantity: null }]),
           );
           for (const line of found.unitProducts) {
-            drafts[line.unitProductId] = { includedQuantity: line.includedQuantity, purchasable: line.purchasable };
+            drafts[line.unitProductId] = { includedQuantity: line.includedQuantity };
           }
           setLineDrafts(drafts);
         }
@@ -70,11 +75,10 @@ export const AdminBillingPlanEdit: FC = () => {
 
   const buildLines = (): PlanUnitProductLine[] =>
     Object.entries(lineDrafts)
-      .filter(([, line]) => line.includedQuantity > 0 || line.purchasable)
+      .filter((entry): entry is [string, { includedQuantity: number }] => entry[1].includedQuantity !== null)
       .map(([unitProductId, line]) => ({
         unitProductId: Number(unitProductId),
         includedQuantity: line.includedQuantity,
-        purchasable: line.purchasable,
       }));
 
   const handleSubmit = async (e: FormEvent) => {
@@ -140,13 +144,12 @@ export const AdminBillingPlanEdit: FC = () => {
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">단위 상품</th>
                       <th className="text-left px-3 py-2 font-medium w-32">기본 포함 수량</th>
-                      <th className="text-left px-3 py-2 font-medium w-28">추가구매 후보</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => {
-                      const line = lineDrafts[product.id] ?? { includedQuantity: 0, purchasable: false };
-                      const includable = PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES.includes(product.type);
+                      const line = lineDrafts[product.id] ?? { includedQuantity: null };
+                      const isToggle = TOGGLE_UNIT_PRODUCT_TYPES.includes(product.type);
                       return (
                         <tr key={product.id}>
                           <td className="px-3 py-2">
@@ -159,26 +162,18 @@ export const AdminBillingPlanEdit: FC = () => {
                             <input
                               type="number"
                               min={0}
-                              value={!includable || line.includedQuantity === 0 ? '' : line.includedQuantity}
-                              disabled={isSaving || !includable}
-                              placeholder={includable ? '0' : '—'}
-                              onChange={(e) =>
+                              max={isToggle ? 1 : undefined}
+                              value={line.includedQuantity ?? ''}
+                              disabled={isSaving}
+                              placeholder="—"
+                              onChange={(e) => {
+                                const raw = e.target.value;
                                 setLineDrafts((prev) => ({
                                   ...prev,
-                                  [product.id]: { ...line, includedQuantity: Number(e.target.value) },
-                                }))
-                              }
+                                  [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
+                                }));
+                              }}
                               className={`${inputClass} w-24`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={line.purchasable}
-                              disabled={isSaving}
-                              onChange={(e) =>
-                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, purchasable: e.target.checked } }))
-                              }
                             />
                           </td>
                         </tr>
@@ -188,7 +183,12 @@ export const AdminBillingPlanEdit: FC = () => {
                 </table>
               </div>
             )}
-            <p className="mt-1 text-xs text-gray-400">이미 확정/구매해서 쓰고 있는 행사는 변경 시점 스냅샷 기준이라 영향받지 않습니다.</p>
+            <p className="mt-1 text-xs text-gray-400">
+              수량을 입력한 상품(0 포함)만 이 플랜 구성에 포함됩니다 — 빈 칸으로 두면 이 플랜과 무관한 상품입니다. 0을
+              입력하면 기본 포함은 없지만 추가구매 후보가 되고, 1 이상이면 그 수량만큼 기본 포함됩니다. 이벤트 효과
+              묶음은 수량이 0 또는 1만 가능합니다. 이미 확정/구매해서 쓰고 있는 행사는 변경 시점 스냅샷 기준이라
+              영향받지 않습니다.
+            </p>
           </div>
 
           <UsageWarning count={plan.usageCount} itemLabel="플랜" />

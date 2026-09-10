@@ -509,6 +509,13 @@ export interface UnitProductSummary {
   effectiveFrom: string | null;
   effectiveTo: string | null;
   periodStatus: string;
+  /**
+   * 삭제 가능 여부 — 플랜 구성(현재/이력)·행사 플랜 스냅샷·추가구매·행사 적용·이벤트 효과
+   * 묶음 매핑 어디에도 사용된 적이 없어야 true다(signstage-docs
+   * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10 삭제
+   * 기능 추가). `usageCount`보다 훨씬 넓은 범위를 본다.
+   */
+  canDelete: boolean;
 }
 
 /**
@@ -566,13 +573,18 @@ export interface UpdateUnitProductRequest {
   effectDefinitionIds?: number[];
 }
 
-/** 플랜이 포함하는 단위 상품 한 줄 요청 — POST/PUT 플랜 요청이 통째로 담아 보낸다. */
+/**
+ * 플랜이 포함하는 단위 상품 한 줄 요청 — POST/PUT 플랜 요청이 통째로 담아 보낸다. 행이 존재하는
+ * 것 자체가 "이 플랜의 행사가 추가구매할 수 있다"는 뜻이다(2026-09-10, `purchasable` 필드 폐지).
+ */
 export interface PlanUnitProductLine {
   unitProductId: number;
-  /** 기본 포함 수량 — 0 이상. 0이면 "기본 미포함, 추가구매로만 확보". */
+  /**
+   * 기본 포함 수량 — 0 이상. 0이면 "기본 미포함, 추가구매로만 확보"(이 행이 존재한다는 것 자체가
+   * 추가구매 후보라는 뜻이므로, 0이라고 해서 줄을 생략하면 안 된다). `EVENT_EFFECT_BUNDLE`
+   * 타입은 0 또는 1만 허용된다.
+   */
   includedQuantity: number;
-  /** 이 플랜을 쓰는 행사가 이 단위 상품을 추가구매 후보로 고를 수 있는지(안 A 큐레이션). */
-  purchasable: boolean;
 }
 
 /** 플랜이 포함하는 단위 상품 한 줄 응답 — 목록/상세/이력 화면이 공유한다. */
@@ -582,7 +594,6 @@ export interface PlanUnitProductLineSummary {
   unitProductName: string;
   unitProductCategory: UnitProductCategory;
   includedQuantity: number;
-  purchasable: boolean;
   /** "오늘" 기준 단위 상품 자체의 판매가(할인 없음) — 플랜 이력 스냅샷 행에서는 null이다. */
   salePrice: number | null;
   currencyCode: string | null;
@@ -621,6 +632,13 @@ export interface BillingPlanSummary {
   effectiveFrom: string | null;
   effectiveTo: string | null;
   periodStatus: string;
+  /**
+   * 삭제 가능 여부 — 행사(현재/이력)·조직 구독·조직×플랜 할인 오버라이드(현재/이력) 어디에도
+   * 사용된 적이 없어야 true다(signstage-docs
+   * business/billing-catalog-unit-product-model-redesign-review.md 11장, 2026-09-10 삭제 기능
+   * 추가 — 단위 상품 삭제와 같은 조건). `usageCount`보다 훨씬 넓은 범위를 본다.
+   */
+  canDelete: boolean;
 }
 
 /**
@@ -897,7 +915,6 @@ export interface CeremonyPlanHistoryLineSummary {
   unitProductType: UnitProductType;
   unitProductName: string;
   includedQuantity: number;
-  purchasable: boolean;
   currencyCode: string;
   snapshotSalePrice: number;
   snapshotTaxCode: string;

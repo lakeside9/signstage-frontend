@@ -72,6 +72,21 @@ export const DEFAULT_CATEGORY_BY_TYPE: Record<UnitProductType, UnitProductCatego
   EVENT_EFFECT_BUNDLE: 'APPLICATION',
 };
 
+/**
+ * 필수 5종 — 플랜 목록 화면의 "한도(서명자/템플릿/테스트/리허설/본행사)" 요약 열이 고정 순서로
+ * 보여주는 데 쓴다(`AdminBillingPlanList.tsx`). 예전엔 이 5종만 기본 포함 수량을 가질 수 있다는
+ * 제약(`PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES`)과 같은 목록이었지만, 그 제약은 폐지됐다 — 지금은
+ * 순수하게 "행사 등록 한도로 쓰이는 타입이라 목록에서 한눈에 보여줄 값"이라는 표시용 의미만
+ * 남았다.
+ */
+export const ESSENTIAL_UNIT_PRODUCT_TYPES: UnitProductType[] = [
+  'SIGNERS',
+  'TEMPLATES',
+  'TEST_EVENTS',
+  'REHEARSAL_EVENTS',
+  'MAIN_EVENTS',
+];
+
 /** 효과 하나를 "targetType/triggerType 코드" 형태로 간단히 보여준다(예: "PROJECTOR · SIGNATURE_COMPLETED"). */
 export const EFFECT_TRIGGER_LABEL: Record<string, string> = {
   SIGNATURE_COMPLETED: '개별 서명 완료',
@@ -80,19 +95,17 @@ export const EFFECT_TRIGGER_LABEL: Record<string, string> = {
 };
 
 /**
- * 플랜에 기본 포함 수량(includedQuantity > 0)으로 넣을 수 있는 타입 — 백엔드
- * `UnitProductType.isPlanIncludable()`과 같은 집합(signstage-docs
- * business/billing-catalog-unit-product-model-redesign-review.md, 3.3절). 서버가 강제하진
- * 않지만(플랜 구성은 unitProductId 기준이라 타입 제약이 없다), 이 밖의 타입은 "추가구매 후보
- * (purchasable)"로만 의미가 있어 등록 화면에서 기본 포함 수량 입력을 잠근다.
+ * 수량이 0 또는 1로만 의미가 있는 토글형 타입 — 백엔드 `UnitProductType.isToggle()`과 같은 집합
+ * (signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 11장,
+ * 2026-09-10). 플랜 등록/수정 화면이 이 타입의 기본 포함 수량 입력 상한을 1로 제한하는 데 쓴다
+ * — 서버도 같은 규칙을 강제한다(`BillingPlanService#resolveUnitProducts`).
+ *
+ * <p>예전엔 "필수 5종만 기본 포함 수량을 가질 수 있다"(`PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES`)는
+ * 제한이 있었는데, 재설계 과정에서 생긴 의도치 않은 회귀로 확인돼(태블릿/현장지원/온라인지원도
+ * 예전엔 자유롭게 수량을 가질 수 있어야 했다) 폐지했다 — 이제 모든 타입이 제한 없이 수량을 가질
+ * 수 있고, `EVENT_EFFECT_BUNDLE`만 이 상수로 상한(1)을 걷는다.
  */
-export const PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES: UnitProductType[] = [
-  'SIGNERS',
-  'TEMPLATES',
-  'TEST_EVENTS',
-  'REHEARSAL_EVENTS',
-  'MAIN_EVENTS',
-];
+export const TOGGLE_UNIT_PRODUCT_TYPES: UnitProductType[] = ['EVENT_EFFECT_BUNDLE'];
 
 /**
  * 플랜이 포함하는 단위 상품 줄들의 소계 — `Σ(unitProduct.salePrice × includedQuantity)`, 백엔드
