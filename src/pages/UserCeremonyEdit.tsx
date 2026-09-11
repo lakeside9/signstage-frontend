@@ -148,6 +148,8 @@ export const UserCeremonyEdit: FC = () => {
   const [cart, setCart] = useState<CartLineSummary[]>([]);
   const [isCartLoading, setIsCartLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [purchases, setPurchases] = useState<UnitProductPurchaseSummary[]>([]);
   const [isPurchaseHistoryLoading, setIsPurchaseHistoryLoading] = useState(true);
 
@@ -916,6 +918,32 @@ export const UserCeremonyEdit: FC = () => {
         <p className="mt-3 text-xs text-gray-400">
           {isDraft ? '플랜 확정 전까지는 자유롭게 바꿀 수 있습니다.' : '플랜이 확정되어 더 이상 바꿀 수 없습니다.'}
         </p>
+
+        {/* 플랜이 확정된 후에만 단위 상품을 추가구매할 수 있다(2026-09-11 사용자 요청) —
+            그래서 이 버튼 두 개도 확정 후에만 여기(선택한 플랜 하단)에 나타난다. */}
+        {!isDraft && (
+          <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+            <button
+              onClick={() => setIsPurchaseModalOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+            >
+              <Package size={13} />
+              추가 구매
+            </button>
+            <button
+              onClick={() => setIsCartModalOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+            >
+              <ShoppingCart size={13} />
+              장바구니
+              {!isCartLoading && cart.length > 0 && (
+                <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-gray-950 text-white text-[10px] font-bold">
+                  {cart.length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 플랫폼 이용료(옛 "예상 이용료") — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차
@@ -1014,25 +1042,20 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </section>
 
-      {/* 단위 상품 추가구매 — 장바구니형 2단계(signstage-docs
+      </div>
+
+      {/* 추가 구매 팝업 — 장바구니형 2단계(signstage-docs
           business/unit-product-purchase-self-checkout-review.md 4장 결정, 2026-09-11):
           "추가 구매하기"는 서버 장바구니에 담을 뿐이고, 장바구니의 "구매하기"가 곧 구매 확정
           시점이다. 카탈로그는 시스템 사용료(ESSENTIAL/APPLICATION)만 온다 — 장비·인력은
-          "고객 정산" 탭에서 직접 입력한다. */}
-      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <Package size={14} />
-          단위 상품 추가구매
-        </h2>
+          "고객 정산" 탭에서 직접 입력한다. "선택한 플랜" 하단 버튼으로 여는 팝업이라 플랜이
+          확정된(!isDraft) 행사에서만 열 수 있다(2026-09-11 사용자 요청). */}
+      <Modal open={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="추가 구매" widthClassName="max-w-lg">
         <p className="text-xs text-gray-400 mb-3">
           수량을 입력하고 장바구니에 담으세요 — 여러 항목을 함께 담을 수 있습니다. 장바구니에
-          담긴 것만으로는 아직 구매가 아닙니다 — 아래 장바구니에서 "구매하기"를 눌러야 확정됩니다.
+          담긴 것만으로는 아직 구매가 아닙니다 — 장바구니 팝업에서 "구매하기"를 눌러야 확정됩니다.
         </p>
-        {isDraft ? (
-          <p className="text-sm text-gray-500">
-            {ceremony.billingPlanId ? '플랜을 확정한 후 추가구매할 수 있습니다.' : '플랜을 먼저 선택해주세요.'}
-          </p>
-        ) : isProductsLoading ? (
+        {isProductsLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
@@ -1041,7 +1064,7 @@ export const UserCeremonyEdit: FC = () => {
         ) : purchasableInCeremony.length === 0 ? (
           <p className="text-sm text-gray-500">추가구매 가능한 단위 상품이 없습니다.</p>
         ) : (
-          <form onSubmit={handleAddToCart} className="space-y-4">
+          <form onSubmit={handleAddToCart} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             {/* 사용 중지된 상품은 이미 요청(대기중/승인)한 이벤트 효과 묶음일 때만 상태 확인용으로 계속 보여준다. */}
             {groupedPurchasable.map(({ category, items }) => (
               <div key={category}>
@@ -1095,67 +1118,59 @@ export const UserCeremonyEdit: FC = () => {
             </div>
           </form>
         )}
+      </Modal>
 
-        {/* 장바구니 — 서버에 저장돼 새로고침·탭 전환에도 유지된다(6장 결정). 플랜 확정 전
-            (DRAFT)에는 애초에 담을 수 없으므로(위 가드) 이 블록 자체를 숨긴다. */}
-        {!isDraft && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <h3 className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-2">
-            <ShoppingCart size={13} />
-            장바구니
-          </h3>
-          {isCartLoading ? (
-            <div className="flex items-center justify-center py-4 text-gray-400">
-              <Loader2 size={16} className="animate-spin" />
+      {/* 장바구니 팝업 — 서버에 저장돼 새로고침·탭 전환에도 유지된다(6장 결정). */}
+      <Modal open={isCartModalOpen} onClose={() => setIsCartModalOpen(false)} title="장바구니" widthClassName="max-w-lg">
+        {isCartLoading ? (
+          <div className="flex items-center justify-center py-4 text-gray-400">
+            <Loader2 size={16} className="animate-spin" />
+          </div>
+        ) : cart.length === 0 ? (
+          <p className="text-sm text-gray-400">담긴 항목이 없습니다.</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+              {cart.map((line) => (
+                <li key={line.unitProductId} className="py-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-950">{line.unitProduct.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {line.unitProduct.salePrice === null
+                        ? '가격 정보 없음'
+                        : formatPrice(line.unitProduct.salePrice, line.unitProduct.currencyCode ?? 'KRW')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <FormattedNumberInput
+                      min={1}
+                      value={line.quantity}
+                      onChange={(raw) => handleUpdateCartLine(line.unitProductId, Number(raw))}
+                      className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                    />
+                    <button
+                      onClick={() => handleRemoveCartLine(line.unitProductId)}
+                      className="text-gray-400 hover:text-red-600"
+                      aria-label="빼기"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={handlePurchase}
+                disabled={isPurchasing}
+                className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isPurchasing ? '구매하는 중...' : '구매하기'}
+              </button>
             </div>
-          ) : cart.length === 0 ? (
-            <p className="text-sm text-gray-400">담긴 항목이 없습니다.</p>
-          ) : (
-            <>
-              <ul className="divide-y divide-gray-100">
-                {cart.map((line) => (
-                  <li key={line.unitProductId} className="py-2 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-gray-950">{line.unitProduct.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {line.unitProduct.salePrice === null
-                          ? '가격 정보 없음'
-                          : formatPrice(line.unitProduct.salePrice, line.unitProduct.currencyCode ?? 'KRW')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <FormattedNumberInput
-                        min={1}
-                        value={line.quantity}
-                        onChange={(raw) => handleUpdateCartLine(line.unitProductId, Number(raw))}
-                        className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
-                      />
-                      <button
-                        onClick={() => handleRemoveCartLine(line.unitProductId)}
-                        className="text-gray-400 hover:text-red-600"
-                        aria-label="빼기"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={handlePurchase}
-                  disabled={isPurchasing}
-                  className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {isPurchasing ? '구매하는 중...' : '구매하기'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          </>
         )}
-      </section>
-      </div>
+      </Modal>
 
       <div hidden={activeTab !== 'customerQuote'}>
         {organizationId && ceremonyId && (
