@@ -103,7 +103,14 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         // 장비/인력(EQUIPMENT/PERSONNEL)만 품목 선택 드롭다운에 노출한다 — 전체 카탈로그, 큐레이션
         // 없음(8.5절 권장) — 이 항목들은 플랫폼이 팔거나 커밋하는 게 아니라 파트너가 실고객에게
         // 파는 것이므로 "이 조직/플랜에서 살 수 있는가"라는 전제가 애초에 적용되지 않는다.
-        setCatalog(catalogData.filter((product) => product.category === 'EQUIPMENT' || product.category === 'PERSONNEL'));
+        // 다만 사용중지(active=false/null) 상품은 여전히 제외한다 — `UnitProductSummary.active`
+        // 주석이 명시한 계약("새 선택/구매 대상에서 제외")을 이 화면만 빠뜨려 사용중지 상품도
+        // 그대로 담기던 문제를 고쳤다(2026-09-11, 추가구매 팝업의 `p.active` 필터와 같은 패턴).
+        setCatalog(
+          catalogData.filter(
+            (product) => (product.category === 'EQUIPMENT' || product.category === 'PERSONNEL') && product.active,
+          ),
+        );
         setQuotes(quotesData);
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '고객 견적 정보를 불러오지 못했습니다.', 'error');
@@ -230,7 +237,20 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     }
   };
 
-  const pickableCatalog = catalog.filter((product) => !equipmentPersonnelLines.some((line) => line.unitProductId === product.id));
+  // 이미 담은 줄과 같은 배타 그룹(exclusivityGroup)의 상품은 드롭다운에서 미리 뺀다 — 담고
+  // 나서 서버가 거부하게 두는 대신(3.3절과 같은 "애초에 못 고르게" 접근), 예를 들어 현장지원
+  // 근/중/원거리처럼 동시에 쓸 수 없는 상품 두 개가 한 견적에 나란히 담기던 문제를
+  // 고쳤다(2026-09-11).
+  const selectedExclusivityGroups = new Set(
+    equipmentPersonnelLines
+      .map((line) => catalog.find((product) => product.id === line.unitProductId)?.exclusivityGroup)
+      .filter((group): group is string => group != null),
+  );
+  const pickableCatalog = catalog.filter(
+    (product) =>
+      !equipmentPersonnelLines.some((line) => line.unitProductId === product.id) &&
+      (product.exclusivityGroup == null || !selectedExclusivityGroups.has(product.exclusivityGroup)),
+  );
 
   return (
     <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
