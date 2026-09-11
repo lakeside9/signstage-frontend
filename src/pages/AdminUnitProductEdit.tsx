@@ -6,7 +6,13 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { EffectDefinitionPicker, ExclusivityGroupField, Field, PeriodStatusBadge, UsageWarning } from './billingCatalog/components';
-import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, inputClass, normalizeExclusivityGroup } from './billingCatalog/constants';
+import {
+  UNIT_PRODUCT_CATEGORY_OPTIONS,
+  UNIT_PRODUCT_TYPE_LABEL,
+  inputClass,
+  normalizeDescription,
+  normalizeExclusivityGroup,
+} from './billingCatalog/constants';
 import type { CeremonyEffectDefinition, UnitProductCategory, UnitProductSummary, UpdateUnitProductRequest } from '../types';
 
 /**
@@ -48,6 +54,7 @@ export const AdminUnitProductEdit: FC = () => {
           setExistingGroups([...new Set(groups)].sort());
           setDraft({
             name: found.name,
+            description: found.description,
             exclusivityGroup: found.exclusivityGroup ?? '',
             category: found.category,
             effectDefinitionIds: found.effectDefinitionIds,
@@ -76,6 +83,7 @@ export const AdminUnitProductEdit: FC = () => {
       await api.put(`/platform-admin/unit-products/${productId}`, {
         ...draft,
         name: draft.name.trim(),
+        description: normalizeDescription(draft.description),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
       showSnackbar('단위 상품을 저장했습니다.', 'success');
@@ -166,6 +174,17 @@ export const AdminUnitProductEdit: FC = () => {
               />
             )}
           </div>
+
+          <Field label="설명(선택)">
+            <textarea
+              value={draft.description ?? ''}
+              onChange={(e) => setDraft((prev) => prev && { ...prev, description: e.target.value })}
+              disabled={isSaving}
+              rows={3}
+              placeholder="이 상품이 무엇인지 설명해주세요 — 이벤트 효과 묶음처럼 이름만으로는 무엇이 포함되는지 알기 어려운 상품일수록 도움이 됩니다."
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
 
           <UsageWarning count={product.usageCount} itemLabel="단위 상품" />
 

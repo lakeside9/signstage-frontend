@@ -466,8 +466,14 @@ export const UserCeremonyEdit: FC = () => {
     }
   };
 
-  const setCartQuantity = (unitProductId: number, next: number) => {
-    setCartQuantities((prev) => ({ ...prev, [unitProductId]: Math.max(0, next) }));
+  /**
+   * `max` prop은 장식용이다(`FormattedNumberInput`은 `type="text"`라 브라우저가 강제하지
+   * 않는다 — 그 컴포넌트 자체 주석 참고) — 그래서 실제 상한은 여기서 직접 자른다. 이벤트
+   * 효과 묶음(토글형)은 0 또는 1만 의미가 있다(2026-09-11 사용자 지적).
+   */
+  const setCartQuantity = (unitProductId: number, next: number, isToggle: boolean) => {
+    const clamped = isToggle ? Math.min(1, Math.max(0, next)) : Math.max(0, next);
+    setCartQuantities((prev) => ({ ...prev, [unitProductId]: clamped }));
   };
 
   /**
@@ -1141,6 +1147,7 @@ export const UserCeremonyEdit: FC = () => {
                             {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
                             {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
                           </p>
+                          {product.description && <p className="text-xs text-gray-400 mt-0.5">{product.description}</p>}
                         </div>
                         {blocked ? (
                           <PurchaseStatusBadge status={activePurchaseStatus(product.id) ?? 'PENDING'} />
@@ -1149,7 +1156,7 @@ export const UserCeremonyEdit: FC = () => {
                             min={0}
                             max={isEventEffectBundle ? 1 : undefined}
                             value={cartQuantities[product.id] || ''}
-                            onChange={(raw) => setCartQuantity(product.id, Number(raw))}
+                            onChange={(raw) => setCartQuantity(product.id, Number(raw), isEventEffectBundle)}
                             disabled={isAddingToCart}
                             placeholder="0"
                             className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
@@ -1209,8 +1216,18 @@ export const UserCeremonyEdit: FC = () => {
                   <div className="flex items-center gap-2 shrink-0">
                     <FormattedNumberInput
                       min={1}
+                      // 이벤트 효과 묶음(토글형)은 행사당 1회만 담을 수 있다 — 전에는 여기서 수량을
+                      // 2 이상으로 고쳐도 막지 않아 서버 거부(CEREMONY_UNIT_PRODUCT_TOGGLE_
+                      // QUANTITY_INVALID)까지 가야 알 수 있었다(2026-09-11 사용자 지적). max는
+                      // FormattedNumberInput에서 장식용이라(그 컴포넌트 주석 참고) onChange에서
+                      // 직접 1로 자른다.
+                      max={line.unitProduct.type === 'EVENT_EFFECT_BUNDLE' ? 1 : undefined}
                       value={line.quantity}
-                      onChange={(raw) => handleUpdateCartLine(line.unitProductId, Number(raw))}
+                      onChange={(raw) => {
+                        const next = Number(raw);
+                        const isEventEffectBundle = line.unitProduct.type === 'EVENT_EFFECT_BUNDLE';
+                        handleUpdateCartLine(line.unitProductId, isEventEffectBundle ? Math.min(1, next) : next);
+                      }}
                       className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                     />
                     <button

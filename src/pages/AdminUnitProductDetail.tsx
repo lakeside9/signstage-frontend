@@ -143,6 +143,7 @@ export const AdminUnitProductDetail: FC = () => {
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="종류" value={UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} />
             <DetailRow label="이름" value={product.name} />
+            <DetailRow label="설명" value={product.description ?? '없음'} />
             <DetailRow
               label="공급가/판매가"
               value={
@@ -188,6 +189,7 @@ export const AdminUnitProductDetail: FC = () => {
                   {UNIT_PRODUCT_CATEGORY_LABEL[h.category] ?? h.category}
                   {h.exclusivityGroup && ` · 배타 그룹: ${h.exclusivityGroup}`}
                 </p>
+                {h.description && <p className="text-xs text-gray-400 mt-0.5">설명: {h.description}</p>}
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
               </li>
             ))}

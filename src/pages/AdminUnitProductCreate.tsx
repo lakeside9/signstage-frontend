@@ -13,6 +13,7 @@ import {
   UNIT_PRODUCT_TYPE_LABEL,
   UNIT_PRODUCT_TYPE_OPTIONS,
   inputClass,
+  normalizeDescription,
   normalizeExclusivityGroup,
   todayIsoDate,
 } from './billingCatalog/constants';
@@ -23,6 +24,7 @@ const EMPTY_DRAFT = (): CreateUnitProductRequest => {
   return {
     type,
     name: '',
+    description: '',
     category: DEFAULT_CATEGORY_BY_TYPE[type],
     exclusivityGroup: '',
     currencyCode: 'KRW',
@@ -84,6 +86,7 @@ export const AdminUnitProductCreate: FC = () => {
       const response = await api.post('/platform-admin/unit-products', {
         ...draft,
         name: draft.name.trim(),
+        description: normalizeDescription(draft.description),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
       setCreated(response.data as UnitProductSummary);
@@ -239,6 +242,16 @@ export const AdminUnitProductCreate: FC = () => {
               />
             )}
           </div>
+          <Field label="설명(선택)">
+            <textarea
+              value={draft.description ?? ''}
+              onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
+              disabled={isLoading}
+              rows={3}
+              placeholder="이 상품이 무엇인지 설명해주세요 — 이벤트 효과 묶음처럼 이름만으로는 무엇이 포함되는지 알기 어려운 상품일수록 도움이 됩니다."
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
           <p className="text-xs text-gray-400">
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 단위 상품들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명
             하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).

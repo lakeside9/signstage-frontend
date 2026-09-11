@@ -181,6 +181,12 @@ export const normalizeExclusivityGroup = (value: string | null | undefined): str
   return trimmed ? trimmed : null;
 };
 
+/** 빈 문자열 입력을 "설명 없음"(null)으로 정규화한다 — normalizeExclusivityGroup과 같은 이유(2026-09-11). */
+export const normalizeDescription = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
 /** 목록 화면 공통 페이지 크기 — 카탈로그 API가 서버 페이지네이션을 지원하지 않아(글로벌 카탈로그,
  * 조직 스코프 없이 인증된 사용자면 누구나 조회) 클라이언트 사이드로 자른다. */
 export const CATALOG_PAGE_SIZE = 20;

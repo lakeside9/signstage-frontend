@@ -492,6 +492,8 @@ export interface UnitProductSummary {
   id: number;
   type: UnitProductType;
   name: string;
+  /** 이 상품이 무엇인지 설명하는 자유 텍스트. null이면 설명 없음(2026-09-11 사용자 요청). */
+  description: string | null;
   /** 같은 값을 가진 다른 단위 상품과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
   category: UnitProductCategory;
@@ -529,6 +531,7 @@ export interface UnitProductHistorySummary {
   id: number;
   type: UnitProductType;
   name: string;
+  description: string | null;
   category: UnitProductCategory;
   exclusivityGroup: string | null;
   createdBy: number;
@@ -542,6 +545,8 @@ export interface UnitProductHistorySummary {
 export interface CreateUnitProductRequest {
   type: UnitProductType;
   name: string;
+  /** 이 상품이 무엇인지 설명하는 자유 텍스트. 생략하면(undefined) 설명 없음(2026-09-11 사용자 요청). */
+  description?: string | null;
   category: UnitProductCategory;
   exclusivityGroup?: string | null;
   currencyCode?: string;
@@ -565,6 +570,8 @@ export interface CreateUnitProductRequest {
  */
 export interface UpdateUnitProductRequest {
   name: string;
+  /** 이 상품이 무엇인지 설명하는 자유 텍스트. null이면 설명 없음(2026-09-11 사용자 요청). */
+  description: string | null;
   exclusivityGroup: string | null;
   category: UnitProductCategory;
   /**
