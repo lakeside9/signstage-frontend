@@ -25,7 +25,7 @@ const MARGIN_TYPE_LABEL: Record<MarginType, string> = {
   FIXED_AMOUNT: '정액',
 };
 
-/** 장비/인력 고객 정산 줄 — 로컬 편집 상태. 카탈로그에서 고른 시점의 품목명을 그대로 쓴다. */
+/** 장비/인력 고객 견적 줄 — 로컬 편집 상태. 카탈로그에서 고른 시점의 품목명을 그대로 쓴다. */
 interface EquipmentPersonnelDraftLine {
   unitProductId: number;
   itemName: string;
@@ -34,14 +34,15 @@ interface EquipmentPersonnelDraftLine {
 }
 
 /**
- * 행사 수정 화면(`UserCeremonyEdit`)의 "고객 정산" 탭(옛 이름 "고객 견적", 2026-09-11 사용자
- * 요청으로 파트너 입장 용어로 변경 — "플랫폼 이용료" 탭과 대비되게 "우리가 고객에게 받을 돈"을
- * 드러낸다) — signstage-docs business/partner-customer-quote-design-review.md,
+ * 행사 수정 화면(`UserCeremonyEdit`)의 "고객 견적" 탭 — signstage-docs
+ * business/partner-customer-quote-design-review.md,
  * business/platform-partner-customer-billing-model-reference.md 4장 결정(2026-09-11). 마진
- * (행사별 override, 없으면 조직 기본값을 따른다)과 장비/인력 고객 정산 줄을 입력받아 실고객과
- * 정산할 금액(정산서)을 생성한다.
+ * (행사별 override, 없으면 조직 기본값을 따른다)과 장비/인력 고객 견적 줄을 입력받아 실고객에게
+ * 제시할 견적 금액(견적서)을 생성한다. **이름 변천**: "고객 견적"(원래 이름) → "고객 정산"
+ * (2026-09-11 사용자 요청, "플랫폼 이용료" 탭과 대비되게 "우리가 고객에게 받을 돈"을 드러내려는
+ * 의도) → 같은 날 다시 "고객 견적"으로 되돌림(사용자 요청).
  *
- * <p>장비/인력 입력 방식은 2026-09-11 같은 날 후속 결정(signstage-docs
+ * <p>장비/인력 입력 방식은 2026-09-11 후속 결정(signstage-docs
  * business/unit-product-purchase-self-checkout-review.md 8.5절)으로 다시 설계됐다 — 예전엔
  * "승인된 추가구매 라인에서 품목·수량을 가져와 단가만 입력받는" 파생 목록이었지만, 장비·인력이
  * "플랫폼 이용료" 흐름에서 완전히 분리되면서 그 원천 자체가 없어졌다. 이제 전역 단위 상품
@@ -50,9 +51,9 @@ interface EquipmentPersonnelDraftLine {
  * 내는 원가 자체가 없어졌다). OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)이라 그 권한이 없으면
  * 탭 내용 자체를 숨긴다.
  *
- * <p>정산서 생성은 플랜이 확정된(DRAFT를 벗어난) 행사에서만 할 수 있다(2026-09-11 사용자
+ * <p>견적서 생성은 플랜이 확정된(DRAFT를 벗어난) 행사에서만 할 수 있다(2026-09-11 사용자
  * 요청 — 단위 상품 추가구매와 같은 기준). `isDraft`는 부모(`UserCeremonyEdit`)가 이미 계산해둔
- * 값을 그대로 받는다 — 마진 설정·기존 정산서 열람은 플랜 상태와 무관하게 계속 가능하다.
+ * 값을 그대로 받는다 — 마진 설정·기존 견적서 열람은 플랜 상태와 무관하게 계속 가능하다.
  */
 export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: string; isDraft: boolean }> = ({
   organizationId,
@@ -105,7 +106,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         setCatalog(catalogData.filter((product) => product.category === 'EQUIPMENT' || product.category === 'PERSONNEL'));
         setQuotes(quotesData);
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '고객 정산 정보를 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '고객 견적 정보를 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) {
           setIsMarginLoading(false);
@@ -201,11 +202,11 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         customerUnitAmount: Number(line.customerUnitAmount),
       }));
       await api.post(`${basePath}/customer-quotes`, { equipmentPersonnelLines: equipmentPersonnelLinesPayload });
-      showSnackbar('고객 정산서를 생성했습니다.', 'success');
+      showSnackbar('고객 견적서를 생성했습니다.', 'success');
       setEquipmentPersonnelLines([]);
       setQuotes(await fetchQuotes());
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '고객 정산서 생성에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '고객 견적서 생성에 실패했습니다.', 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -223,7 +224,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
       const response = await api.get(`${basePath}/customer-quotes/${quoteId}`);
       setDetailById((prev) => ({ ...prev, [quoteId]: response.data as CustomerQuoteDetail }));
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '정산 상세를 불러오지 못했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '견적 상세를 불러오지 못했습니다.', 'error');
     } finally {
       setIsDetailLoading(false);
     }
@@ -235,10 +236,10 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
       <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
         <FileCheck size={14} />
-        고객 정산
+        고객 견적
       </h2>
       <p className="text-xs text-gray-400 mb-4">
-        실고객과 정산할 금액입니다 — 시스템 사용료는 원가에 마진을 더해, 장비/인력(태블릿·현장지원 등)은 직접 고른
+        실고객에게 제시할 견적 금액입니다 — 시스템 사용료는 원가에 마진을 더해, 장비/인력(태블릿·현장지원 등)은 직접 고른
         품목·수량·단가로 계산합니다. 플랫폼에 내는 금액("플랫폼 이용료" 탭)과는 별개입니다.
       </p>
 
@@ -321,13 +322,13 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         )}
       </div>
 
-      {/* 장비/인력 품목 + 정산서 생성 — 플랜이 확정된 행사에서만 할 수 있다(2026-09-11
-          사용자 요청 — 단위 상품 추가구매와 같은 기준). 마진 설정·기존 정산서 열람은 이
+      {/* 장비/인력 품목 + 견적서 생성 — 플랜이 확정된 행사에서만 할 수 있다(2026-09-11
+          사용자 요청 — 단위 상품 추가구매와 같은 기준). 마진 설정·기존 견적서 열람은 이
           가드와 무관하게 계속 가능하다. */}
       <div className="border-t border-gray-100 mt-4 pt-3">
         <h3 className="text-xs font-bold text-gray-700 mb-2">장비/인력</h3>
         {isDraft ? (
-          <p className="text-sm text-gray-500">플랜을 확정한 후 고객 정산서를 생성할 수 있습니다.</p>
+          <p className="text-sm text-gray-500">플랜을 확정한 후 고객 견적서를 생성할 수 있습니다.</p>
         ) : isCatalogLoading ? (
           <div className="flex items-center justify-center py-4 text-gray-400">
             <Loader2 size={16} className="animate-spin" />
@@ -395,21 +396,21 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
               disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
               className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
             >
-              {isGenerating ? '생성 중...' : '고객 정산서 생성'}
+              {isGenerating ? '생성 중...' : '고객 견적서 생성'}
             </button>
           </div>
         )}
       </div>
 
-      {/* 생성된 정산서 목록 */}
+      {/* 생성된 견적서 목록 */}
       <div className="border-t border-gray-100 mt-4 pt-3">
-        <h3 className="text-xs font-bold text-gray-700 mb-2">정산 내역</h3>
+        <h3 className="text-xs font-bold text-gray-700 mb-2">견적 내역</h3>
         {isQuotesLoading ? (
           <div className="flex items-center justify-center py-4 text-gray-400">
             <Loader2 size={16} className="animate-spin" />
           </div>
         ) : quotes.length === 0 ? (
-          <p className="text-sm text-gray-500">아직 생성한 고객 정산서가 없습니다.</p>
+          <p className="text-sm text-gray-500">아직 생성한 고객 견적서가 없습니다.</p>
         ) : (
           <div className="divide-y divide-gray-100">
             {quotes.map((quote) => {

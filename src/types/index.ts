@@ -1805,7 +1805,7 @@ export interface EffectiveMargin {
 }
 
 /**
- * 장비/인력(EQUIPMENT/PERSONNEL) 고객 정산 줄 하나 — 파트너가 카탈로그에서 직접 고른
+ * 장비/인력(EQUIPMENT/PERSONNEL) 고객 견적 줄 하나 — 파트너가 카탈로그에서 직접 고른
  * 품목·수량·고객 단가(CustomerQuoteDto.Request.EquipmentPersonnelLine)와 맞춘다
  * (signstage-docs business/unit-product-purchase-self-checkout-review.md 8.5절 결정,
  * 2026-09-11). 승인된 구매 기록에서 역산하던 옛 방식(품목·수량은 서버가 정하고 가격만

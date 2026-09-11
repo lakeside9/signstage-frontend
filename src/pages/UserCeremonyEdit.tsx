@@ -83,9 +83,10 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * business/ceremony-registration-flow-and-billing-tab-separation-review.md). `?tab=billing`
  * 쿼리로 이 탭을 곧장 열 수 있다 — 행사 등록 직후(`UserCeremonyCreate.tsx`)가 이 방식으로
  * 진입한다(등록 시 플랜 선택이 더 이상 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다).
- * "고객 정산" 탭(파트너→실고객, `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
- * business/partner-customer-quote-design-review.md 결정(2026-09-11, 탭 이름은 2026-09-11
- * 사용자 요청으로 "과금"/"고객 견적"에서 "플랫폼 이용료"/"고객 정산"으로 바뀌었다).
+ * "고객 견적" 탭(파트너→실고객, `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
+ * business/partner-customer-quote-design-review.md 결정(2026-09-11). 탭 이름은 같은 날
+ * "과금"/"고객 견적" → "플랫폼 이용료"/"고객 정산" → 다시 "고객 견적"으로 바뀌었다(둘 다
+ * 사용자 요청).
  *
  * <p>플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
@@ -100,7 +101,7 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 구매하기"(옛 "구매 요청")는 서버에 저장되는 장바구니에 담을 뿐이고, 장바구니의 "구매하기"를
  * 눌러야 실제 구매가 된다. 카탈로그는 시스템 사용료(ESSENTIAL/APPLICATION)만 남아 있다 —
  * 장비·인력(EQUIPMENT/PERSONNEL)은 "플랫폼 이용료" 흐름에서 완전히 분리됐다(같은 문서 8장,
- * "고객 정산" 탭에서 직접 입력). 담긴 줄이 전부 시스템 사용료면 "구매하기"를 누르는 즉시
+ * "고객 견적" 탭에서 직접 입력). 담긴 줄이 전부 시스템 사용료면 "구매하기"를 누르는 즉시
  * 반영된다(자가-체크아웃, 관리자 승인 없음) — 그래서 "예상 이용료"였던 이름도 "플랫폼
  * 이용료"로 바뀌었다. 구매 이력은 요청자 본인이 볼 수 있는 이력이고, 대기중(PENDING)/
  * 승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
@@ -629,7 +630,7 @@ export const UserCeremonyEdit: FC = () => {
           [
             { value: 'info', label: '기본 정보', icon: FileSignature },
             { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
-            { value: 'customerQuote', label: '고객 정산', icon: Banknote },
+            { value: 'customerQuote', label: '고객 견적', icon: Banknote },
           ] as const
         ).map((tab) => {
           const isActive = activeTab === tab.value;
@@ -1052,7 +1053,7 @@ export const UserCeremonyEdit: FC = () => {
           business/unit-product-purchase-self-checkout-review.md 4장 결정, 2026-09-11):
           "추가 구매하기"는 서버 장바구니에 담을 뿐이고, 장바구니의 "구매하기"가 곧 구매 확정
           시점이다. 카탈로그는 시스템 사용료(ESSENTIAL/APPLICATION)만 온다 — 장비·인력은
-          "고객 정산" 탭에서 직접 입력한다. "선택한 플랜" 하단 버튼으로 여는 팝업이라 플랜이
+          "고객 견적" 탭에서 직접 입력한다. "선택한 플랜" 하단 버튼으로 여는 팝업이라 플랜이
           확정된(!isDraft) 행사에서만 열 수 있다(2026-09-11 사용자 요청). */}
       <Modal open={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="추가 구매" widthClassName="max-w-lg">
         <p className="text-xs text-gray-400 mb-3">
