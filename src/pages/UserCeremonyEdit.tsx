@@ -1028,8 +1028,10 @@ export const UserCeremonyEdit: FC = () => {
           수량을 입력하고 장바구니에 담으세요 — 여러 항목을 함께 담을 수 있습니다. 장바구니에
           담긴 것만으로는 아직 구매가 아닙니다 — 아래 장바구니에서 "구매하기"를 눌러야 확정됩니다.
         </p>
-        {isDraft && !ceremony.billingPlanId ? (
-          <p className="text-sm text-gray-500">플랜을 먼저 선택해주세요.</p>
+        {isDraft ? (
+          <p className="text-sm text-gray-500">
+            {ceremony.billingPlanId ? '플랜을 확정한 후 추가구매할 수 있습니다.' : '플랜을 먼저 선택해주세요.'}
+          </p>
         ) : isProductsLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
@@ -1094,7 +1096,9 @@ export const UserCeremonyEdit: FC = () => {
           </form>
         )}
 
-        {/* 장바구니 — 서버에 저장돼 새로고침·탭 전환에도 유지된다(6장 결정). */}
+        {/* 장바구니 — 서버에 저장돼 새로고침·탭 전환에도 유지된다(6장 결정). 플랜 확정 전
+            (DRAFT)에는 애초에 담을 수 없으므로(위 가드) 이 블록 자체를 숨긴다. */}
+        {!isDraft && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <h3 className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-2">
             <ShoppingCart size={13} />
@@ -1149,6 +1153,7 @@ export const UserCeremonyEdit: FC = () => {
             </>
           )}
         </div>
+        )}
       </section>
       </div>
 
