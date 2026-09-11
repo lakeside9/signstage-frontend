@@ -946,6 +946,44 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </section>
 
+      {/* 구매 이력 — 옛 "확정 이용료"(BillingQuote) 섹션을 대체한다. 자가-체크아웃이 들어오면서
+          "지금 이 순간의 합계를 한 번 더 얼려두는" 그 기능의 존재 이유가 옅어졌다 — 각 구매 줄이
+          이미 구매 시점 스냅샷을 갖고 있어 이 이력만으로 "그때 얼마였는지"를 충분히 보여준다
+          (signstage-docs business/unit-product-purchase-self-checkout-review.md 4.3절). 모달이
+          아니라 상시 노출되는 자리로 승격했다. "선택한 플랜" 바로 아래에 둔다(2026-09-11 사용자
+          요청). */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <History size={14} />
+          구매 이력
+        </h2>
+        {isPurchaseHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : purchases.length === 0 ? (
+          <p className="text-sm text-gray-500">아직 구매한 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {purchases.map((purchase) => (
+              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                <div>
+                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
+                  <p className="text-sm text-gray-950">
+                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
+                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                  )}
+                </div>
+                <PurchaseStatusBadge status={purchase.status} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* 플랫폼 이용료(옛 "예상 이용료") — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차
           차감. 자가-체크아웃 도입으로 시스템 사용료는 "구매하기"를 누르는 즉시 확정 반영되므로
           더는 잠정치가 아니라 지금 시점의 실제 값에 가깝다(signstage-docs
@@ -1003,43 +1041,6 @@ export const UserCeremonyEdit: FC = () => {
           승인된 구매 건만 반영한 예상 금액입니다. 행사 건별 할인은 플랫폼 관리자만 설정할 수 있고, 실제 결제/청구서 발행
           기능은 아직 없습니다.
         </p>
-      </section>
-
-      {/* 구매 이력 — 옛 "확정 이용료"(BillingQuote) 섹션을 대체한다. 자가-체크아웃이 들어오면서
-          "지금 이 순간의 합계를 한 번 더 얼려두는" 그 기능의 존재 이유가 옅어졌다 — 각 구매 줄이
-          이미 구매 시점 스냅샷을 갖고 있어 이 이력만으로 "그때 얼마였는지"를 충분히 보여준다
-          (signstage-docs business/unit-product-purchase-self-checkout-review.md 4.3절). 모달이
-          아니라 상시 노출되는 자리로 승격했다. */}
-      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
-          <History size={14} />
-          구매 이력
-        </h2>
-        {isPurchaseHistoryLoading ? (
-          <div className="flex items-center justify-center py-8 text-gray-400">
-            <Loader2 size={20} className="animate-spin" />
-          </div>
-        ) : purchases.length === 0 ? (
-          <p className="text-sm text-gray-500">아직 구매한 이력이 없습니다.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {purchases.map((purchase) => (
-              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
-                <div>
-                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
-                  <p className="text-sm text-gray-950">
-                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
-                  </p>
-                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
-                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
-                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
-                  )}
-                </div>
-                <PurchaseStatusBadge status={purchase.status} />
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       </div>
