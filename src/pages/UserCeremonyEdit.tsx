@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Banknote,
+  Check,
   CheckCircle2,
   CreditCard,
   FileSignature,
@@ -12,7 +13,6 @@ import {
   Loader2,
   Package,
   Receipt,
-  RefreshCw,
   Settings,
 } from 'lucide-react';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
@@ -90,7 +90,9 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
  * 서명자/문서/하위 행사는 플랜 확정 후에만 등록할 수 있다. 플랜 변경 이력은 그 시점의
  * 이름/가격/한도 스냅샷까지 남는다. 플랜을 아직 한 번도 선택하지 않았으면(billingPlanId가
- * null) 확정할 수 없다 — 먼저 선택해야 한다.
+ * null) 확정할 수 없다 — 먼저 선택해야 한다. 선택했지만 아직 확정 전이면 "선택 해제"로
+ * 다시 null로 되돌릴 수 있다(2026-09-11 사용자 요청, `DELETE .../plan`) — 변경 이력은
+ * 남기지 않는다(DRAFT는 스냅샷을 어차피 안 쓰는 상태라 남길 실익이 없다).
  *
  * 추가구매는 요청 즉시 반영되지 않는다 — 플랫폼 관리자가 승인해야 유효 한도/구매한 선택옵션에
  * 반영된다(signstage-docs business/ceremony-billing-options-review.md). 요청자 본인 이력
@@ -113,6 +115,7 @@ export const UserCeremonyEdit: FC = () => {
   const [selectedNewPlanId, setSelectedNewPlanId] = useState<number | null>(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [isConfirmingPlan, setIsConfirmingPlan] = useState(false);
+  const [isClearingPlan, setIsClearingPlan] = useState(false);
 
   const [planHistory, setPlanHistory] = useState<CeremonyPlanHistorySummary[]>([]);
   const [isPlanHistoryLoading, setIsPlanHistoryLoading] = useState(true);
@@ -394,6 +397,21 @@ export const UserCeremonyEdit: FC = () => {
       showSnackbar(message, 'error');
     } finally {
       setIsConfirmingPlan(false);
+    }
+  };
+
+  const handleClearPlan = async () => {
+    setIsClearingPlan(true);
+    try {
+      const response = await api.delete(`${basePath}/plan`);
+      setCeremony(response.data as CeremonySummary);
+      showSnackbar('플랜 선택을 해제했습니다.', 'success');
+      setEstimatedTotal(await fetchEstimatedTotal());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '플랜 선택 해제에 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsClearingPlan(false);
     }
   };
 
@@ -696,14 +714,23 @@ export const UserCeremonyEdit: FC = () => {
             <p className="text-xs text-amber-700">
               아직 플랜 확정 전입니다. 확정해야 서명자/문서/하위 행사를 등록할 수 있습니다.
             </p>
-            <button
-              onClick={handleConfirmPlan}
-              disabled={isConfirmingPlan}
-              className="flex shrink-0 items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-            >
-              <CheckCircle2 size={13} />
-              {isConfirmingPlan ? '확정 중...' : '플랜 확정'}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={handleClearPlan}
+                disabled={isClearingPlan || isConfirmingPlan}
+                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              >
+                {isClearingPlan ? '해제 중...' : '선택 해제'}
+              </button>
+              <button
+                onClick={handleConfirmPlan}
+                disabled={isConfirmingPlan || isClearingPlan}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                <CheckCircle2 size={13} />
+                {isConfirmingPlan ? '확정 중...' : '플랜 확정'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -789,7 +816,7 @@ export const UserCeremonyEdit: FC = () => {
               disabled={isChangingPlan || !selectedNewPlanId}
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
             >
-              <RefreshCw size={13} />
+              <Check size={13} />
               {isChangingPlan ? '변경 중...' : ceremony.billingPlanId ? '플랜 변경' : '플랜 선택'}
             </button>
           </div>
