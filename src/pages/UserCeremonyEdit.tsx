@@ -468,6 +468,8 @@ export const UserCeremonyEdit: FC = () => {
    * business/unit-product-purchase-self-checkout-review.md 4장 결정, 2026-09-11) — 같은
    * 항목을 다시 담으면 서버가 기존 줄의 수량에 합쳐준다. 순차로 보내야 마지막에 다시 불러오는
    * 장바구니 상태가 항상 정확하다(동시에 여러 줄을 upsert하면 응답 순서가 뒤섞일 수 있다).
+   * 성공하면 "추가 구매" 팝업을 닫는다(2026-09-11 사용자 요청) — 담긴 내용은 "장바구니"
+   * 팝업에서 이어서 확인한다.
    */
   const handleAddToCart = async (e: FormEvent) => {
     e.preventDefault();
@@ -487,6 +489,7 @@ export const UserCeremonyEdit: FC = () => {
       showSnackbar('장바구니에 담았습니다.', 'success');
       setCartQuantities({});
       setCart(await fetchCart());
+      setIsPurchaseModalOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : '장바구니에 담는 데 실패했습니다.';
       showSnackbar(message, 'error');
@@ -1108,7 +1111,18 @@ export const UserCeremonyEdit: FC = () => {
                 </div>
               </div>
             ))}
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCartQuantities({});
+                  setIsPurchaseModalOpen(false);
+                }}
+                disabled={isAddingToCart}
+                className="px-4 py-1.5 rounded-md text-gray-500 text-xs font-medium hover:text-gray-950 disabled:opacity-50"
+              >
+                취소
+              </button>
               <button
                 type="submit"
                 disabled={isAddingToCart}
