@@ -968,23 +968,52 @@ export const UserCeremonyEdit: FC = () => {
         ) : purchases.length === 0 ? (
           <p className="text-sm text-gray-500">아직 구매한 이력이 없습니다.</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
-            {purchases.map((purchase) => (
-              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
-                <div>
-                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
-                  <p className="text-sm text-gray-950">
-                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
-                  </p>
-                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
-                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
-                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
-                  )}
-                </div>
-                <PurchaseStatusBadge status={purchase.status} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-gray-100">
+              {purchases.map((purchase) => {
+                // 구매 시점 이름/수량/단가 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장).
+                const purchaseAmount = purchase.lines.reduce(
+                  (sum, line) => sum + line.purchasedSalePrice * line.quantity, 0,
+                );
+                return (
+                  <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-gray-950">
+                        {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                      </p>
+                      <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
+                      {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                        <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-sm font-medium text-gray-950">
+                        {formatPrice(purchaseAmount, purchase.lines[0]?.currencyCode ?? ceremony.currencyCode)}
+                      </span>
+                      <PurchaseStatusBadge status={purchase.status} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
+              <span className="text-xs font-bold text-gray-700">
+                합계 <span className="font-normal text-gray-400">(승인된 구매만)</span>
+              </span>
+              <span className="text-sm font-bold text-gray-950">
+                {formatPrice(
+                  purchases
+                    .filter((purchase) => purchase.status === 'APPROVED')
+                    .reduce(
+                      (total, purchase) =>
+                        total + purchase.lines.reduce((sum, line) => sum + line.purchasedSalePrice * line.quantity, 0),
+                      0,
+                    ),
+                  ceremony.currencyCode,
+                )}
+              </span>
+            </div>
+          </>
         )}
       </section>
 
