@@ -922,7 +922,7 @@ export const UserCeremonyEdit: FC = () => {
         {/* 플랜이 확정된 후에만 단위 상품을 추가구매할 수 있다(2026-09-11 사용자 요청) —
             그래서 이 버튼 두 개도 확정 후에만 여기(선택한 플랜 하단)에 나타난다. */}
         {!isDraft && (
-          <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+          <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
