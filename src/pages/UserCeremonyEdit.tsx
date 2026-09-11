@@ -857,8 +857,8 @@ export const UserCeremonyEdit: FC = () => {
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">서명자 한도</span>
-              <span className="text-gray-950">{plan.includedQuantityOf('SIGNERS')}명</span>
+              <span className="text-gray-950 font-bold">서명자 한도</span>
+              <span className="text-gray-950 font-bold">{plan.includedQuantityOf('SIGNERS')}명</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">템플릿 한도</span>
