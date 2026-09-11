@@ -49,10 +49,15 @@ interface EquipmentPersonnelDraftLine {
  * 수량·고객 단가까지 자유롭게 입력한다 — "참고 원가"도 더는 보여주지 않는다(파트너가 플랫폼에
  * 내는 원가 자체가 없어졌다). OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)이라 그 권한이 없으면
  * 탭 내용 자체를 숨긴다.
+ *
+ * <p>정산서 생성은 플랜이 확정된(DRAFT를 벗어난) 행사에서만 할 수 있다(2026-09-11 사용자
+ * 요청 — 단위 상품 추가구매와 같은 기준). `isDraft`는 부모(`UserCeremonyEdit`)가 이미 계산해둔
+ * 값을 그대로 받는다 — 마진 설정·기존 정산서 열람은 플랜 상태와 무관하게 계속 가능하다.
  */
-export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: string }> = ({
+export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: string; isDraft: boolean }> = ({
   organizationId,
   ceremonyId,
+  isDraft,
 }) => {
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const hasPermission = usePermissionStore((state) => state.hasPermission);
@@ -187,7 +192,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   });
 
   const handleGenerate = async () => {
-    if (!margin || margin.source === 'NONE' || !linesValid) return;
+    if (isDraft || !margin || margin.source === 'NONE' || !linesValid) return;
     setIsGenerating(true);
     try {
       const equipmentPersonnelLinesPayload = equipmentPersonnelLines.map((line) => ({
@@ -316,10 +321,14 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         )}
       </div>
 
-      {/* 장비/인력 품목 */}
+      {/* 장비/인력 품목 + 정산서 생성 — 플랜이 확정된 행사에서만 할 수 있다(2026-09-11
+          사용자 요청 — 단위 상품 추가구매와 같은 기준). 마진 설정·기존 정산서 열람은 이
+          가드와 무관하게 계속 가능하다. */}
       <div className="border-t border-gray-100 mt-4 pt-3">
         <h3 className="text-xs font-bold text-gray-700 mb-2">장비/인력</h3>
-        {isCatalogLoading ? (
+        {isDraft ? (
+          <p className="text-sm text-gray-500">플랜을 확정한 후 고객 정산서를 생성할 수 있습니다.</p>
+        ) : isCatalogLoading ? (
           <div className="flex items-center justify-center py-4 text-gray-400">
             <Loader2 size={16} className="animate-spin" />
           </div>
@@ -379,15 +388,17 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           </>
         )}
 
-        <div className="mt-3 flex justify-end">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
-            className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
-          >
-            {isGenerating ? '생성 중...' : '고객 정산서 생성'}
-          </button>
-        </div>
+        {!isDraft && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
+              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+            >
+              {isGenerating ? '생성 중...' : '고객 정산서 생성'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 생성된 정산서 목록 */}

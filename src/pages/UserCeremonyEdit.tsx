@@ -1158,7 +1158,9 @@ export const UserCeremonyEdit: FC = () => {
       </div>
 
       <div hidden={activeTab !== 'customerQuote'}>
-        {organizationId && ceremonyId && <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} />}
+        {organizationId && ceremonyId && (
+          <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} isDraft={isDraft} />
+        )}
       </div>
 
       <Modal
