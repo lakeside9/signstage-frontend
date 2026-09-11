@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, History, Loader2, Tag, X } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -365,11 +366,10 @@ const DiscountFields: FC<{ draft: DiscountDraft; onChange: (draft: DiscountDraft
       </select>
     </Field>
     <Field label="할인 값">
-      <input
-        type="number"
+      <FormattedNumberInput
         min={0}
         value={draft.discountValue === 0 ? '' : draft.discountValue}
-        onChange={(e) => onChange({ ...draft, discountValue: Number(e.target.value) })}
+        onChange={(raw) => onChange({ ...draft, discountValue: Number(raw) })}
         disabled={disabled}
         className={`${inputClass} w-28`}
       />

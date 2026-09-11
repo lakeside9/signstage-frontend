@@ -22,11 +22,13 @@ const LINE_TYPE_LABEL: Record<string, string> = {
 };
 
 /**
- * 행사 수정 화면(`UserCeremonyEdit`) 안에 얹는 "확정 견적" 섹션 — signstage-docs
- * business/currency-tax-internationalization-review.md 9/10장 결정(2026-09-10). "예상 청구
- * 금액" 섹션 바로 아래 둔다 — 그 계산을 스냅샷으로 고정하는 게 이 섹션의 역할이라 자연스럽게
- * 이어진다. 확정할 때마다 새 버전이 쌓이고(재견적), 무효화해도 행 자체는 지워지지 않고
- * 상태만 VOID로 바뀐다(append-only).
+ * 행사 수정 화면(`UserCeremonyEdit`) 안에 얹는 "확정 이용료" 섹션(옛 이름 "확정 견적" —
+ * "견적"(미확정 추정치)과 "확정"이 한 용어 안에서 충돌한다는 2026-09-11 사용자 지적으로
+ * "예상 이용료"와 짝을 맞춰 바꿨다, 코드 식별자·API는 그대로 `BillingQuote`) —
+ * signstage-docs business/currency-tax-internationalization-review.md 9/10장 결정
+ * (2026-09-10). "예상 이용료" 섹션 바로 아래 둔다 — 그 계산을 스냅샷으로 고정하는 게 이
+ * 섹션의 역할이라 자연스럽게 이어진다. 확정할 때마다 새 버전이 쌓이고(재확정), 무효화해도
+ * 행 자체는 지워지지 않고 상태만 VOID로 바뀐다(append-only).
  */
 export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: string }> = ({
   organizationId,
@@ -60,7 +62,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
         const data = await fetchQuotes();
         if (!cancelled) setQuotes(data);
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '확정 견적 목록을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '확정 이용료 목록을 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -75,10 +77,10 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
     setIsFinalizing(true);
     try {
       await api.post(`${basePath}/quotes`);
-      showSnackbar('견적을 확정했습니다.', 'success');
+      showSnackbar('이용료를 확정했습니다.', 'success');
       setQuotes(await fetchQuotes());
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '견적 확정에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '이용료 확정에 실패했습니다.', 'error');
     } finally {
       setIsFinalizing(false);
     }
@@ -96,7 +98,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
       const response = await api.get(`${basePath}/quotes/${quoteId}`);
       setDetailById((prev) => ({ ...prev, [quoteId]: response.data as BillingQuoteDetail }));
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '견적 상세를 불러오지 못했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '이용료 상세를 불러오지 못했습니다.', 'error');
     } finally {
       setIsDetailLoading(false);
     }
@@ -108,7 +110,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
     setIsVoiding(true);
     try {
       await api.post(`${basePath}/quotes/${voidingId}/void`, { reason: voidReason.trim() });
-      showSnackbar('견적을 무효화했습니다.', 'success');
+      showSnackbar('이용료를 무효화했습니다.', 'success');
       setVoidingId(null);
       setVoidReason('');
       setQuotes(await fetchQuotes());
@@ -124,7 +126,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
           <FileCheck size={14} />
-          확정 견적
+          확정 이용료
         </h2>
         <button
           onClick={handleFinalize}
@@ -132,11 +134,11 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
           className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950 disabled:opacity-50"
         >
           {isFinalizing ? <Loader2 size={12} className="animate-spin" /> : null}
-          지금 견적 확정
+          지금 이용료 확정
         </button>
       </div>
       <p className="text-xs text-gray-400 mb-3">
-        지금 이 순간의 예상 청구 금액을 스냅샷으로 고정합니다. 이후 카탈로그·할인이 바뀌어도 확정된 견적은 그대로 유지됩니다.
+        지금 이 순간의 예상 이용료를 스냅샷으로 고정합니다. 이후 카탈로그·할인이 바뀌어도 확정된 이용료는 그대로 유지됩니다.
       </p>
 
       {isLoading ? (
@@ -144,7 +146,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
           <Loader2 size={18} className="animate-spin" />
         </div>
       ) : quotes.length === 0 ? (
-        <p className="text-sm text-gray-500">아직 확정한 견적이 없습니다.</p>
+        <p className="text-sm text-gray-500">아직 확정한 이용료가 없습니다.</p>
       ) : (
         <div className="divide-y divide-gray-100">
           {quotes.map((quote) => {
@@ -252,7 +254,7 @@ export const BillingQuoteSection: FC<{ organizationId: string; ceremonyId: strin
                             onClick={() => setVoidingId(quote.id)}
                             className="text-xs font-medium text-red-600 hover:text-red-700"
                           >
-                            이 견적 무효화
+                            이 이용료 무효화
                           </button>
                         )}
                       </div>

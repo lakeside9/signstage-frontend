@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { Building2, Calculator, Loader2, Receipt, Search, X } from 'lucide-react';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
 import type { BillingPlanSummary, DiscountType, OrganizationDiscountOverview, PageResponse, PlatformAdminOrganizationSummary, UnitProductSummary } from '../types';
@@ -392,11 +393,10 @@ export const AdminBillingSimulator: FC = () => {
                               </div>
                               <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
                                 구매 수량
-                                <input
-                                  type="number"
+                                <FormattedNumberInput
                                   min={0}
                                   value={quantity === 0 ? '' : quantity}
-                                  onChange={(e) => setPurchaseQuantity(p.id, Number(e.target.value))}
+                                  onChange={(raw) => setPurchaseQuantity(p.id, Number(raw))}
                                   placeholder="0"
                                   className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                                 />
@@ -435,11 +435,10 @@ export const AdminBillingSimulator: FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">값</label>
-                <input
-                  type="number"
+                <FormattedNumberInput
                   min={0}
                   value={finalDiscountValue === 0 ? '' : finalDiscountValue}
-                  onChange={(e) => setFinalDiscountValue(Number(e.target.value))}
+                  onChange={(raw) => setFinalDiscountValue(Number(raw))}
                   placeholder="0"
                   className="w-32 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                 />

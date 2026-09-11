@@ -7,6 +7,7 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
+import { OrganizationMarginPolicySection } from './organization/OrganizationMarginPolicySection';
 import { OrganizationSubscriptionSection } from './organization/OrganizationSubscriptionSection';
 import type { MemberRole, MemberSummary, OrganizationHistorySummary, OrganizationSummary } from '../types';
 
@@ -384,6 +385,7 @@ export const UserOrganizationDetail: FC = () => {
       )}
 
       {organizationId && <OrganizationSubscriptionSection organizationId={organizationId} myRole={organization.myRole} />}
+      {organizationId && <OrganizationMarginPolicySection organizationId={organizationId} />}
 
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">

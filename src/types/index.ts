@@ -810,9 +810,14 @@ export interface CeremonyDiscountSummary {
   createdAt: string;
 }
 
-/** POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과 맞춘다. */
+/**
+ * POST /api/organizations/{organizationId}/ceremonies 요청(CeremonyDto.Request.CreateCeremony)과
+ * 맞춘다. billingPlanId는 생략할 수 있다(2026-09-10, signstage-docs
+ * business/ceremony-registration-flow-and-billing-tab-separation-review.md) — 생략하면 플랜
+ * 없이 DRAFT로 만들어지고, 나중에 PUT .../plan(changePlan)으로 최초 선택을 한다.
+ */
 export interface CreateCeremonyRequest {
-  billingPlanId: number;
+  billingPlanId?: number;
   title: string;
 }
 
@@ -834,7 +839,8 @@ export type CeremonyStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
 export interface CeremonySummary {
   id: number;
   organizationId: number;
-  billingPlanId: number;
+  /** null이면 아직 플랜을 선택하지 않은 것이다(2026-09-10 — DRAFT에서만 가능, 확정하려면 먼저 선택해야 한다). */
+  billingPlanId: number | null;
   currencyCode: string;
   currencyFractionDigits: number;
   timeZoneId: string;
@@ -1790,6 +1796,8 @@ export interface BillingQuoteLineSummary {
   lineType: 'PLAN_UNIT_PRODUCT' | 'UNIT_PRODUCT_PURCHASE';
   itemId: number;
   itemName: string;
+  /** 매출 갈래 리포팅용 스냅샷 — signstage-docs business/platform-partner-customer-billing-model-reference.md 4.3절. */
+  category: UnitProductCategory;
   quantity: number;
   unitListAmount: number;
   listAmount: number;
@@ -1812,4 +1820,82 @@ export interface BillingQuoteDetail {
 
 export interface VoidBillingQuoteRequest {
   reason: string;
+}
+
+// ==================== 파트너 → 실고객 고객 견적서 ====================
+// signstage-docs business/partner-customer-quote-design-review.md,
+// business/platform-partner-customer-billing-model-reference.md 4장(2026-09-11). 마진(조직
+// 기본값/행사별 override)과 고객 견적서 생성/조회 — 전부 OWNER만 볼 수 있다.
+
+/** PERCENT | FIXED_AMOUNT — DiscountType과 같은 표현을 재사용한다(할인의 부호 반대 버전). */
+export type MarginType = 'PERCENT' | 'FIXED_AMOUNT';
+
+/** PUT .../margin-policy, PUT .../customer-margin 요청(CustomerQuoteDto.Request.UpdateMargin)과 맞춘다. */
+export interface UpdateMarginRequest {
+  marginType: MarginType;
+  marginValue: number;
+}
+
+/** GET/PUT /organizations/{id}/margin-policy 응답 — 설정한 적이 없으면 둘 다 null. */
+export interface OrganizationMarginPolicy {
+  marginType: MarginType | null;
+  marginValue: number | null;
+}
+
+/** GET .../customer-margin 응답 — 행사별 override, 조직 기본값, 미설정 중 어느 것이 적용됐는지. */
+export interface EffectiveMargin {
+  marginType: MarginType | null;
+  marginValue: number | null;
+  source: 'CEREMONY_OVERRIDE' | 'ORGANIZATION_DEFAULT' | 'NONE';
+}
+
+/** GET .../customer-quotes/pricing-inputs 응답 한 행 — 고객 단가 입력 폼이 이 목록을 그대로 그린다. */
+export interface CustomerQuotePricingInput {
+  unitProductId: number;
+  itemName: string;
+  quantity: number;
+  referenceCostUnitAmount: number;
+  referenceCostAmount: number;
+}
+
+export interface EquipmentPersonnelPrice {
+  unitProductId: number;
+  customerUnitAmount: number;
+}
+
+/** POST .../customer-quotes 요청(CustomerQuoteDto.Request.GenerateQuote)과 맞춘다. */
+export interface GenerateCustomerQuoteRequest {
+  equipmentPersonnelPrices: EquipmentPersonnelPrice[];
+}
+
+export interface CustomerQuoteSummary {
+  id: number;
+  version: number;
+  currencyCode: string;
+  currencyFractionDigits: number;
+  systemUsageCostAmount: number;
+  marginType: MarginType;
+  marginValue: number;
+  systemUsageMarginAmount: number;
+  systemUsageCustomerAmount: number;
+  equipmentPersonnelCustomerAmount: number;
+  totalCustomerAmount: number;
+  pricingCalculatedAt: string;
+  createdByLoginId: string | null;
+  createdAt: string;
+}
+
+export interface CustomerQuoteLineSummary {
+  lineType: 'SYSTEM_USAGE' | 'EQUIPMENT_PERSONNEL';
+  itemId: number | null;
+  itemName: string;
+  quantity: number;
+  referenceCostUnitAmount: number | null;
+  customerUnitAmount: number;
+  customerAmount: number;
+}
+
+export interface CustomerQuoteDetail {
+  summary: CustomerQuoteSummary;
+  lines: CustomerQuoteLineSummary[];
 }

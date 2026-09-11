@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, UsageWarning } from './billingCatalog/components';
@@ -159,15 +160,13 @@ export const AdminBillingPlanEdit: FC = () => {
                             </span>
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="number"
+                            <FormattedNumberInput
                               min={0}
                               max={isToggle ? 1 : undefined}
                               value={line.includedQuantity ?? ''}
                               disabled={isSaving}
                               placeholder="—"
-                              onChange={(e) => {
-                                const raw = e.target.value;
+                              onChange={(raw) => {
                                 setLineDrafts((prev) => ({
                                   ...prev,
                                   [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },

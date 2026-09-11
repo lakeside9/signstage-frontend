@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Banknote,
   CheckCircle2,
+  CreditCard,
   FileSignature,
   History,
   Info,
@@ -13,12 +15,14 @@ import {
   RefreshCw,
   Settings,
 } from 'lucide-react';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
 import { BillingQuoteSection } from './ceremony/BillingQuoteSection';
+import { CustomerQuoteSection } from './ceremony/CustomerQuoteSection';
 import type {
   BillingPlanSummary,
   CeremonyPlanHistorySummary,
@@ -74,19 +78,32 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
  * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
  *
- * 플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
+ * <p>"기본 정보"/"플랫폼 이용료" 2탭으로 나뉜다(2026-09-10, 사용자 요청 — signstage-docs
+ * business/ceremony-registration-flow-and-billing-tab-separation-review.md). `?tab=billing`
+ * 쿼리로 이 탭을 곧장 열 수 있다 — 행사 등록 직후(`UserCeremonyCreate.tsx`)가 이 방식으로
+ * 진입한다(등록 시 플랜 선택이 더 이상 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다).
+ * "고객 정산" 탭(파트너→실고객, `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
+ * business/partner-customer-quote-design-review.md 결정(2026-09-11, 탭 이름은 2026-09-11
+ * 사용자 요청으로 "과금"/"고객 견적"에서 "플랫폼 이용료"/"고객 정산"으로 바뀌었다).
+ *
+ * <p>플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
  * 서명자/문서/하위 행사는 플랜 확정 후에만 등록할 수 있다. 플랜 변경 이력은 그 시점의
- * 이름/가격/한도 스냅샷까지 남는다.
+ * 이름/가격/한도 스냅샷까지 남는다. 플랜을 아직 한 번도 선택하지 않았으면(billingPlanId가
+ * null) 확정할 수 없다 — 먼저 선택해야 한다.
  *
  * 추가구매는 요청 즉시 반영되지 않는다 — 플랫폼 관리자가 승인해야 유효 한도/구매한 선택옵션에
  * 반영된다(signstage-docs business/ceremony-billing-options-review.md). 요청자 본인 이력
  * 조회 API로 대기중(PENDING)/승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
  */
+type EditTab = 'info' | 'billing' | 'customerQuote';
+
 export const UserCeremonyEdit: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
   const navigate = useNavigate();
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<EditTab>(searchParams.get('tab') === 'billing' ? 'billing' : 'info');
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -237,7 +254,7 @@ export const UserCeremonyEdit: FC = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : '예상 청구 금액을 불러오지 못했습니다.';
+          const message = err instanceof Error ? err.message : '예상 이용료를 불러오지 못했습니다.';
           showSnackbar(message, 'error');
         }
       } finally {
@@ -493,8 +510,36 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </div>
 
+      <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+        {(
+          [
+            { value: 'info', label: '기본 정보', icon: FileSignature },
+            { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
+            { value: 'customerQuote', label: '고객 정산', icon: Banknote },
+          ] as const
+        ).map((tab) => {
+          const isActive = activeTab === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex items-center gap-1.5 min-w-28 justify-center px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                isActive ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
+              }`}
+            >
+              <tab.icon size={13} />
+              {tab.label}
+              {tab.value === 'billing' && isDraft && !ceremony.billingPlanId && (
+                <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-amber-300' : 'bg-amber-500'}`} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* 행사 정보 수정 */}
-      <section className="bg-white border border-gray-200 rounded-lg p-4">
+      <section hidden={activeTab !== 'info'} className="bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <FileSignature size={14} />
           행사 정보
@@ -621,8 +666,9 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </section>
 
+      <div hidden={activeTab !== 'billing'}>
       {/* 선택한 플랜 — 확정 전(DRAFT)에만 바꿀 수 있고, 확정 후엔 읽기 전용이다 */}
-      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+      <section className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
             <Info size={14} />
@@ -639,7 +685,13 @@ export const UserCeremonyEdit: FC = () => {
           )}
         </div>
 
-        {isDraft && (
+        {isDraft && !ceremony.billingPlanId && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-700">아직 플랜을 선택하지 않았습니다. 아래에서 플랜을 선택해주세요.</p>
+          </div>
+        )}
+
+        {isDraft && ceremony.billingPlanId && (
           <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
             <p className="text-xs text-amber-700">
               아직 플랜 확정 전입니다. 확정해야 서명자/문서/하위 행사를 등록할 수 있습니다.
@@ -660,7 +712,9 @@ export const UserCeremonyEdit: FC = () => {
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : !plan ? (
-          <p className="text-sm text-gray-500">플랜 정보를 찾을 수 없습니다(#{ceremony.billingPlanId}).</p>
+          <p className="text-sm text-gray-500">
+            {ceremony.billingPlanId ? `플랜 정보를 찾을 수 없습니다(#${ceremony.billingPlanId}).` : '아직 선택한 플랜이 없습니다.'}
+          </p>
         ) : (
           <div className="divide-y divide-gray-100 text-sm">
             <div className="flex justify-between py-1.5">
@@ -708,7 +762,9 @@ export const UserCeremonyEdit: FC = () => {
         {isDraft && !isPlansLoading && (
           <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-end gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">다른 플랜으로 변경</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {ceremony.billingPlanId ? '다른 플랜으로 변경' : '플랜 선택'}
+              </label>
               <select
                 value={selectedNewPlanId ?? ''}
                 onChange={(e) => setSelectedNewPlanId(e.target.value ? Number(e.target.value) : null)}
@@ -734,7 +790,7 @@ export const UserCeremonyEdit: FC = () => {
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
             >
               <RefreshCw size={13} />
-              {isChangingPlan ? '변경 중...' : '플랜 변경'}
+              {isChangingPlan ? '변경 중...' : ceremony.billingPlanId ? '플랜 변경' : '플랜 선택'}
             </button>
           </div>
         )}
@@ -744,18 +800,20 @@ export const UserCeremonyEdit: FC = () => {
         </p>
       </section>
 
-      {/* 예상 청구 금액 — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차 차감(견적용, 실제 결제 기능은 아직 없음) */}
+      {/* 예상 이용료 — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차 차감(견적용, 실제 결제 기능은 아직 없음) */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <Receipt size={14} />
-          예상 청구 금액
+          예상 이용료
         </h2>
-        {isEstimatedTotalLoading ? (
+        {!ceremony.billingPlanId ? (
+          <p className="text-sm text-gray-500">플랜을 선택하면 예상 이용료를 볼 수 있습니다.</p>
+        ) : isEstimatedTotalLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : !estimatedTotal ? (
-          <p className="text-sm text-gray-500">예상 청구 금액을 계산할 수 없습니다.</p>
+          <p className="text-sm text-gray-500">예상 이용료를 계산할 수 없습니다.</p>
         ) : (
           <div className="divide-y divide-gray-100 text-sm">
             <div className="flex justify-between py-1.5">
@@ -793,7 +851,7 @@ export const UserCeremonyEdit: FC = () => {
           </div>
         )}
         <p className="mt-3 text-xs text-gray-400">
-          승인된 구매 건만 반영한 견적입니다. 행사 건별 할인은 플랫폼 관리자만 설정할 수 있고, 실제 결제/청구서 발행
+          승인된 구매 건만 반영한 예상 금액입니다. 행사 건별 할인은 플랫폼 관리자만 설정할 수 있고, 실제 결제/청구서 발행
           기능은 아직 없습니다.
         </p>
       </section>
@@ -823,7 +881,9 @@ export const UserCeremonyEdit: FC = () => {
           수량을 입력하고 한 번에 요청하세요 — 여러 항목을 함께 담을 수 있습니다. 요청하면 바로 반영되지 않습니다 —
           플랫폼 관리자가 승인해야 유효 한도/적용 가능 목록에 반영됩니다.
         </p>
-        {isProductsLoading ? (
+        {isDraft && !ceremony.billingPlanId ? (
+          <p className="text-sm text-gray-500">플랜을 먼저 선택해주세요.</p>
+        ) : isProductsLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
@@ -859,12 +919,11 @@ export const UserCeremonyEdit: FC = () => {
                         {blocked ? (
                           <PurchaseStatusBadge status={activePurchaseStatus(product.id) ?? 'PENDING'} />
                         ) : (
-                          <input
-                            type="number"
+                          <FormattedNumberInput
                             min={0}
                             max={isEventEffectBundle ? 1 : undefined}
                             value={cartQuantities[product.id] || ''}
-                            onChange={(e) => setCartQuantity(product.id, Number(e.target.value))}
+                            onChange={(raw) => setCartQuantity(product.id, Number(raw))}
                             disabled={isPurchasing}
                             placeholder="0"
                             className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
@@ -888,6 +947,11 @@ export const UserCeremonyEdit: FC = () => {
           </form>
         )}
       </section>
+      </div>
+
+      <div hidden={activeTab !== 'customerQuote'}>
+        {organizationId && ceremonyId && <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} />}
+      </div>
 
       <Modal
         open={isPurchaseHistoryModalOpen}

@@ -121,7 +121,10 @@ export const UserCeremonyList: FC = () => {
     setPage(nextPage);
   };
 
-  const planName = (billingPlanId: number) => plans.find((plan) => plan.id === billingPlanId)?.name ?? `#${billingPlanId}`;
+  const planName = (billingPlanId: number | null) => {
+    if (billingPlanId === null) return '플랜 미선택';
+    return plans.find((plan) => plan.id === billingPlanId)?.name ?? `#${billingPlanId}`;
+  };
 
   const ceremonies = pageData?.content ?? [];
 

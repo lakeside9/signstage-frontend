@@ -1,73 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, FileSignature, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { formatCurrency } from '../utils/internationalization';
-import { planSubtotal } from './billingCatalog/constants';
-import type { BillingPlanSummary, CeremonySummary, UnitProductType } from '../types';
-
-const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
-
-/** 이 화면에 보여줄 한도 5종 — 백엔드 `UnitProductType.isPlanIncludable()`과 같은 집합이다. */
-const includedQuantityOf = (plan: BillingPlanSummary, type: UnitProductType) =>
-  plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0;
+import type { CeremonySummary } from '../types';
 
 /**
- * 행사(Ceremony) 등록 화면. 플랜 선택이 필수다(signstage-docs
- * business/ceremony-billing-options-review.md 4.10절 — 행사 생성 시 플랜 필수 선택).
- * 카드형으로 플랜별 한도/가격을 보여주고 라디오처럼 하나만 고르게 한다.
+ * 행사(Ceremony) 등록 화면. 제목만 먼저 등록하고 플랜은 나중에 고른다(2026-09-10, 사용자
+ * 요청 — signstage-docs
+ * business/ceremony-registration-flow-and-billing-tab-separation-review.md). 예전엔 이 화면이
+ * 플랜 선택까지 같이 받았지만(business/ceremony-billing-options-review.md 4.10절 "생성 시 필수"
+ * 결정), 그 결정을 뒤집었다 — 등록 직후 수정 화면의 "과금" 탭으로 곧장 이동해 플랜을 고른다.
  */
 export const UserCeremonyCreate: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
+  const navigate = useNavigate();
 
-  const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
-  const [isPlansLoading, setIsPlansLoading] = useState(true);
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
-
   const [isLoading, setIsLoading] = useState(false);
-  const [created, setCreated] = useState<CeremonySummary | null>(null);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const response = await api.get('/billing-plans');
-        if (!cancelled) {
-          // 사용 중지(active=false)된 플랜은 신규 선택 대상에서 제외한다.
-          setPlans((response.data as BillingPlanSummary[]).filter((plan) => plan.active));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : '과금 플랜을 불러오지 못했습니다.';
-          showSnackbar(message, 'error');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsPlansLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!selectedPlanId) {
-      showSnackbar('플랜을 선택해주세요.', 'error');
-      return;
-    }
     if (!title.trim()) {
       showSnackbar('행사 제목을 입력해주세요.', 'error');
       return;
@@ -76,11 +34,11 @@ export const UserCeremonyCreate: FC = () => {
     setIsLoading(true);
     try {
       const response = await api.post(`/organizations/${organizationId}/ceremonies`, {
-        billingPlanId: selectedPlanId,
         title: title.trim(),
       });
-      setCreated(response.data as CeremonySummary);
-      showSnackbar('행사가 등록되었습니다.', 'success');
+      const created = response.data as CeremonySummary;
+      showSnackbar('행사가 등록되었습니다. 이어서 과금 플랜을 선택해주세요.', 'success');
+      navigate(`/ceremonies/${organizationId}/${created.id}/edit?tab=billing`, { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : '행사 등록에 실패했습니다.';
       showSnackbar(message, 'error');
@@ -102,134 +60,32 @@ export const UserCeremonyCreate: FC = () => {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">행사 등록</h1>
         <p className="mt-1 text-sm text-gray-500">
-          등록 직후엔 플랜을 자유롭게 바꿀 수 있습니다. 플랜을 확정해야 서명자/문서/하위 행사를 등록할 수 있습니다.
+          제목만 먼저 등록하면 됩니다. 과금 플랜과 나머지 정보는 등록 직후 수정 화면에서 채울 수 있습니다.
         </p>
       </div>
 
-      {created ? (
-        <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center gap-2 text-gray-950 font-bold">
-              <FileSignature size={18} />
-              {created.title}
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              플랜: {plans.find((plan) => plan.id === created.billingPlanId)?.name ?? `#${created.billingPlanId}`}
-            </p>
-            <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              아직 플랜 확정 전입니다. 서명자/문서/하위 행사를 등록하려면 행사 수정 화면에서 플랜을 확정해주세요.
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Link
-              to={`/ceremonies/${organizationId}/${created.id}/edit`}
-              className="flex-1 text-center px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
-              플랜 확정하러 가기
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setCreated(null);
-                setTitle('');
-                setSelectedPlanId(null);
-              }}
-              className="flex-1 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-            >
-              계속 추가하기
-            </button>
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">행사 제목</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={isLoading}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            placeholder="예: 2026년 상반기 협약식"
+          />
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">행사 제목</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-              placeholder="예: 2026년 상반기 협약식"
-            />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">플랜 선택</label>
-            {isPlansLoading ? (
-              <div className="flex items-center justify-center py-12 text-gray-400">
-                <Loader2 size={24} className="animate-spin" />
-              </div>
-            ) : plans.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4">선택 가능한 플랜이 없습니다. 플랫폼 관리자에게 문의해주세요.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {plans.map((plan) => {
-                  const isSelected = selectedPlanId === plan.id;
-                  return (
-                    <button
-                      type="button"
-                      key={plan.id}
-                      onClick={() => setSelectedPlanId(plan.id)}
-                      disabled={isLoading}
-                      className={`text-left border rounded-lg p-4 transition-colors ${
-                        isSelected ? 'border-gray-950 ring-1 ring-gray-950' : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-950">{plan.name}</span>
-                        {isSelected && <CheckCircle2 size={18} className="text-gray-950" />}
-                      </div>
-                      {/* 공급가(원가)는 내부 전용이라 사용자 화면에 노출하지 않는다(signstage-docs
-                          business/billing-catalog-operations-review.md 4장). 플랜 자체는
-                          가격이 없다 — 포함 단위 상품 소계로 대신 보여준다(signstage-docs
-                          business/billing-catalog-unit-product-model-redesign-review.md
-                          결정, 2026-09-10). */}
-                      <p className="mt-1 text-sm text-gray-950">
-                        {plan.unitProducts.length === 0
-                          ? '가격 정보 없음'
-                          : formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
-                      </p>
-                      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
-                        <div className="flex justify-between">
-                          <dt>서명자</dt>
-                          <dd className="text-gray-700">{includedQuantityOf(plan, 'SIGNERS')}명</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>템플릿</dt>
-                          <dd className="text-gray-700">{includedQuantityOf(plan, 'TEMPLATES')}개</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>테스트 행사</dt>
-                          <dd className="text-gray-700">{includedQuantityOf(plan, 'TEST_EVENTS')}회</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>리허설 행사</dt>
-                          <dd className="text-gray-700">{includedQuantityOf(plan, 'REHEARSAL_EVENTS')}회</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>본행사</dt>
-                          <dd className="text-gray-700">{includedQuantityOf(plan, 'MAIN_EVENTS')}회</dd>
-                        </div>
-                      </dl>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button to={`/ceremonies/${organizationId}`} variant="secondary">
-              취소
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? '등록 중...' : '행사 등록'}
-            </Button>
-          </div>
-        </form>
-      )}
+        <div className="flex justify-end gap-2">
+          <Button to={`/ceremonies/${organizationId}`} variant="secondary">
+            취소
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? '등록 중...' : '행사 등록'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

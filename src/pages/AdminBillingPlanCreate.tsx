@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
@@ -193,11 +194,10 @@ export const AdminBillingPlanCreate: FC = () => {
               </select>
             </Field>
             <Field label="할인 값">
-              <input
-                type="number"
+              <FormattedNumberInput
                 min={0}
                 value={draft.discountValue === 0 ? '' : draft.discountValue}
-                onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
+                onChange={(raw) => setDraft((prev) => ({ ...prev, discountValue: Number(raw) }))}
                 disabled={isLoading}
                 className={inputClass}
               />
@@ -274,12 +274,11 @@ export const AdminBillingPlanCreate: FC = () => {
                   </Field>
                 )}
                 <Field label="허용 횟수">
-                  <input
-                    type="number"
+                  <FormattedNumberInput
                     min={1}
                     value={draft.subscriptionAllowedCount ?? ''}
                     disabled={isLoading}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, subscriptionAllowedCount: Number(e.target.value) }))}
+                    onChange={(raw) => setDraft((prev) => ({ ...prev, subscriptionAllowedCount: Number(raw) }))}
                     className={inputClass}
                   />
                 </Field>
@@ -329,15 +328,13 @@ export const AdminBillingPlanCreate: FC = () => {
                             </span>
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="number"
+                            <FormattedNumberInput
                               min={0}
                               max={isToggle ? 1 : undefined}
                               value={line.includedQuantity ?? ''}
                               disabled={isLoading}
                               placeholder="—"
-                              onChange={(e) => {
-                                const raw = e.target.value;
+                              onChange={(raw) => {
                                 setLineDrafts((prev) => ({
                                   ...prev,
                                   [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },

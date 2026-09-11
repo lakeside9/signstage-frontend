@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { ActiveField, EffectDefinitionPicker, ExclusivityGroupField, Field } from './billingCatalog/components';
@@ -172,22 +173,20 @@ export const AdminUnitProductCreate: FC = () => {
               </select>
             </Field>
             <Field label="공급가">
-              <input
-                type="number"
+              <FormattedNumberInput
                 min={0}
                 value={draft.supplyPrice === null ? '' : draft.supplyPrice}
-                onChange={(e) => setDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                onChange={(raw) => setDraft((prev) => ({ ...prev, supplyPrice: raw === '' ? null : Number(raw) }))}
                 placeholder="미상"
                 disabled={isLoading}
                 className={inputClass}
               />
             </Field>
             <Field label="판매가">
-              <input
-                type="number"
+              <FormattedNumberInput
                 min={0}
                 value={draft.salePrice === 0 ? '' : draft.salePrice}
-                onChange={(e) => setDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
+                onChange={(raw) => setDraft((prev) => ({ ...prev, salePrice: Number(raw) }))}
                 disabled={isLoading}
                 className={inputClass}
               />
