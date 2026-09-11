@@ -29,6 +29,8 @@ const STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
 
 /** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
 const EMPTY_SEARCH: { status: PurchaseStatus | 'ALL' } = { status: 'PENDING' };
+/** 특정 행사로 좁혀서 보는 "행사 이력" 화면(embedded)은 이력 조회가 목적이라 기본값을 "전체"로 둔다. */
+const EMPTY_SEARCH_FOR_CEREMONY: { status: PurchaseStatus | 'ALL' } = { status: 'ALL' };
 
 /**
  * 플랫폼 관리자의 행사 단위 상품 추가구매 요청 승인/반려 화면 — signstage-docs
@@ -39,14 +41,24 @@ const EMPTY_SEARCH: { status: PurchaseStatus | 'ALL' } = { status: 'PENDING' };
  *
  * 승인은 입력할 값이 없어(이미 존재하는 PENDING 행의 상태만 바꾼다) 조직 생성 요청 승인처럼
  * 펼침 입력폼을 열지 않고 버튼 한 번으로 바로 확정한다. 반려는 사유가 필요해 펼침 입력폼을 쓴다.
+ *
+ * <p>자가-체크아웃 도입(signstage-docs
+ * business/unit-product-purchase-self-checkout-review.md 결정, 2026-09-11)으로 시스템
+ * 사용료 추가구매는 더 이상 이 승인 큐를 거치지 않는다 — 이 화면에 남는 건 배포 전 레거시
+ * 요청(플랜 없는 행사에서 구매한 장비/인력 등)뿐이다. 그래도 화면 자체는 없애지 않고
+ * 파트너사·행사 필터가 붙은 이력 조회 화면으로 존속시키기로 했다(같은 문서 8.6절 결정) —
+ * `ceremonyId` prop을 넘기면 그 행사로 좁힌 "임베드" 모드로 동작한다(제목 숨김, 기본 상태
+ * 필터 "전체", "행사 이력" 화면이 플랜 이력과 나란히 보여줄 때 쓴다).
  */
-export const AdminCeremonyPurchaseRequests: FC = () => {
+export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ ceremonyId }) => {
+  const embedded = ceremonyId !== undefined;
   const currentPlatformRole = useAuthStore((state) => state.platformAdmin?.platformRole);
   const canManage = canManagePlatform(currentPlatformRole);
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
-  const [formValues, setFormValues] = useState(EMPTY_SEARCH);
-  const [searchParams, setSearchParams] = useState(EMPTY_SEARCH);
+  const defaultSearch = embedded ? EMPTY_SEARCH_FOR_CEREMONY : EMPTY_SEARCH;
+  const [formValues, setFormValues] = useState(defaultSearch);
+  const [searchParams, setSearchParams] = useState(defaultSearch);
   const [page, setPage] = useState(0);
   const [pageData, setPageData] = useState<PageResponse<PlatformAdminUnitProductPurchaseRequestSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +70,7 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
   const fetchRequests = async () => {
     const query = new URLSearchParams();
     if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
+    if (ceremonyId !== undefined) query.set('ceremonyId', String(ceremonyId));
     query.set('page', String(page));
     query.set('size', String(PAGE_SIZE));
 
@@ -83,7 +96,7 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page]);
+  }, [searchParams, page, ceremonyId]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -148,16 +161,18 @@ export const AdminCeremonyPurchaseRequests: FC = () => {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-          <ShoppingCart size={20} className="text-gray-400" />
-          추가구매 요청
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          행사의 단위 상품 추가구매 요청입니다(장바구니형 — 요청 하나에 여러 줄이 담길 수 있습니다). 승인해야
-          파트너가 실제로 사용할 수 있습니다.
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
+            <ShoppingCart size={20} className="text-gray-400" />
+            추가구매 요청
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            행사의 단위 상품 추가구매 요청입니다(장바구니형 — 요청 하나에 여러 줄이 담길 수 있습니다). 자가-체크아웃
+            도입으로 시스템 사용료 구매는 더 이상 여기를 거치지 않습니다 — 배포 전 레거시 요청만 남아 있습니다.
+          </p>
+        </div>
+      )}
 
       <section>
         <SearchBar onSubmit={handleSearch} onReset={handleReset}>

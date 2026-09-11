@@ -14,6 +14,8 @@ import {
   Package,
   Receipt,
   Settings,
+  ShoppingCart,
+  Trash2,
 } from 'lucide-react';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
@@ -21,16 +23,15 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
-import { BillingQuoteSection } from './ceremony/BillingQuoteSection';
 import { CustomerQuoteSection } from './ceremony/CustomerQuoteSection';
 import type {
   BillingPlanSummary,
+  CartLineSummary,
   CeremonyPlanHistorySummary,
   CeremonyStatus,
   CeremonySummary,
   EstimatedTotal,
   PurchaseStatus,
-  PurchaseUnitProductLine,
   UnitProductPurchaseSummary,
   UnitProductSummary,
 } from '../types';
@@ -94,9 +95,15 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 다시 null로 되돌릴 수 있다(2026-09-11 사용자 요청, `DELETE .../plan`) — 변경 이력은
  * 남기지 않는다(DRAFT는 스냅샷을 어차피 안 쓰는 상태라 남길 실익이 없다).
  *
- * 추가구매는 요청 즉시 반영되지 않는다 — 플랫폼 관리자가 승인해야 유효 한도/구매한 선택옵션에
- * 반영된다(signstage-docs business/ceremony-billing-options-review.md). 요청자 본인 이력
- * 조회 API로 대기중(PENDING)/승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
+ * 추가구매는 장바구니형 2단계다(signstage-docs
+ * business/unit-product-purchase-self-checkout-review.md 4·6장 결정, 2026-09-11) — "추가
+ * 구매하기"(옛 "구매 요청")는 서버에 저장되는 장바구니에 담을 뿐이고, 장바구니의 "구매하기"를
+ * 눌러야 실제 구매가 된다. 카탈로그는 시스템 사용료(ESSENTIAL/APPLICATION)만 남아 있다 —
+ * 장비·인력(EQUIPMENT/PERSONNEL)은 "플랫폼 이용료" 흐름에서 완전히 분리됐다(같은 문서 8장,
+ * "고객 정산" 탭에서 직접 입력). 담긴 줄이 전부 시스템 사용료면 "구매하기"를 누르는 즉시
+ * 반영된다(자가-체크아웃, 관리자 승인 없음) — 그래서 "예상 이용료"였던 이름도 "플랫폼
+ * 이용료"로 바뀌었다. 구매 이력은 요청자 본인이 볼 수 있는 이력이고, 대기중(PENDING)/
+ * 승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
  */
 type EditTab = 'info' | 'billing' | 'customerQuote';
 
@@ -137,10 +144,12 @@ export const UserCeremonyEdit: FC = () => {
   const [purchasableProducts, setPurchasableProducts] = useState<UnitProductSummary[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [cartQuantities, setCartQuantities] = useState<Record<number, number>>({});
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [cart, setCart] = useState<CartLineSummary[]>([]);
+  const [isCartLoading, setIsCartLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchases, setPurchases] = useState<UnitProductPurchaseSummary[]>([]);
   const [isPurchaseHistoryLoading, setIsPurchaseHistoryLoading] = useState(true);
-  const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
 
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
@@ -335,6 +344,38 @@ export const UserCeremonyEdit: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId, ceremonyId]);
 
+  const fetchCart = async () => {
+    const response = await api.get(`${basePath}/unit-product-cart`);
+    return response.data as CartLineSummary[];
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchCart();
+        if (!cancelled) {
+          setCart(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '장바구니를 불러오지 못했습니다.';
+          showSnackbar(message, 'error');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCartLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, ceremonyId]);
+
   const handleUpdateCeremony = async (e: FormEvent) => {
     e.preventDefault();
     if (!titleDraft.trim()) {
@@ -420,28 +461,78 @@ export const UserCeremonyEdit: FC = () => {
   };
 
   /**
-   * 단위 상품 추가구매 — 여러 줄을 한 번에 담아 제출하는 장바구니형 요청이다(signstage-docs
-   * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 3.4절) —
-   * 옛 용량/선택옵션 2개 요청을 통합했다.
+   * "추가 구매하기"(옛 "구매 요청") — 아직 구매를 만들지 않는다. 여러 항목에 수량을 입력한 뒤
+   * 한 번에 서버 장바구니에 담는다(signstage-docs
+   * business/unit-product-purchase-self-checkout-review.md 4장 결정, 2026-09-11) — 같은
+   * 항목을 다시 담으면 서버가 기존 줄의 수량에 합쳐준다. 순차로 보내야 마지막에 다시 불러오는
+   * 장바구니 상태가 항상 정확하다(동시에 여러 줄을 upsert하면 응답 순서가 뒤섞일 수 있다).
    */
-  const handlePurchase = async (e: FormEvent) => {
+  const handleAddToCart = async (e: FormEvent) => {
     e.preventDefault();
-    const lines: PurchaseUnitProductLine[] = Object.entries(cartQuantities)
+    const lines = Object.entries(cartQuantities)
       .filter(([, quantity]) => quantity > 0)
       .map(([unitProductId, quantity]) => ({ unitProductId: Number(unitProductId), quantity }));
     if (lines.length === 0) {
-      showSnackbar('추가구매할 항목의 수량을 입력해주세요.', 'error');
+      showSnackbar('담을 항목의 수량을 입력해주세요.', 'error');
       return;
     }
 
+    setIsAddingToCart(true);
+    try {
+      for (const line of lines) {
+        await api.post(`${basePath}/unit-product-cart/items`, line);
+      }
+      showSnackbar('장바구니에 담았습니다.', 'success');
+      setCartQuantities({});
+      setCart(await fetchCart());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '장바구니에 담는 데 실패했습니다.';
+      showSnackbar(message, 'error');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const handleUpdateCartLine = async (unitProductId: number, quantity: number) => {
+    if (quantity < 1) return;
+    try {
+      const response = await api.put(`${basePath}/unit-product-cart/items/${unitProductId}`, { quantity });
+      setCart(response.data as CartLineSummary[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '수량 변경에 실패했습니다.';
+      showSnackbar(message, 'error');
+    }
+  };
+
+  const handleRemoveCartLine = async (unitProductId: number) => {
+    try {
+      const response = await api.delete(`${basePath}/unit-product-cart/items/${unitProductId}`);
+      setCart(response.data as CartLineSummary[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '장바구니에서 빼는 데 실패했습니다.';
+      showSnackbar(message, 'error');
+    }
+  };
+
+  /**
+   * "구매하기" — 여기가 곧 "구매 확정" 시점이다. 서버가 장바구니를 그대로 읽어 구매를
+   * 만든다(요청 바디 없음). 담긴 줄이 전부 시스템 사용료면 관리자 승인 없이 그 즉시
+   * 반영된다(자가-체크아웃) — 성공하면 장바구니는 비워지고 구매 이력에 새 줄이 남는다.
+   */
+  const handlePurchase = async () => {
     setIsPurchasing(true);
     try {
-      await api.post(`${basePath}/unit-product-purchases`, { lines });
-      showSnackbar('추가구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.', 'success');
-      setCartQuantities({});
+      const response = await api.post(`${basePath}/unit-product-purchases`);
+      const purchase = response.data as UnitProductPurchaseSummary;
+      showSnackbar(
+        purchase.status === 'APPROVED' ? '구매가 즉시 반영됐습니다.' : '구매를 요청했습니다. 플랫폼 관리자 승인 후 반영됩니다.',
+        'success',
+      );
+      setCart([]);
       setPurchases(await fetchPurchases());
+      setEstimatedTotal(await fetchEstimatedTotal());
     } catch (err) {
-      const message = err instanceof Error ? err.message : '추가구매 요청에 실패했습니다.';
+      const message = err instanceof Error ? err.message : '구매에 실패했습니다.';
       showSnackbar(message, 'error');
     } finally {
       setIsPurchasing(false);
@@ -827,20 +918,23 @@ export const UserCeremonyEdit: FC = () => {
         </p>
       </section>
 
-      {/* 예상 이용료 — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차 차감(견적용, 실제 결제 기능은 아직 없음) */}
+      {/* 플랫폼 이용료(옛 "예상 이용료") — 품목 할인 → subtotal → 행사 건별 할인의 2단 순차
+          차감. 자가-체크아웃 도입으로 시스템 사용료는 "구매하기"를 누르는 즉시 확정 반영되므로
+          더는 잠정치가 아니라 지금 시점의 실제 값에 가깝다(signstage-docs
+          business/unit-product-purchase-self-checkout-review.md 4.2절). */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <Receipt size={14} />
-          예상 이용료
+          플랫폼 이용료
         </h2>
         {!ceremony.billingPlanId ? (
-          <p className="text-sm text-gray-500">플랜을 선택하면 예상 이용료를 볼 수 있습니다.</p>
+          <p className="text-sm text-gray-500">플랜을 선택하면 플랫폼 이용료를 볼 수 있습니다.</p>
         ) : isEstimatedTotalLoading ? (
           <div className="flex items-center justify-center py-8 text-gray-400">
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : !estimatedTotal ? (
-          <p className="text-sm text-gray-500">예상 이용료를 계산할 수 없습니다.</p>
+          <p className="text-sm text-gray-500">플랫폼 이용료를 계산할 수 없습니다.</p>
         ) : (
           <div className="divide-y divide-gray-100 text-sm">
             <div className="flex justify-between py-1.5">
@@ -883,30 +977,56 @@ export const UserCeremonyEdit: FC = () => {
         </p>
       </section>
 
-      {organizationId && ceremonyId && <BillingQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} />}
-
-      {/* 단위 상품 추가구매 — 여러 줄을 한 번에 담는 장바구니형(signstage-docs
-          business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10) —
-          옛 용량/선택옵션 추가구매 2개 섹션을 통합했다. */}
+      {/* 구매 이력 — 옛 "확정 이용료"(BillingQuote) 섹션을 대체한다. 자가-체크아웃이 들어오면서
+          "지금 이 순간의 합계를 한 번 더 얼려두는" 그 기능의 존재 이유가 옅어졌다 — 각 구매 줄이
+          이미 구매 시점 스냅샷을 갖고 있어 이 이력만으로 "그때 얼마였는지"를 충분히 보여준다
+          (signstage-docs business/unit-product-purchase-self-checkout-review.md 4.3절). 모달이
+          아니라 상시 노출되는 자리로 승격했다. */}
       <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-            <Package size={14} />
-            단위 상품 추가구매
-          </h2>
-          {!isPurchaseHistoryLoading && purchases.length > 0 && (
-            <button
-              onClick={() => setIsPurchaseHistoryModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-            >
-              <History size={12} />
-              이력 보기 ({purchases.length})
-            </button>
-          )}
-        </div>
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <History size={14} />
+          구매 이력
+        </h2>
+        {isPurchaseHistoryLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : purchases.length === 0 ? (
+          <p className="text-sm text-gray-500">아직 구매한 이력이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {purchases.map((purchase) => (
+              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
+                <div>
+                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
+                  <p className="text-sm text-gray-950">
+                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
+                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
+                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                  )}
+                </div>
+                <PurchaseStatusBadge status={purchase.status} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* 단위 상품 추가구매 — 장바구니형 2단계(signstage-docs
+          business/unit-product-purchase-self-checkout-review.md 4장 결정, 2026-09-11):
+          "추가 구매하기"는 서버 장바구니에 담을 뿐이고, 장바구니의 "구매하기"가 곧 구매 확정
+          시점이다. 카탈로그는 시스템 사용료(ESSENTIAL/APPLICATION)만 온다 — 장비·인력은
+          "고객 정산" 탭에서 직접 입력한다. */}
+      <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <Package size={14} />
+          단위 상품 추가구매
+        </h2>
         <p className="text-xs text-gray-400 mb-3">
-          수량을 입력하고 한 번에 요청하세요 — 여러 항목을 함께 담을 수 있습니다. 요청하면 바로 반영되지 않습니다 —
-          플랫폼 관리자가 승인해야 유효 한도/적용 가능 목록에 반영됩니다.
+          수량을 입력하고 장바구니에 담으세요 — 여러 항목을 함께 담을 수 있습니다. 장바구니에
+          담긴 것만으로는 아직 구매가 아닙니다 — 아래 장바구니에서 "구매하기"를 눌러야 확정됩니다.
         </p>
         {isDraft && !ceremony.billingPlanId ? (
           <p className="text-sm text-gray-500">플랜을 먼저 선택해주세요.</p>
@@ -919,7 +1039,7 @@ export const UserCeremonyEdit: FC = () => {
         ) : purchasableInCeremony.length === 0 ? (
           <p className="text-sm text-gray-500">추가구매 가능한 단위 상품이 없습니다.</p>
         ) : (
-          <form onSubmit={handlePurchase} className="space-y-4">
+          <form onSubmit={handleAddToCart} className="space-y-4">
             {/* 사용 중지된 상품은 이미 요청(대기중/승인)한 이벤트 효과 묶음일 때만 상태 확인용으로 계속 보여준다. */}
             {groupedPurchasable.map(({ category, items }) => (
               <div key={category}>
@@ -951,7 +1071,7 @@ export const UserCeremonyEdit: FC = () => {
                             max={isEventEffectBundle ? 1 : undefined}
                             value={cartQuantities[product.id] || ''}
                             onChange={(raw) => setCartQuantity(product.id, Number(raw))}
-                            disabled={isPurchasing}
+                            disabled={isAddingToCart}
                             placeholder="0"
                             className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                           />
@@ -965,49 +1085,76 @@ export const UserCeremonyEdit: FC = () => {
             <div className="pt-2 flex justify-end">
               <button
                 type="submit"
-                disabled={isPurchasing}
-                className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                disabled={isAddingToCart}
+                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
               >
-                {isPurchasing ? '요청 중...' : '구매 요청'}
+                {isAddingToCart ? '담는 중...' : '추가 구매하기'}
               </button>
             </div>
           </form>
         )}
+
+        {/* 장바구니 — 서버에 저장돼 새로고침·탭 전환에도 유지된다(6장 결정). */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <h3 className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-2">
+            <ShoppingCart size={13} />
+            장바구니
+          </h3>
+          {isCartLoading ? (
+            <div className="flex items-center justify-center py-4 text-gray-400">
+              <Loader2 size={16} className="animate-spin" />
+            </div>
+          ) : cart.length === 0 ? (
+            <p className="text-sm text-gray-400">담긴 항목이 없습니다.</p>
+          ) : (
+            <>
+              <ul className="divide-y divide-gray-100">
+                {cart.map((line) => (
+                  <li key={line.unitProductId} className="py-2 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-950">{line.unitProduct.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {line.unitProduct.salePrice === null
+                          ? '가격 정보 없음'
+                          : formatPrice(line.unitProduct.salePrice, line.unitProduct.currencyCode ?? 'KRW')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <FormattedNumberInput
+                        min={1}
+                        value={line.quantity}
+                        onChange={(raw) => handleUpdateCartLine(line.unitProductId, Number(raw))}
+                        className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                      />
+                      <button
+                        onClick={() => handleRemoveCartLine(line.unitProductId)}
+                        className="text-gray-400 hover:text-red-600"
+                        aria-label="빼기"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={handlePurchase}
+                  disabled={isPurchasing}
+                  className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {isPurchasing ? '구매하는 중...' : '구매하기'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </section>
       </div>
 
       <div hidden={activeTab !== 'customerQuote'}>
         {organizationId && ceremonyId && <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} />}
       </div>
-
-      <Modal
-        open={isPurchaseHistoryModalOpen}
-        onClose={() => setIsPurchaseHistoryModalOpen(false)}
-        title="추가구매 이력"
-        widthClassName="max-w-lg"
-      >
-        {purchases.length === 0 ? (
-          <p className="text-sm text-gray-400">아직 요청한 추가구매가 없습니다.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-            {purchases.map((purchase) => (
-              <li key={purchase.id} className="py-2 flex items-center justify-between gap-2">
-                <div>
-                  {/* 구매 시점 이름/수량 스냅샷을 쓴다 — 카탈로그 값이 나중에 바뀌어도 안 바뀐다(9장). */}
-                  <p className="text-sm text-gray-950">
-                    {purchase.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
-                  </p>
-                  <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
-                  {purchase.status === 'REJECTED' && purchase.rejectionReason && (
-                    <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
-                  )}
-                </div>
-                <PurchaseStatusBadge status={purchase.status} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
 
       <Modal
         open={isPlanHistoryModalOpen}

@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { AdminOrganizationList } from './pages/AdminOrganizationList';
 import { AdminOrganizationCreate } from './pages/AdminOrganizationCreate';
 import { AdminOrganizationDetail } from './pages/AdminOrganizationDetail';
+import { AdminCeremonyHistory } from './pages/AdminCeremonyHistory';
 import { ProfileView } from './pages/ProfileView';
 import { AdminUserList } from './pages/AdminUserList';
 import { AdminUserDetail } from './pages/AdminUserDetail';
@@ -130,6 +131,7 @@ function App() {
           <Route path="organizations" element={<AdminOrganizationList />} />
           <Route path="organizations/new" element={<AdminOrganizationCreate />} />
           <Route path="organizations/:organizationId" element={<AdminOrganizationDetail />} />
+          <Route path="organizations/:organizationId/ceremonies/:ceremonyId/history" element={<AdminCeremonyHistory />} />
           <Route path="organization-requests" element={<AdminOrganizationRequestList />} />
           <Route path="users" element={<AdminUserList />} />
           <Route path="users/new" element={<AdminUserCreate />} />

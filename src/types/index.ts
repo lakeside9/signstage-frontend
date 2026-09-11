@@ -951,20 +951,31 @@ export interface CeremonyPlanHistorySummary {
  */
 export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-/** POST .../unit-product-purchases 요청 한 줄(CeremonyDto.Request.PurchaseUnitProductLine)과 맞춘다. */
-export interface PurchaseUnitProductLine {
+/**
+ * POST .../unit-product-cart/items 요청(CeremonyDto.Request.AddToCart)과 맞춘다 — "추가
+ * 구매하기"(옛 "구매 요청")가 서버 장바구니에 담는 동작(signstage-docs
+ * business/unit-product-purchase-self-checkout-review.md 4·6장 결정, 2026-09-11). 같은
+ * unitProductId를 다시 담으면 새 줄이 아니라 기존 줄의 수량에 더해진다.
+ */
+export interface AddToCartRequest {
   unitProductId: number;
   quantity: number;
 }
 
+/** PUT .../unit-product-cart/items/{unitProductId} 요청(CeremonyDto.Request.UpdateCartLine)과 맞춘다. */
+export interface UpdateCartLineRequest {
+  quantity: number;
+}
+
 /**
- * POST .../unit-product-purchases 요청(CeremonyDto.Request.PurchaseUnitProducts)과 맞춘다 —
- * 여러 단위 상품 줄을 한 번에 담는 장바구니형 요청이다(signstage-docs
- * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). 옛
- * PurchaseCapacityRequest/PurchaseOptionalFeatureRequest 2종을 대체한다.
+ * GET/POST/PUT/DELETE .../unit-product-cart 응답 한 줄(CeremonyDto.Response.CartLineSummary)과
+ * 맞춘다. 정가는 스냅샷이 아니라 지금 카탈로그 기준 표시값이다 — 실제 스냅샷은 "구매하기"
+ * (POST .../unit-product-purchases)를 누르는 순간 만들어진다.
  */
-export interface PurchaseUnitProductsRequest {
-  lines: PurchaseUnitProductLine[];
+export interface CartLineSummary {
+  unitProductId: number;
+  quantity: number;
+  unitProduct: UnitProductSummary;
 }
 
 /**
@@ -1766,62 +1777,6 @@ export interface UpsertDemoConfigRequest {
   enabled?: boolean;
 }
 
-// ==================== 확정 견적(billing quote) ====================
-// signstage-docs business/currency-tax-internationalization-review.md 9/10장(2026-09-10).
-// "예상 청구 금액"(EstimatedTotal, 조회 시점 계산)과 계산 로직은 완전히 같고, 이 타입들은
-// 그 계산 결과를 스냅샷으로 고정한 뒤 조회/무효화하는 데만 쓴다.
-
-export type BillingQuoteStatus = 'FINALIZED' | 'VOID';
-
-/** GET .../quotes 응답 한 행(BillingQuoteDto.Response.QuoteSummary)과 맞춘다. */
-export interface BillingQuoteSummary {
-  id: number;
-  version: number;
-  status: BillingQuoteStatus;
-  currencyCode: string;
-  currencyFractionDigits: number;
-  netAmount: number;
-  discountAmount: number;
-  taxAmount: number;
-  grossAmount: number;
-  pricingCalculatedAt: string;
-  taxPointDate: string;
-  createdByLoginId: string | null;
-  createdAt: string;
-  /** VOID 상태일 때만 값이 있다. */
-  voidReason: string | null;
-}
-
-export interface BillingQuoteLineSummary {
-  lineType: 'PLAN_UNIT_PRODUCT' | 'UNIT_PRODUCT_PURCHASE';
-  itemId: number;
-  itemName: string;
-  /** 매출 갈래 리포팅용 스냅샷 — signstage-docs business/platform-partner-customer-billing-model-reference.md 4.3절. */
-  category: UnitProductCategory;
-  quantity: number;
-  unitListAmount: number;
-  listAmount: number;
-  itemDiscountAmount: number;
-  ceremonyDiscountAmount: number;
-  netAmount: number;
-  taxCode: string;
-  taxCategory: string;
-  taxRatePercent: number;
-  priceInclusion: string;
-  taxAmount: number;
-  grossAmount: number;
-}
-
-/** GET .../quotes/{id} 응답(BillingQuoteDto.Response.QuoteDetail)과 맞춘다. */
-export interface BillingQuoteDetail {
-  summary: BillingQuoteSummary;
-  lines: BillingQuoteLineSummary[];
-}
-
-export interface VoidBillingQuoteRequest {
-  reason: string;
-}
-
 // ==================== 파트너 → 실고객 고객 견적서 ====================
 // signstage-docs business/partner-customer-quote-design-review.md,
 // business/platform-partner-customer-billing-model-reference.md 4장(2026-09-11). 마진(조직
@@ -1849,23 +1804,22 @@ export interface EffectiveMargin {
   source: 'CEREMONY_OVERRIDE' | 'ORGANIZATION_DEFAULT' | 'NONE';
 }
 
-/** GET .../customer-quotes/pricing-inputs 응답 한 행 — 고객 단가 입력 폼이 이 목록을 그대로 그린다. */
-export interface CustomerQuotePricingInput {
+/**
+ * 장비/인력(EQUIPMENT/PERSONNEL) 고객 정산 줄 하나 — 파트너가 카탈로그에서 직접 고른
+ * 품목·수량·고객 단가(CustomerQuoteDto.Request.EquipmentPersonnelLine)와 맞춘다
+ * (signstage-docs business/unit-product-purchase-self-checkout-review.md 8.5절 결정,
+ * 2026-09-11). 승인된 구매 기록에서 역산하던 옛 방식(품목·수량은 서버가 정하고 가격만
+ * 입력받던 방식)을 완전히 대체한다.
+ */
+export interface EquipmentPersonnelLine {
   unitProductId: number;
-  itemName: string;
   quantity: number;
-  referenceCostUnitAmount: number;
-  referenceCostAmount: number;
-}
-
-export interface EquipmentPersonnelPrice {
-  unitProductId: number;
   customerUnitAmount: number;
 }
 
 /** POST .../customer-quotes 요청(CustomerQuoteDto.Request.GenerateQuote)과 맞춘다. */
 export interface GenerateCustomerQuoteRequest {
-  equipmentPersonnelPrices: EquipmentPersonnelPrice[];
+  equipmentPersonnelLines: EquipmentPersonnelLine[];
 }
 
 export interface CustomerQuoteSummary {

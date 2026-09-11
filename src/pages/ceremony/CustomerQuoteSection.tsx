@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ChevronDown, FileCheck, Loader2, Pencil, X } from 'lucide-react';
+import { ChevronDown, FileCheck, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import { usePermissionStore } from '../../store/usePermissionStore';
 import { useSnackbarStore } from '../../store/useSnackbarStore';
@@ -8,10 +8,10 @@ import { api } from '../../utils/api';
 import { formatCurrency, formatDateTime } from '../../utils/internationalization';
 import type {
   CustomerQuoteDetail,
-  CustomerQuotePricingInput,
   CustomerQuoteSummary,
   EffectiveMargin,
   MarginType,
+  UnitProductSummary,
 } from '../../types';
 
 const SOURCE_LABEL: Record<EffectiveMargin['source'], string> = {
@@ -25,15 +25,30 @@ const MARGIN_TYPE_LABEL: Record<MarginType, string> = {
   FIXED_AMOUNT: '정액',
 };
 
+/** 장비/인력 고객 정산 줄 — 로컬 편집 상태. 카탈로그에서 고른 시점의 품목명을 그대로 쓴다. */
+interface EquipmentPersonnelDraftLine {
+  unitProductId: number;
+  itemName: string;
+  quantity: string;
+  customerUnitAmount: string;
+}
+
 /**
  * 행사 수정 화면(`UserCeremonyEdit`)의 "고객 정산" 탭(옛 이름 "고객 견적", 2026-09-11 사용자
  * 요청으로 파트너 입장 용어로 변경 — "플랫폼 이용료" 탭과 대비되게 "우리가 고객에게 받을 돈"을
  * 드러낸다) — signstage-docs business/partner-customer-quote-design-review.md,
  * business/platform-partner-customer-billing-model-reference.md 4장 결정(2026-09-11). 마진
- * (행사별 override, 없으면 조직 기본값을 따른다)과 장비/인력 고객 단가를 입력받아 실고객과
- * 정산할 금액(정산서)을 생성한다 — `BillingQuoteSection`("플랫폼 이용료" 탭, 파트너→플랫폼
- * 확정 견적)과 나란히 있지만 완전히 별개 산출물이다. OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)
- * 이라 그 권한이 없으면 탭 내용 자체를 숨긴다.
+ * (행사별 override, 없으면 조직 기본값을 따른다)과 장비/인력 고객 정산 줄을 입력받아 실고객과
+ * 정산할 금액(정산서)을 생성한다.
+ *
+ * <p>장비/인력 입력 방식은 2026-09-11 같은 날 후속 결정(signstage-docs
+ * business/unit-product-purchase-self-checkout-review.md 8.5절)으로 다시 설계됐다 — 예전엔
+ * "승인된 추가구매 라인에서 품목·수량을 가져와 단가만 입력받는" 파생 목록이었지만, 장비·인력이
+ * "플랫폼 이용료" 흐름에서 완전히 분리되면서 그 원천 자체가 없어졌다. 이제 전역 단위 상품
+ * 카탈로그(`GET /api/unit-products`, 조직·플랜 큐레이션 없음)에서 파트너가 직접 품목을 골라
+ * 수량·고객 단가까지 자유롭게 입력한다 — "참고 원가"도 더는 보여주지 않는다(파트너가 플랫폼에
+ * 내는 원가 자체가 없어졌다). OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)이라 그 권한이 없으면
+ * 탭 내용 자체를 숨긴다.
  */
 export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: string }> = ({
   organizationId,
@@ -51,9 +66,10 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   const [isSavingOverride, setIsSavingOverride] = useState(false);
   const [isClearingOverride, setIsClearingOverride] = useState(false);
 
-  const [pricingInputs, setPricingInputs] = useState<CustomerQuotePricingInput[]>([]);
-  const [isPricingLoading, setIsPricingLoading] = useState(true);
-  const [customerPrices, setCustomerPrices] = useState<Record<number, string>>({});
+  const [catalog, setCatalog] = useState<UnitProductSummary[]>([]);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [equipmentPersonnelLines, setEquipmentPersonnelLines] = useState<EquipmentPersonnelDraftLine[]>([]);
+  const [pickerValue, setPickerValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [quotes, setQuotes] = useState<CustomerQuoteSummary[]>([]);
@@ -65,8 +81,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const fetchMargin = async () => (await api.get(`${basePath}/customer-margin`)).data as EffectiveMargin;
-  const fetchPricingInputs = async () =>
-    (await api.get(`${basePath}/customer-quotes/pricing-inputs`)).data as CustomerQuotePricingInput[];
+  const fetchCatalog = async () => (await api.get('/unit-products')).data as UnitProductSummary[];
   const fetchQuotes = async () => (await api.get(`${basePath}/customer-quotes`)).data as CustomerQuoteSummary[];
 
   useEffect(() => {
@@ -76,17 +91,20 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     let cancelled = false;
     (async () => {
       try {
-        const [marginData, pricingData, quotesData] = await Promise.all([fetchMargin(), fetchPricingInputs(), fetchQuotes()]);
+        const [marginData, catalogData, quotesData] = await Promise.all([fetchMargin(), fetchCatalog(), fetchQuotes()]);
         if (cancelled) return;
         setMargin(marginData);
-        setPricingInputs(pricingData);
+        // 장비/인력(EQUIPMENT/PERSONNEL)만 품목 선택 드롭다운에 노출한다 — 전체 카탈로그, 큐레이션
+        // 없음(8.5절 권장) — 이 항목들은 플랫폼이 팔거나 커밋하는 게 아니라 파트너가 실고객에게
+        // 파는 것이므로 "이 조직/플랜에서 살 수 있는가"라는 전제가 애초에 적용되지 않는다.
+        setCatalog(catalogData.filter((product) => product.category === 'EQUIPMENT' || product.category === 'PERSONNEL'));
         setQuotes(quotesData);
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '고객 정산 정보를 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) {
           setIsMarginLoading(false);
-          setIsPricingLoading(false);
+          setIsCatalogLoading(false);
           setIsQuotesLoading(false);
         }
       }
@@ -135,23 +153,51 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     }
   };
 
-  const allPricesFilled =
-    pricingInputs.length === 0 ||
-    pricingInputs.every((input) => {
-      const raw = customerPrices[input.unitProductId];
-      return raw !== undefined && raw.trim() !== '' && !Number.isNaN(Number(raw)) && Number(raw) >= 0;
+  /** "+ 품목 추가" — 같은 품목을 두 번 고르면 새 줄이 아니라 기존 줄의 수량에 1을 더한다(4장 수량-합산 권장과 같은 방식). */
+  const handleAddLine = (unitProductId: number) => {
+    const product = catalog.find((p) => p.id === unitProductId);
+    if (!product) return;
+    setEquipmentPersonnelLines((prev) => {
+      const existing = prev.find((line) => line.unitProductId === unitProductId);
+      if (existing) {
+        return prev.map((line) =>
+          line.unitProductId === unitProductId ? { ...line, quantity: String(Number(line.quantity || '0') + 1) } : line,
+        );
+      }
+      return [...prev, { unitProductId, itemName: product.name, quantity: '1', customerUnitAmount: '' }];
     });
+    setPickerValue('');
+  };
+
+  const handleRemoveLine = (unitProductId: number) => {
+    setEquipmentPersonnelLines((prev) => prev.filter((line) => line.unitProductId !== unitProductId));
+  };
+
+  const updateLine = (unitProductId: number, patch: Partial<EquipmentPersonnelDraftLine>) => {
+    setEquipmentPersonnelLines((prev) =>
+      prev.map((line) => (line.unitProductId === unitProductId ? { ...line, ...patch } : line)),
+    );
+  };
+
+  const linesValid = equipmentPersonnelLines.every((line) => {
+    const quantity = Number(line.quantity);
+    const price = Number(line.customerUnitAmount);
+    return line.quantity.trim() !== '' && Number.isInteger(quantity) && quantity >= 1 &&
+      line.customerUnitAmount.trim() !== '' && !Number.isNaN(price) && price >= 0;
+  });
 
   const handleGenerate = async () => {
-    if (!margin || margin.source === 'NONE' || !allPricesFilled) return;
+    if (!margin || margin.source === 'NONE' || !linesValid) return;
     setIsGenerating(true);
     try {
-      const equipmentPersonnelPrices = pricingInputs.map((input) => ({
-        unitProductId: input.unitProductId,
-        customerUnitAmount: Number(customerPrices[input.unitProductId]),
+      const equipmentPersonnelLinesPayload = equipmentPersonnelLines.map((line) => ({
+        unitProductId: line.unitProductId,
+        quantity: Number(line.quantity),
+        customerUnitAmount: Number(line.customerUnitAmount),
       }));
-      await api.post(`${basePath}/customer-quotes`, { equipmentPersonnelPrices });
+      await api.post(`${basePath}/customer-quotes`, { equipmentPersonnelLines: equipmentPersonnelLinesPayload });
       showSnackbar('고객 정산서를 생성했습니다.', 'success');
+      setEquipmentPersonnelLines([]);
       setQuotes(await fetchQuotes());
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '고객 정산서 생성에 실패했습니다.', 'error');
@@ -178,6 +224,8 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     }
   };
 
+  const pickableCatalog = catalog.filter((product) => !equipmentPersonnelLines.some((line) => line.unitProductId === product.id));
+
   return (
     <section className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
       <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
@@ -185,8 +233,8 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         고객 정산
       </h2>
       <p className="text-xs text-gray-400 mb-4">
-        실고객과 정산할 금액입니다 — 시스템 사용료는 원가에 마진을 더해, 장비/인력(태블릿·현장지원 등)은 직접 입력한
-        단가로 계산합니다. 플랫폼에 내는 금액("플랫폼 이용료" 탭)과는 별개입니다.
+        실고객과 정산할 금액입니다 — 시스템 사용료는 원가에 마진을 더해, 장비/인력(태블릿·현장지원 등)은 직접 고른
+        품목·수량·단가로 계산합니다. 플랫폼에 내는 금액("플랫폼 이용료" 탭)과는 별개입니다.
       </p>
 
       {/* 마진 */}
@@ -268,42 +316,73 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         )}
       </div>
 
-      {/* 장비/인력 고객 단가 */}
+      {/* 장비/인력 품목 */}
       <div className="border-t border-gray-100 mt-4 pt-3">
-        <h3 className="text-xs font-bold text-gray-700 mb-2">장비/인력 고객 단가</h3>
-        {isPricingLoading ? (
+        <h3 className="text-xs font-bold text-gray-700 mb-2">장비/인력</h3>
+        {isCatalogLoading ? (
           <div className="flex items-center justify-center py-4 text-gray-400">
             <Loader2 size={16} className="animate-spin" />
           </div>
-        ) : pricingInputs.length === 0 ? (
-          <p className="text-xs text-gray-400">구매한 태블릿·현장지원 등 장비/인력 항목이 없습니다.</p>
         ) : (
-          <div className="space-y-2">
-            {pricingInputs.map((input) => (
-              <div key={input.unitProductId} className="flex items-center gap-2 text-sm">
-                <div className="flex-1">
-                  <span className="text-gray-950">{input.itemName}</span>
-                  <span className="ml-1 text-xs text-gray-400">
-                    × {input.quantity} (참고 원가 {formatCurrency(input.referenceCostUnitAmount, 'KRW')}/개)
-                  </span>
-                </div>
-                <FormattedNumberInput
-                  min={0}
-                  step="1"
-                  value={customerPrices[input.unitProductId] ?? ''}
-                  onChange={(raw) => setCustomerPrices((prev) => ({ ...prev, [input.unitProductId]: raw }))}
-                  placeholder="고객 단가"
-                  className="w-32 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
-                />
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <select
+                value={pickerValue}
+                onChange={(e) => {
+                  if (e.target.value) handleAddLine(Number(e.target.value));
+                }}
+                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
+              >
+                <option value="">+ 품목 추가</option>
+                {pickableCatalog.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {equipmentPersonnelLines.length === 0 ? (
+              <p className="text-xs text-gray-400">담긴 품목이 없습니다 — 위 드롭다운에서 태블릿·현장지원 등을 골라 담으세요.</p>
+            ) : (
+              <div className="space-y-2">
+                {equipmentPersonnelLines.map((line) => (
+                  <div key={line.unitProductId} className="flex items-center gap-2 text-sm">
+                    <span className="flex-1 text-gray-950 truncate">{line.itemName}</span>
+                    <FormattedNumberInput
+                      min={1}
+                      step="1"
+                      value={line.quantity}
+                      onChange={(raw) => updateLine(line.unitProductId, { quantity: raw })}
+                      placeholder="수량"
+                      className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                    />
+                    <FormattedNumberInput
+                      min={0}
+                      step="1"
+                      value={line.customerUnitAmount}
+                      onChange={(raw) => updateLine(line.unitProductId, { customerUnitAmount: raw })}
+                      placeholder="고객 단가"
+                      className="w-32 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                    />
+                    <button
+                      onClick={() => handleRemoveLine(line.unitProductId)}
+                      className="text-gray-400 hover:text-red-600 shrink-0"
+                      aria-label="빼기"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         <div className="mt-3 flex justify-end">
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !allPricesFilled}
+            disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
             className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
           >
             {isGenerating ? '생성 중...' : '고객 정산서 생성'}

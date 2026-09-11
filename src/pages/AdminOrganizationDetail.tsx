@@ -12,6 +12,7 @@ import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import { useAuthStore } from '../store/useAuthStore';
 import type {
+  CeremonySummary,
   MemberRole,
   OrganizationHistorySummary,
   OrganizationStatus,
@@ -59,6 +60,9 @@ export const AdminOrganizationDetail: FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<OrganizationHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [ceremonies, setCeremonies] = useState<CeremonySummary[]>([]);
+  const [isCeremoniesLoading, setIsCeremoniesLoading] = useState(true);
 
   const [members, setMembers] = useState<PlatformAdminMemberSummary[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
@@ -142,6 +146,29 @@ export const AdminOrganizationDetail: FC = () => {
       }
     })();
 
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId]);
+
+  // 가벼운 행사 목록 — 신규 "행사 이력" 화면(signstage-docs
+  // business/unit-product-purchase-self-checkout-review.md 8.6절 결정, 2026-09-11)으로 들어가는
+  // 입구 역할만 한다. 조직 상세 자체를 무겁게 만들지 않도록 최신 50건만 최신순으로 보여준다.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await api.get(`/platform-admin/organizations/${organizationId}/ceremonies?size=50`);
+        if (!cancelled) setCeremonies((response.data as PageResponse<CeremonySummary>).content);
+      } catch (err) {
+        if (!cancelled) {
+          showSnackbar(err instanceof Error ? err.message : '행사 목록을 불러오지 못했습니다.', 'error');
+        }
+      } finally {
+        if (!cancelled) setIsCeremoniesLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -427,6 +454,42 @@ export const AdminOrganizationDetail: FC = () => {
               </Button>
             )}
           </div>
+        )}
+      </div>
+
+      {/* 가벼운 행사 목록 — 행별 "이력 보기"가 신규 "행사 이력" 화면(플랜 선택 이력 + 구매
+          이력을 함께 보여준다, signstage-docs
+          business/unit-product-purchase-self-checkout-review.md 8.6절 결정)으로 들어가는
+          입구다. 통계·집계는 범위 밖이다. */}
+      <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
+          <History size={14} />
+          행사
+        </h2>
+        {isCeremoniesLoading ? (
+          <div className="flex items-center justify-center py-6 text-gray-400">
+            <Loader2 size={18} className="animate-spin" />
+          </div>
+        ) : ceremonies.length === 0 ? (
+          <p className="text-sm text-gray-500">아직 등록한 행사가 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+            {ceremonies.map((c) => (
+              <li key={c.id} className="py-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-950 truncate">{c.title}</p>
+                  <p className="text-xs text-gray-400">{formatDateTime(c.createdAt)}</p>
+                </div>
+                <Link
+                  to={`/admin/organizations/${organizationId}/ceremonies/${c.id}/history`}
+                  className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                >
+                  <History size={12} />
+                  이력 보기
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
