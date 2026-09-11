@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Percent } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -131,11 +132,10 @@ export const AdminCeremonyDiscountDetail: FC = () => {
                   </select>
                 </Field>
                 <Field label="할인 값">
-                  <input
-                    type="number"
+                  <FormattedNumberInput
                     min={0}
                     value={draft.discountValue === 0 ? '' : draft.discountValue}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
+                    onChange={(raw) => setDraft((prev) => ({ ...prev, discountValue: Number(raw) }))}
                     disabled={isSaving}
                     className={`${inputClass} w-28`}
                   />

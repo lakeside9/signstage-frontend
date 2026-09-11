@@ -3,6 +3,7 @@ import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Loader2, Plus, Tag } from 'lucide-react';
 import { Button } from '../components/Button';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { SearchBar, SearchField } from '../components/SearchBar';
@@ -334,11 +335,10 @@ export const AdminOrganizationDiscountOverrides: FC = () => {
               </select>
             </Field>
             <Field label="할인 값">
-              <input
-                type="number"
+              <FormattedNumberInput
                 min={0}
                 value={newOverrideDiscountValue === 0 ? '' : newOverrideDiscountValue}
-                onChange={(e) => setNewOverrideDiscountValue(Number(e.target.value))}
+                onChange={(raw) => setNewOverrideDiscountValue(Number(raw))}
                 disabled={isCreating}
                 className={pickerInputClass}
               />

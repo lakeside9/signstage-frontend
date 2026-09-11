@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { History, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { Button } from '../../components/Button';
+import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import { Modal } from '../../components/Modal';
 import { api } from '../../utils/api';
 import { formatDateTime } from '../../utils/internationalization';
@@ -397,22 +398,20 @@ export const UnitProductPeriodSection: FC<{
         </select>
       </Field>
       <Field label="공급가">
-        <input
-          type="number"
+        <FormattedNumberInput
           min={0}
           value={draft.supplyPrice === null ? '' : draft.supplyPrice}
-          onChange={(e) => setDraft((prev) => ({ ...prev, supplyPrice: e.target.value === '' ? null : Number(e.target.value) }))}
+          onChange={(raw) => setDraft((prev) => ({ ...prev, supplyPrice: raw === '' ? null : Number(raw) }))}
           placeholder="미상"
           disabled={disabled}
           className={inputClass}
         />
       </Field>
       <Field label="판매가">
-        <input
-          type="number"
+        <FormattedNumberInput
           min={0}
           value={draft.salePrice === 0 ? '' : draft.salePrice}
-          onChange={(e) => setDraft((prev) => ({ ...prev, salePrice: Number(e.target.value) }))}
+          onChange={(raw) => setDraft((prev) => ({ ...prev, salePrice: Number(raw) }))}
           disabled={disabled}
           className={inputClass}
         />
@@ -711,11 +710,10 @@ export const PlanDiscountPeriodSection: FC<{
         </select>
       </Field>
       <Field label="할인 값">
-        <input
-          type="number"
+        <FormattedNumberInput
           min={0}
           value={draft.discountValue === 0 ? '' : draft.discountValue}
-          onChange={(e) => setDraft((prev) => ({ ...prev, discountValue: Number(e.target.value) }))}
+          onChange={(raw) => setDraft((prev) => ({ ...prev, discountValue: Number(raw) }))}
           disabled={disabled}
           className={inputClass}
         />

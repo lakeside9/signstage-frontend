@@ -182,6 +182,8 @@ export const UserCeremonyDetail: FC = () => {
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleteCeremonyConfirmOpen, setIsDeleteCeremonyConfirmOpen] = useState(false);
+  const [isDeletingCeremony, setIsDeletingCeremony] = useState(false);
 
   const [events, setEvents] = useState<CeremonyEventSummary[]>([]);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
@@ -894,6 +896,24 @@ export const UserCeremonyDetail: FC = () => {
     }
   };
 
+  /**
+   * 플랜이 확정되지 않은(DRAFT) 행사만 삭제할 수 있다(signstage-docs
+   * business/billing-catalog-unit-product-model-redesign-review.md 11장, 2026-09-10). 확정
+   * 후엔 삭제 자체가 불가능해서(백엔드가 거부) 이 버튼은 DRAFT 배너 안에서만 보여준다.
+   */
+  const handleDeleteCeremony = async () => {
+    setIsDeletingCeremony(true);
+    try {
+      await api.delete(basePath);
+      showSnackbar('행사를 삭제했습니다.', 'success');
+      navigate(`/ceremonies/${organizationId}`, { replace: true });
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '행사 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsDeletingCeremony(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-400">
@@ -939,7 +959,9 @@ export const UserCeremonyDetail: FC = () => {
               {CEREMONY_STATUS_LABEL[ceremony.status]}
             </span>
           </h1>
-          <p className="mt-1 text-sm text-gray-500">플랜: {plan?.name ?? `#${ceremony.billingPlanId}`}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            플랜: {plan?.name ?? (ceremony.billingPlanId === null ? '미선택' : `#${ceremony.billingPlanId}`)}
+          </p>
           {isCompleted && (
             <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
           )}
@@ -956,14 +978,26 @@ export const UserCeremonyDetail: FC = () => {
       {isDraft && (
         <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-700">
-            아직 플랜 확정 전입니다. 서명자/문서/하위 행사를 등록하려면 먼저 플랜을 확정해주세요.
+            {ceremony.billingPlanId === null
+              ? '아직 플랜을 선택하지 않았습니다. 서명자/문서/하위 행사를 등록하려면 플랜을 선택하고 확정해주세요.'
+              : '아직 플랜 확정 전입니다. 서명자/문서/하위 행사를 등록하려면 먼저 플랜을 확정해주세요.'}
           </p>
-          <Link
-            to={`${detailPath}/edit`}
-            className="shrink-0 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
-          >
-            플랜 확정하러 가기
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsDeleteCeremonyConfirmOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-200 text-red-600 text-xs font-medium hover:border-red-400 transition-colors"
+            >
+              <Trash2 size={12} />
+              행사 삭제
+            </button>
+            <Link
+              to={`${detailPath}/edit?tab=billing`}
+              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+            >
+              {ceremony.billingPlanId === null ? '플랜 선택하러 가기' : '플랜 확정하러 가기'}
+            </Link>
+          </div>
         </div>
       )}
 
@@ -2051,6 +2085,15 @@ export const UserCeremonyDetail: FC = () => {
         isSubmitting={processingEventId === deletingEventId}
         onConfirm={() => deletingEventId !== null && handleDeleteEvent(deletingEventId)}
         onCancel={() => setDeletingEventId(null)}
+      />
+
+      <ConfirmDialog
+        open={isDeleteCeremonyConfirmOpen}
+        title="행사 삭제"
+        message={`"${ceremony.title}" 행사를 정말 삭제할까요? 삭제하면 되돌릴 수 없습니다.`}
+        isSubmitting={isDeletingCeremony}
+        onConfirm={handleDeleteCeremony}
+        onCancel={() => setIsDeleteCeremonyConfirmOpen(false)}
       />
     </div>
   );
