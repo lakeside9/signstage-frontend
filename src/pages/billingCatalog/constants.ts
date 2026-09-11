@@ -5,6 +5,7 @@ import type {
   PlanUnitProductLineSummary,
   UnitProductCategory,
   UnitProductPricePeriodRequest,
+  UnitProductPricePeriodSummary,
   UnitProductType,
 } from '../../types';
 
@@ -183,3 +184,47 @@ export const normalizeExclusivityGroup = (value: string | null | undefined): str
 /** 목록 화면 공통 페이지 크기 — 카탈로그 API가 서버 페이지네이션을 지원하지 않아(글로벌 카탈로그,
  * 조직 스코프 없이 인증된 사용자면 누구나 조회) 클라이언트 사이드로 자른다. */
 export const CATALOG_PAGE_SIZE = 20;
+
+const addOneDay = (isoDate: string): string => {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+const subOneDay = (isoDate: string): string => {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * 단위 상품 판매가격 기간 사이의 "공백"(그 날짜 범위에 유효한 기간이 하나도 없는 구간)을
+ * 찾는다 — 겹침은 서버가 막지만(`checkNoOverlap`) 공백은 안 막아서, 관리자가 실수로 기간
+ * 사이를 비워두면 그 날짜에 플랜을 선택한 파트너가 예전엔 조용히 0원으로 스냅샷됐다
+ * (signstage-docs business/ceremony-plan-price-snapshot-consistency-review.md 3.1절,
+ * 2026-09-11 결정 — "예방"은 경고만, 차단은 안 한다: 의도적으로 판매를 중지하고 싶은 기간이
+ * 있을 수 있어서다). 마지막 기간이 "무기한"이 아니면 그 이후도 공백으로 잡는다(끝이 없는
+ * 미래 공백).
+ */
+export const findUnitProductPricePeriodGaps = (
+  periods: UnitProductPricePeriodSummary[],
+): Array<{ from: string; to: string | null }> => {
+  const sorted = [...periods].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+  const gaps: Array<{ from: string; to: string | null }> = [];
+
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+    if (current.effectiveTo === null) continue; // 무기한 — 그 뒤로 공백이 생길 수 없다.
+    const gapStart = addOneDay(current.effectiveTo);
+    if (gapStart >= next.effectiveFrom) continue; // 맞닿아 있거나 겹침 — 공백 없음.
+    gaps.push({ from: gapStart, to: subOneDay(next.effectiveFrom) });
+  }
+
+  const last = sorted[sorted.length - 1];
+  if (last && last.effectiveTo !== null) {
+    gaps.push({ from: addOneDay(last.effectiveTo), to: null });
+  }
+
+  return gaps;
+};

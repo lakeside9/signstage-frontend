@@ -408,22 +408,29 @@ export const UserCeremonyEdit: FC = () => {
     }
   };
 
+  /**
+   * 같은 플랜을 다시 선택해도 막지 않는다(2026-09-11 사용자 요청) — 그 경우 플랜은 그대로고
+   * 서버가 오늘 날짜로 스냅샷만 새로 찍어준다("가격 갱신"). 백엔드 `changePlan`은 원래도 같은
+   * 플랜 ID를 막지 않았는데, 예전엔 드롭다운이 현재 플랜을 목록에서 빼버려서 이 방법 자체를
+   * 쓸 수 없었다.
+   */
   const handleChangePlan = async () => {
     if (!selectedNewPlanId) {
       showSnackbar('변경할 플랜을 선택해주세요.', 'error');
       return;
     }
+    const isPriceRefresh = selectedNewPlanId === ceremony?.billingPlanId;
 
     setIsChangingPlan(true);
     try {
       const response = await api.put(`${basePath}/plan`, { billingPlanId: selectedNewPlanId });
       setCeremony(response.data as CeremonySummary);
       setSelectedNewPlanId(null);
-      showSnackbar('플랜을 변경했습니다.', 'success');
+      showSnackbar(isPriceRefresh ? '오늘 기준 가격으로 갱신했습니다.' : '플랜을 변경했습니다.', 'success');
       setPlanHistory(await fetchPlanHistory());
       setEstimatedTotal(await fetchEstimatedTotal());
     } catch (err) {
-      const message = err instanceof Error ? err.message : '플랜 변경에 실패했습니다.';
+      const message = err instanceof Error ? err.message : (isPriceRefresh ? '가격 갱신에 실패했습니다.' : '플랜 변경에 실패했습니다.');
       showSnackbar(message, 'error');
     } finally {
       setIsChangingPlan(false);
@@ -578,34 +585,36 @@ export const UserCeremonyEdit: FC = () => {
     category: option.label,
     items: purchasableInCeremony.filter((p) => p.category === option.value),
   })).filter(({ items }) => items.length > 0);
-  // "선택한 플랜" 표시는 라이브 카탈로그가 아니라 확정 시점(또는 가장 최근 변경 시점) 스냅샷을
-  // 쓴다 — 카탈로그 관리자가 나중에 값을 고쳐도 표시가 안 바뀐다(9장). planHistory는 최신순
-  // 정렬이라 [0]이 그 스냅샷이다. 이력이 없는 경우(이 기능 배포 전 기존 행사)만 라이브 값으로
-  // 대체한다 — 백엔드 계산 로직과 같은 폴백 원칙.
+  // "선택한 플랜" 표시 — 확정 후(IN_PROGRESS)엔 확정(또는 가장 최근 변경) 시점 스냅샷을 쓴다
+  // (카탈로그 관리자가 나중에 값을 고쳐도 표시가 안 바뀐다, 9장). planHistory는 최신순 정렬이라
+  // [0]이 그 스냅샷이다.
+  //
+  // DRAFT 동안은 반대로 라이브 카탈로그 값을 우선 쓴다(2026-09-11 사용자 요청 — signstage-docs
+  // business/ceremony-plan-price-snapshot-consistency-review.md 3.4절) — 바로 아래 "플랫폼
+  // 이용료" 섹션이 DRAFT 동안 라이브로 재계산되는 것과 기준을 맞춘다. "아직 확정 안 된, 계속
+  // 바뀔 수 있는 상태"라는 DRAFT의 원칙과도 일치한다. 라이브 카탈로그에서 플랜을 못 찾으면
+  // (예: 배포 전 기존 행사라 이력 자체가 없는 경우) 스냅샷으로 대체한다.
   const planSnapshot = planHistory[0];
-  const plan = planSnapshot
-    ? {
-        name: planSnapshot.planName,
-        discountType: planSnapshot.planDiscountType,
-        discountValue: planSnapshot.planDiscountValue,
-        currencyCode: planSnapshot.lines[0]?.currencyCode ?? 'KRW',
-        subtotal: planSnapshot.lines.reduce((sum, line) => sum + line.snapshotSalePrice * line.includedQuantity, 0),
-        includedQuantityOf: (type: string) =>
-          planSnapshot.lines.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
-      }
-    : (() => {
-        const live = plans.find((p) => p.id === ceremony.billingPlanId);
-        if (!live) return null;
-        return {
-          name: live.name,
-          discountType: live.discountType,
-          discountValue: live.discountValue,
-          currencyCode: live.unitProducts[0]?.currencyCode ?? 'KRW',
-          subtotal: planSubtotal(live.unitProducts),
-          includedQuantityOf: (type: string) =>
-            live.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
-        };
-      })();
+  const livePlan = plans.find((p) => p.id === ceremony.billingPlanId);
+  const planFromSnapshot = planSnapshot && {
+    name: planSnapshot.planName,
+    discountType: planSnapshot.planDiscountType,
+    discountValue: planSnapshot.planDiscountValue,
+    currencyCode: planSnapshot.lines[0]?.currencyCode ?? 'KRW',
+    subtotal: planSnapshot.lines.reduce((sum, line) => sum + line.snapshotSalePrice * line.includedQuantity, 0),
+    includedQuantityOf: (type: string) =>
+      planSnapshot.lines.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+  };
+  const planFromLive = livePlan && {
+    name: livePlan.name,
+    discountType: livePlan.discountType,
+    discountValue: livePlan.discountValue,
+    currencyCode: livePlan.unitProducts[0]?.currencyCode ?? 'KRW',
+    subtotal: planSubtotal(livePlan.unitProducts),
+    includedQuantityOf: (type: string) =>
+      livePlan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+  };
+  const plan = isDraft ? (planFromLive ?? planFromSnapshot ?? null) : (planFromSnapshot ?? planFromLive ?? null);
 
   return (
     <div>
@@ -887,8 +896,12 @@ export const UserCeremonyEdit: FC = () => {
           <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-end gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
-                {ceremony.billingPlanId ? '다른 플랜으로 변경' : '플랜 선택'}
+                {ceremony.billingPlanId ? '다른 플랜으로 변경 / 가격 갱신' : '플랜 선택'}
               </label>
+              {/* 현재 플랜도 목록에 남겨둔다(2026-09-11 사용자 요청) — 그대로 다시 선택하면
+                  플랜은 안 바뀌고 스냅샷만 "오늘" 기준으로 새로 찍힌다("가격 갱신"). 할인
+                  기간이 새로 시작된 뒤 최신가를 반영하고 싶을 때 유일한 방법이라, 예전처럼
+                  드롭다운에서 빼두면 이 방법 자체를 알 길이 없었다. */}
               <select
                 value={selectedNewPlanId ?? ''}
                 onChange={(e) => setSelectedNewPlanId(e.target.value ? Number(e.target.value) : null)}
@@ -897,10 +910,11 @@ export const UserCeremonyEdit: FC = () => {
               >
                 <option value="">선택</option>
                 {plans
-                  .filter((candidate) => candidate.id !== ceremony.billingPlanId && candidate.active)
+                  .filter((candidate) => candidate.id === ceremony.billingPlanId || candidate.active)
                   .map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}
+                      {candidate.id === ceremony.billingPlanId ? ' (현재 플랜)' : ''}
                       {candidate.unitProducts.length === 0
                         ? ''
                         : ` — ${formatPrice(planSubtotal(candidate.unitProducts), candidate.unitProducts[0]?.currencyCode ?? 'KRW')}`}
@@ -914,7 +928,13 @@ export const UserCeremonyEdit: FC = () => {
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
             >
               <Check size={13} />
-              {isChangingPlan ? '변경 중...' : ceremony.billingPlanId ? '플랜 변경' : '플랜 선택'}
+              {isChangingPlan
+                ? '처리 중...'
+                : selectedNewPlanId === ceremony.billingPlanId
+                  ? '가격 갱신'
+                  : ceremony.billingPlanId
+                    ? '플랜 변경'
+                    : '플랜 선택'}
             </button>
           </div>
         )}

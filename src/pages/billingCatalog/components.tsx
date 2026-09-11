@@ -14,6 +14,7 @@ import {
   PERIOD_STATUS_LABEL,
   PERIOD_STATUS_STYLE,
   calculateFinalPrice,
+  findUnitProductPricePeriodGaps,
   formatDiscount,
   formatPrice,
   inputClass,
@@ -438,6 +439,8 @@ export const UnitProductPeriodSection: FC<{
     </div>
   );
 
+  const periodGaps = findUnitProductPricePeriodGaps(periods);
+
   return (
     <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
@@ -461,6 +464,18 @@ export const UnitProductPeriodSection: FC<{
           )}
         </div>
       </div>
+
+      {/* 기간 사이 공백 경고 — 차단은 아니고 안내만 한다(2026-09-11 사용자 요청 —
+          signstage-docs business/ceremony-plan-price-snapshot-consistency-review.md 3.1절,
+          "예방"은 경고만 하기로 결정). 의도적으로 판매를 중지하고 싶은 공백도 있을 수 있어서
+          강제로 막지는 않는다. */}
+      {!isLoading && periodGaps.length > 0 && (
+        <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          판매가격 기간 사이에 공백이 있습니다 — {periodGaps.map((g) => `${g.from} ~ ${g.to ?? '(끝없음)'}`).join(', ')}.
+          이 기간에 플랜을 선택하는 행사가 있으면 이 단위 상품이 0원으로 처리됩니다. 의도한 게 아니라면 기간을
+          이어붙여주세요.
+        </p>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-gray-400">

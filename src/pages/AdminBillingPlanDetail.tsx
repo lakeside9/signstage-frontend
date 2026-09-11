@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Package, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, History, Loader2, Package, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, FinalPricePreview, HistoryButton, HistoryModal, PeriodStatusBadge, PlanDiscountPeriodSection } from './billingCatalog/components';
 import { UNIT_PRODUCT_TYPE_LABEL, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
-import type { BillingPlanHistorySummary, BillingPlanSummary } from '../types';
+import type { BillingPlanHistorySummary, BillingPlanSummary, CeremonyUsingPlanSummary, PageResponse } from '../types';
+
+const CEREMONY_STATUS_LABEL: Record<string, string> = {
+  DRAFT: '준비 중(플랜 미확정)',
+  IN_PROGRESS: '진행 중',
+  COMPLETED: '완료',
+};
 
 /** 과금 플랜 상세 — 파트너관리(AdminOrganizationDetail.tsx)와 같은 구성: 읽기 전용 정보 +
  * 이력/할인 기간 관리는 모달, 수정은 별도 페이지(사용자 요청, 2026-09-09)로 이동한다. 플랜은
@@ -27,6 +34,10 @@ export const AdminBillingPlanDetail: FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<BillingPlanHistorySummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const [isCeremoniesOpen, setIsCeremoniesOpen] = useState(false);
+  const [ceremonies, setCeremonies] = useState<CeremonyUsingPlanSummary[]>([]);
+  const [isCeremoniesLoading, setIsCeremoniesLoading] = useState(false);
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -87,6 +98,26 @@ export const AdminBillingPlanDetail: FC = () => {
       showSnackbar(err instanceof Error ? err.message : '변경 이력을 불러오지 못했습니다.', 'error');
     } finally {
       setIsHistoryLoading(false);
+    }
+  };
+
+  /**
+   * "이 플랜을 쓰는 행사" 조직 횡단 목록 — 카탈로그 관리 화면(항상 "오늘" 가격만 보여준다)
+   * 만으로는 특정 행사가 실제로 어떤 값에 고정돼 있는지 알 수 없다는 문제의 발견성 개선용
+   * (2026-09-11 사용자 요청 — signstage-docs
+   * business/ceremony-plan-price-snapshot-consistency-review.md 3.5절). 각 행에서 그 행사의
+   * "행사 이력" 화면(플랜 선택 이력)으로 이어간다.
+   */
+  const openCeremonies = async () => {
+    setIsCeremoniesOpen(true);
+    setIsCeremoniesLoading(true);
+    try {
+      const response = await api.get(`/platform-admin/billing-plans/${planId}/ceremonies?size=50`);
+      setCeremonies((response.data as PageResponse<CeremonyUsingPlanSummary>).content);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '이 플랜을 쓰는 행사 목록을 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsCeremoniesLoading(false);
     }
   };
 
@@ -189,7 +220,22 @@ export const AdminBillingPlanDetail: FC = () => {
                       .join(', ')
               }
             />
-            <DetailRow label="사용 건수" value={`${plan.usageCount}건`} />
+            <DetailRow
+              label="사용 건수"
+              value={
+                <div className="flex items-center gap-2">
+                  <span>{plan.usageCount}건</span>
+                  {plan.usageCount > 0 && (
+                    <button
+                      onClick={openCeremonies}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-950 hover:underline"
+                    >
+                      이 플랜을 쓰는 행사 보기
+                    </button>
+                  )}
+                </div>
+              }
+            />
             <DetailRow label="생성일" value={formatDateTime(plan.createdAt)} />
           </div>
 
@@ -219,6 +265,42 @@ export const AdminBillingPlanDetail: FC = () => {
               </li>
             ))}
           </HistoryModal>
+
+          <Modal
+            open={isCeremoniesOpen}
+            onClose={() => setIsCeremoniesOpen(false)}
+            title="이 플랜을 쓰는 행사"
+            widthClassName="max-w-lg"
+          >
+            {isCeremoniesLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-400">
+                <Loader2 size={20} className="animate-spin" />
+              </div>
+            ) : ceremonies.length === 0 ? (
+              <p className="text-sm text-gray-400">이 플랜을 쓰는 행사가 없습니다.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                {ceremonies.map((c) => (
+                  <li key={c.ceremonyId} className="py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link
+                        to={`/admin/organizations/${c.organizationId}/ceremonies/${c.ceremonyId}/history`}
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-950 hover:underline"
+                      >
+                        <History size={13} className="text-gray-400 shrink-0" />
+                        {c.ceremonyTitle}
+                      </Link>
+                      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                        <Building2 size={11} />
+                        {c.organizationName} · {CEREMONY_STATUS_LABEL[c.status] ?? c.status}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">{formatDateTime(c.createdAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Modal>
 
           <ConfirmDialog
             open={isDeleteConfirmOpen}

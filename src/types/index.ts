@@ -657,6 +657,22 @@ export interface BillingPlanHistorySummary {
 }
 
 /**
+ * GET /api/platform-admin/billing-plans/{id}/ceremonies 응답 한 행
+ * (BillingPlanDto.Response.CeremonyUsingPlanSummary)과 맞춘다(signstage-docs
+ * business/ceremony-plan-price-snapshot-consistency-review.md 3.5절, 2026-09-11) — 카탈로그
+ * 관리 화면(항상 "오늘" 가격만 보여준다)만으로는 특정 행사가 실제로 어떤 값에 고정돼 있는지
+ * 알 수 없다는 문제의 발견성 개선용.
+ */
+export interface CeremonyUsingPlanSummary {
+  ceremonyId: number;
+  organizationId: number;
+  organizationName: string;
+  ceremonyTitle: string;
+  status: CeremonyStatus;
+  createdAt: string;
+}
+
+/**
  * POST /api/platform-admin/billing-plans 요청(BillingPlanDto.Request.CreatePlan)과 맞춘다.
  * 정체성(name)과 단위 상품 구성, 최초 할인 기간을 함께 만든다.
  */
