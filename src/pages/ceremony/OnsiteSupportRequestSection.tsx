@@ -210,7 +210,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
         </div>
       )}
 
-      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 현장지원 요청">
+      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 현장지원 요청" widthClassName="max-w-lg">
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">희망 일시</label>
@@ -220,13 +220,13 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
                 value={requestedDate}
                 onChange={(e) => setRequestedDate(e.target.value)}
                 disabled={isSubmitting}
-                className={`flex-1 ${inputClass}`}
+                className={`min-w-0 flex-1 ${inputClass}`}
               />
               <select
                 value={requestedTime}
                 onChange={(e) => setRequestedTime(e.target.value)}
                 disabled={isSubmitting}
-                className={`w-28 shrink-0 ${inputClass} bg-white`}
+                className={`w-20 shrink-0 ${inputClass} bg-white`}
               >
                 <option value="">시간</option>
                 {REQUEST_TIME_OPTIONS.map((time) => (
