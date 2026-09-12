@@ -22,8 +22,12 @@ const STATUS_LABEL: Record<OnsiteSupportRequestStatus, string> = {
   DECLINED: '거부됨',
 };
 
-const inputClass =
-  'w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100';
+/** 폭을 뺀 공통 필드 스타일 — 폭은 쓰는 자리마다 다르게 줄 수 있게 따로 뺐다(희망 일시의
+ * 날짜/시간처럼 한 줄에 폭이 다른 필드 두 개를 나란히 둘 때, `inputClass`의 `w-full`이
+ * 뒤에 붙는 `w-20` 등과 유틸리티 클래스 우선순위가 부딪혀 무시되는 문제가 있었다). */
+const inputBaseClass =
+  'px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100';
+const inputClass = `w-full ${inputBaseClass}`;
 
 /** LocalDateTime 문자열("2026-09-20T10:00:00")을 "2026-09-20 10:00"으로 자른다 — 타임존 변환 없이 그대로 보여준다(UserCeremonyDetail의 formatEventDateTime과 같은 원칙, 파트너가 입력한 그대로의 벽시계 시각이라 UTC 감사 시각이 아니다). */
 const formatRequestedAt = (value: string) => `${value.slice(0, 10)} ${value.slice(11, 16)}`;
@@ -220,13 +224,13 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
                 value={requestedDate}
                 onChange={(e) => setRequestedDate(e.target.value)}
                 disabled={isSubmitting}
-                className={`min-w-0 flex-1 ${inputClass}`}
+                className={`min-w-[160px] flex-1 ${inputBaseClass}`}
               />
               <select
                 value={requestedTime}
                 onChange={(e) => setRequestedTime(e.target.value)}
                 disabled={isSubmitting}
-                className={`w-20 shrink-0 ${inputClass} bg-white`}
+                className={`w-24 shrink-0 ${inputBaseClass} bg-white`}
               >
                 <option value="">시간</option>
                 {REQUEST_TIME_OPTIONS.map((time) => (
