@@ -36,8 +36,12 @@ import { AdminDemoConfigList } from './pages/AdminDemoConfigList';
 import { CeremonyEffectManagement } from './pages/CeremonyEffectManagement';
 import { CeremonyEffectRegister } from './pages/CeremonyEffectRegister';
 import { CeremonyEffectEdit } from './pages/CeremonyEffectEdit';
-import { AdminFaqManagement } from './pages/AdminFaqManagement';
-import { AdminAnnouncementManagement } from './pages/AdminAnnouncementManagement';
+import { AdminFaqList } from './pages/AdminFaqList';
+import { AdminFaqCreate } from './pages/AdminFaqCreate';
+import { AdminFaqEdit } from './pages/AdminFaqEdit';
+import { AdminAnnouncementList } from './pages/AdminAnnouncementList';
+import { AdminAnnouncementCreate } from './pages/AdminAnnouncementCreate';
+import { AdminAnnouncementEdit } from './pages/AdminAnnouncementEdit';
 import { AdminCeremonyInquiries } from './pages/AdminCeremonyInquiries';
 import { UserFaqList } from './pages/UserFaqList';
 import { UserAnnouncementList } from './pages/UserAnnouncementList';
@@ -172,8 +176,12 @@ function App() {
           <Route path="effects" element={<CeremonyEffectManagement />} />
           <Route path="effects/new" element={<CeremonyEffectRegister />} />
           <Route path="effects/:id/edit" element={<CeremonyEffectEdit />} />
-          <Route path="faqs" element={<AdminFaqManagement />} />
-          <Route path="announcements" element={<AdminAnnouncementManagement />} />
+          <Route path="faqs" element={<AdminFaqList />} />
+          <Route path="faqs/new" element={<AdminFaqCreate />} />
+          <Route path="faqs/:faqId/edit" element={<AdminFaqEdit />} />
+          <Route path="announcements" element={<AdminAnnouncementList />} />
+          <Route path="announcements/new" element={<AdminAnnouncementCreate />} />
+          <Route path="announcements/:announcementId/edit" element={<AdminAnnouncementEdit />} />
           <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>

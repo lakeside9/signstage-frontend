@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { Building2, Calculator, Loader2, Receipt, Search, X } from 'lucide-react';
+import { Building2, Calculator, Loader2, Receipt, RotateCcw, Search, X } from 'lucide-react';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
@@ -359,7 +359,19 @@ export const AdminBillingSimulator: FC = () => {
           </section>
 
           <section className="bg-white border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-bold text-gray-950 mb-1">② 단위 상품 추가구매</h2>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-sm font-bold text-gray-950">② 단위 상품 추가구매</h2>
+              {Object.values(purchaseQuantities).some((quantity) => quantity > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setPurchaseQuantities({})}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-950"
+                >
+                  <RotateCcw size={12} />
+                  초기화
+                </button>
+              )}
+            </div>
             <p className="text-xs text-gray-400 mb-3">
               선택한 플랜의 구성에 올라간(포함 수량이 0이든 N이든) 단위 상품만 보여줍니다. 단위 상품은 할인이 없어
               정가 × 수량 그대로 계산됩니다(signstage-docs
