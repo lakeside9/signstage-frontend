@@ -15,7 +15,7 @@ const resources = {
         dashboard: '대시보드', ceremonies: '행사 관리', organization: '회사정보관리', profile: '내 정보',
         partners: '파트너관리', partnerRequests: '파트너등록요청관리', users: '회원 관리',
         adminAccounts: '관리자 계정', billingCatalog: '과금 카탈로그', billingSimulator: '과금 시뮬레이터',
-        purchaseRequests: '추가구매 요청', auditLogs: '감사 로그',
+        purchaseRequests: '추가구매 내역', auditLogs: '감사 로그',
         ceremonyDiscounts: '행사 건별 재량 할인', organizationDiscountOverrides: '파트너별 할인 오버라이드',
       },
       permission: {
@@ -26,7 +26,7 @@ const resources = {
           partnerCreate: '파트너 등록', partnerStatusChange: '파트너 상태 변경', partnerInfoEdit: '파트너 정보 수정',
           billingCatalogManage: '과금 카탈로그 등록/수정',
           organizationDiscountManage: '조직×품목 할인 오버라이드 관리', ceremonyFinalDiscountManage: '행사 건별 재량 할인 관리',
-          ceremonyStatusControl: '행사 상태 강제 변경', purchaseApproval: '추가구매 요청 승인/반려',
+          ceremonyStatusControl: '행사 상태 강제 변경', purchaseApproval: '추가구매 승인/반려/취소',
           demoCeremonyManage: '데모 행사 관리(생성/서명자·문서 등록/하위 행사 제어)',
         },
       },

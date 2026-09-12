@@ -1075,6 +1075,8 @@ export interface PlatformAdminUnitProductPurchaseRequestSummary {
   id: number;
   requesterId: number;
   requesterLoginId: string;
+  /** 요청자 실명 — loginId와 별개다(2026-09-12 사용자 요청). */
+  requesterName: string;
   organizationId: number;
   ceremonyId: number;
   ceremonyTitle: string;

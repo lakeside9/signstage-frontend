@@ -8,7 +8,7 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { formatDateTime } from '../utils/internationalization';
+import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
 import type {
   CeremonyEventType,
@@ -20,12 +20,19 @@ import type {
 
 const PAGE_SIZE = 20;
 
+/**
+ * 자가-체크아웃 도입 이후 대부분의 구매가 승인 단계 자체를 거치지 않고 즉시 APPROVED로
+ * 생겨서(2026-09-11), "승인 대기"/"승인됨" 같은 승인 큐 어감의 한글 라벨이 실제와 안 맞는다
+ * (2026-09-12 사용자 지적 — "승인의 단계가 없어졌으므로 상태코드로 변경이 필요합니다").
+ * 상태 배지 자체도 원래 코드값을 그대로 보여주므로(아래 status 셀), 필터 목록도 같은
+ * 코드값으로 통일한다.
+ */
 const STATUS_OPTIONS: Array<{ value: PurchaseStatus | 'ALL'; label: string }> = [
-  { value: 'PENDING', label: '승인 대기' },
-  { value: 'APPROVED', label: '승인됨' },
-  { value: 'REJECTED', label: '반려됨' },
-  { value: 'CANCELLED', label: '취소됨' },
   { value: 'ALL', label: '전체' },
+  { value: 'PENDING', label: 'PENDING' },
+  { value: 'APPROVED', label: 'APPROVED' },
+  { value: 'REJECTED', label: 'REJECTED' },
+  { value: 'CANCELLED', label: 'CANCELLED' },
 ];
 
 const STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
@@ -62,28 +69,46 @@ const summarizeCeremonyEventsByType = (
     };
   }).filter((group) => group.events.length > 0);
 
-/** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
-const EMPTY_SEARCH: { status: PurchaseStatus | 'ALL' } = { status: 'PENDING' };
-/** 특정 행사로 좁혀서 보는 "행사 이력" 화면(embedded)은 이력 조회가 목적이라 기본값을 "전체"로 둔다. */
-const EMPTY_SEARCH_FOR_CEREMONY: { status: PurchaseStatus | 'ALL' } = { status: 'ALL' };
+interface SearchValues {
+  status: PurchaseStatus | 'ALL';
+  requesterKeyword: string;
+  ceremonyTitle: string;
+}
 
 /**
- * 플랫폼 관리자의 행사 단위 상품 추가구매 요청 승인/반려 화면 — signstage-docs
- * business/billing-catalog-unit-product-model-redesign-review.md 결정(2026-09-10) 옛
- * 용량/선택옵션 2종 승인 큐를 하나로 합쳤다(장바구니형 요청이라 승인/반려도 요청 전체
- * 단위다). 조회는 PLATFORM_SUPPORT 이상, 승인/반려는 PLATFORM_OPS 이상만 가능하다
- * ({@link AdminOrganizationRequestList}와 같은 등급 규칙).
+ * 이 화면이 더 이상 "처리할 게 남은 요청부터 보이는 승인 큐"가 아니라 이력 조회 중심이라
+ * (자가-체크아웃 도입, 위 STATUS_OPTIONS 주석 참고) 기본값을 "전체"로 둔다(2026-09-12 사용자
+ * 요청) — 예전엔 PENDING 기본이었다.
+ */
+const EMPTY_SEARCH: SearchValues = { status: 'ALL', requesterKeyword: '', ceremonyTitle: '' };
+/** 임베드 모드("행사 이력" 화면)도 원래부터 "전체" 기본이라 EMPTY_SEARCH와 이제 값이 같지만, 의도를 분명히 하려고 별도로 둔다. */
+const EMPTY_SEARCH_FOR_CEREMONY: SearchValues = { status: 'ALL', requesterKeyword: '', ceremonyTitle: '' };
+
+/**
+ * 플랫폼 관리자의 단위 상품 "추가구매 내역" 화면(2026-09-12 개명 — 옛 "추가구매 요청") —
+ * signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 결정
+ * (2026-09-10) 옛 용량/선택옵션 2종 승인 큐를 하나로 합쳤다(장바구니형 요청이라 승인/반려/
+ * 취소도 요청 전체 단위다). 조회는 PLATFORM_SUPPORT 이상, 승인/반려/취소는 PLATFORM_OPS
+ * 이상만 가능하다({@link AdminOrganizationRequestList}와 같은 등급 규칙).
  *
- * 승인은 입력할 값이 없어(이미 존재하는 PENDING 행의 상태만 바꾼다) 조직 생성 요청 승인처럼
- * 펼침 입력폼을 열지 않고 버튼 한 번으로 바로 확정한다. 반려는 사유가 필요해 펼침 입력폼을 쓴다.
- *
- * <p>자가-체크아웃 도입(signstage-docs
+ * <p><b>개명 배경(2026-09-12 사용자 요청)</b> — 자가-체크아웃 도입(signstage-docs
  * business/unit-product-purchase-self-checkout-review.md 결정, 2026-09-11)으로 시스템
- * 사용료 추가구매는 더 이상 이 승인 큐를 거치지 않는다 — 이 화면에 남는 건 배포 전 레거시
- * 요청(플랜 없는 행사에서 구매한 장비/인력 등)뿐이다. 그래도 화면 자체는 없애지 않고
- * 파트너사·행사 필터가 붙은 이력 조회 화면으로 존속시키기로 했다(같은 문서 8.6절 결정) —
- * `ceremonyId` prop을 넘기면 그 행사로 좁힌 "임베드" 모드로 동작한다(제목 숨김, 기본 상태
- * 필터 "전체", "행사 이력" 화면이 플랜 이력과 나란히 보여줄 때 쓴다).
+ * 사용료 추가구매는 대부분 승인 단계 없이 즉시 APPROVED로 생긴다. "요청"이라는 이름과
+ * 기본 상태 필터 PENDING이 "관리자가 처리해야 할 대기열"이라는 옛 그림을 계속 암시해서
+ * 실제(이력 조회가 대부분, 승인/반려가 필요한 PENDING은 배포 전 레거시 정도만 남음)와
+ * 어긋났다 — 화면 제목을 "추가구매 내역"으로, 기본 상태 필터를 "전체"로, 상태 라벨을
+ * 승인 큐 어감의 한글(승인 대기/승인됨) 대신 원래 코드값(PENDING/APPROVED/...)으로 바꿔
+ * 이 실제 모습에 맞췄다. 검색에 요청자·행사명 키워드를 추가하고 목록에 금액·요청자 실명도
+ * 보여준다(같은 요청).
+ *
+ * <p>승인은 입력할 값이 없어(이미 존재하는 PENDING 행의 상태만 바꾼다) 조직 생성 요청 승인처럼
+ * 펼침 입력폼을 열지 않고 버튼 한 번으로 바로 확정한다. 반려/취소는 사유가 필요해 펼침
+ * 입력폼을 쓴다(취소는 이미 승인(APPROVED)된 구매를 관리자가 나중에 되돌리는 것 —
+ * signstage-docs business/ceremony-unit-product-purchase-cancellation-review.md 결정,
+ * 2026-09-12).
+ *
+ * <p>`ceremonyId` prop을 넘기면 그 행사로 좁힌 "임베드" 모드로 동작한다(제목 숨김, "행사 이력"
+ * 화면이 플랜 이력과 나란히 보여줄 때 쓴다, 8.6절 결정).
  */
 export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ ceremonyId }) => {
   const embedded = ceremonyId !== undefined;
@@ -110,6 +135,8 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
     const query = new URLSearchParams();
     if (searchParams.status !== 'ALL') query.set('status', searchParams.status);
     if (ceremonyId !== undefined) query.set('ceremonyId', String(ceremonyId));
+    if (searchParams.requesterKeyword.trim()) query.set('requesterKeyword', searchParams.requesterKeyword.trim());
+    if (searchParams.ceremonyTitle.trim()) query.set('ceremonyTitle', searchParams.ceremonyTitle.trim());
     query.set('page', String(page));
     query.set('size', String(PAGE_SIZE));
 
@@ -125,7 +152,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
         if (!cancelled) setPageData(data);
       } catch (err) {
         if (!cancelled) {
-          showSnackbar(err instanceof Error ? err.message : '단위 상품 추가구매 요청 목록을 불러오지 못했습니다.', 'error');
+          showSnackbar(err instanceof Error ? err.message : '단위 상품 추가구매 내역을 불러오지 못했습니다.', 'error');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -219,7 +246,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
   };
 
   const requests = pageData?.content ?? [];
-  const columnCount = canManage ? 6 : 5;
+  const columnCount = canManage ? 7 : 6;
 
   return (
     <div className="space-y-8">
@@ -227,11 +254,13 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
         <div>
           <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
             <ShoppingCart size={20} className="text-gray-400" />
-            추가구매 요청
+            추가구매 내역
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            행사의 단위 상품 추가구매 요청입니다(장바구니형 — 요청 하나에 여러 줄이 담길 수 있습니다). 자가-체크아웃
-            도입으로 시스템 사용료 구매는 더 이상 여기를 거치지 않습니다 — 배포 전 레거시 요청만 남아 있습니다.
+            행사의 단위 상품 추가구매 내역입니다(장바구니형 — 한 건에 여러 줄이 담길 수 있습니다). 자가-체크아웃
+            도입 이후 시스템 사용료 구매는 대부분 승인 단계 없이 즉시 APPROVED로 반영되고, 여기서는 그 이력을
+            조회하거나 필요하면 승인된 구매를 취소합니다 — PENDING(승인/반려가 필요한 요청)은 배포 전 레거시 정도만
+            남아 있습니다.
           </p>
         </div>
       )}
@@ -241,7 +270,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
           <SearchField label="상태">
             <select
               value={formValues.status}
-              onChange={(e) => setFormValues({ status: e.target.value as PurchaseStatus | 'ALL' })}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value as PurchaseStatus | 'ALL' }))}
               className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
             >
               {STATUS_OPTIONS.map((option) => (
@@ -251,12 +280,30 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
               ))}
             </select>
           </SearchField>
+          <SearchField label="요청자" className="w-48">
+            <input
+              type="text"
+              value={formValues.requesterKeyword}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, requesterKeyword: e.target.value }))}
+              placeholder="아이디 또는 이름"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            />
+          </SearchField>
+          <SearchField label="행사명" className="w-48">
+            <input
+              type="text"
+              value={formValues.ceremonyTitle}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, ceremonyTitle: e.target.value }))}
+              placeholder="행사 제목"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
+            />
+          </SearchField>
         </SearchBar>
 
         <ListContainer
           isLoading={isLoading}
           isEmpty={requests.length === 0}
-          emptyMessage="해당 조건의 추가구매 요청이 없습니다."
+          emptyMessage="해당 조건의 추가구매 내역이 없습니다."
           pagination={
             pageData
               ? {
@@ -278,6 +325,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                 <th className="text-left px-4 py-3 font-medium">요청자</th>
                 <th className="text-left px-4 py-3 font-medium">파트너/행사</th>
                 <th className="text-left px-4 py-3 font-medium">단위 상품</th>
+                <th className="text-right px-4 py-3 font-medium">금액</th>
                 <th className="text-left px-4 py-3 font-medium">상태</th>
                 <th className="text-left px-4 py-3 font-medium">요청일</th>
                 {canManage && <th className="text-right px-4 py-3 font-medium">처리</th>}
@@ -295,6 +343,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                       >
                         상세
                       </Link>
+                      <p className="text-xs text-gray-400 font-normal">{request.requesterName}</p>
                     </td>
                     <td className="px-4 py-3">
                       <Link
@@ -337,6 +386,12 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {request.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-950 font-medium whitespace-nowrap">
+                      {formatCurrency(
+                        request.lines.reduce((sum, line) => sum + line.purchasedSalePrice * line.quantity, 0),
+                        request.lines[0]?.currencyCode ?? 'KRW',
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
