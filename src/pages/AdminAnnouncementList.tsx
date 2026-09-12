@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Megaphone, Pencil, Pin, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
+import { SearchBar, SearchField } from '../components/SearchBar';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -11,30 +12,48 @@ import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import type { AnnouncementSummary, PageResponse } from '../types';
 
+const PAGE_SIZE = 20;
+
+interface SearchValues {
+  keyword: string;
+  active: 'ALL' | 'true' | 'false';
+}
+
+const EMPTY_SEARCH: SearchValues = { keyword: '', active: 'ALL' };
+
 /**
  * 공지사항 관리(플랫폼 관리자) — signstage-docs business/partner-support-center-review.md 3장.
  * 목록/등록/수정 3화면으로 구성한다(2026-09-12 사용자 요청 — "회원관리처럼 페이지로
- * 구성해주세요"). v1은 플랫폼 전체 공개만 지원한다(조직별 타겟팅은 범위 밖).
+ * 구성해주세요"). 검색(키워드/사용여부)도 같은 날 후속 요청으로 추가했다. v1은 플랫폼
+ * 전체 공개만 지원한다(조직별 타겟팅은 범위 밖).
  */
 export const AdminAnnouncementList: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_ANNOUNCEMENT_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
-  const [announcements, setAnnouncements] = useState<AnnouncementSummary[]>([]);
+  const [formValues, setFormValues] = useState<SearchValues>(EMPTY_SEARCH);
+  const [searchParams, setSearchParams] = useState<SearchValues>(EMPTY_SEARCH);
+  const [page, setPage] = useState(0);
+  const [pageData, setPageData] = useState<PageResponse<AnnouncementSummary> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchAnnouncements = async () => {
-    const response = await api.get('/platform-admin/announcements?size=200');
-    setAnnouncements((response.data as PageResponse<AnnouncementSummary>).content);
+    const query = new URLSearchParams();
+    if (searchParams.keyword.trim()) query.set('keyword', searchParams.keyword.trim());
+    if (searchParams.active !== 'ALL') query.set('active', searchParams.active);
+    query.set('page', String(page));
+    query.set('size', String(PAGE_SIZE));
+    const response = await api.get(`/platform-admin/announcements?${query.toString()}`);
+    return response.data as PageResponse<AnnouncementSummary>;
   };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await api.get('/platform-admin/announcements?size=200');
-        if (!cancelled) setAnnouncements((response.data as PageResponse<AnnouncementSummary>).content);
+        const data = await fetchAnnouncements();
+        if (!cancelled) setPageData(data);
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '공지사항 목록을 불러오지 못했습니다.', 'error');
       } finally {
@@ -45,7 +64,21 @@ export const AdminAnnouncementList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, page]);
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setPage(0);
+    setSearchParams({ ...formValues });
+  };
+
+  const handleReset = () => {
+    setIsLoading(true);
+    setFormValues(EMPTY_SEARCH);
+    setPage(0);
+    setSearchParams({ ...EMPTY_SEARCH });
+  };
 
   const handleDelete = async () => {
     if (deletingId === null) return;
@@ -53,11 +86,13 @@ export const AdminAnnouncementList: FC = () => {
       await api.delete(`/platform-admin/announcements/${deletingId}`);
       showSnackbar('공지사항을 삭제했습니다.', 'success');
       setDeletingId(null);
-      await fetchAnnouncements();
+      setPageData(await fetchAnnouncements());
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '삭제에 실패했습니다.', 'error');
     }
   };
+
+  const announcements = pageData?.content ?? [];
 
   return (
     <div>
@@ -76,7 +111,47 @@ export const AdminAnnouncementList: FC = () => {
         )}
       </div>
 
-      <ListContainer isLoading={isLoading} isEmpty={announcements.length === 0} emptyMessage="등록된 공지사항이 없습니다.">
+      <SearchBar onSubmit={handleSearch} onReset={handleReset}>
+        <SearchField label="검색어" className="w-56">
+          <input
+            value={formValues.keyword}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, keyword: e.target.value }))}
+            placeholder="제목 또는 내용"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+          />
+        </SearchField>
+        <SearchField label="사용여부">
+          <select
+            value={formValues.active}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, active: e.target.value as SearchValues['active'] }))}
+            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm bg-white focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+          >
+            <option value="ALL">전체</option>
+            <option value="true">사용</option>
+            <option value="false">중지</option>
+          </select>
+        </SearchField>
+      </SearchBar>
+
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={announcements.length === 0}
+        emptyMessage="해당 조건의 공지사항이 없습니다."
+        pagination={
+          pageData
+            ? {
+                page: pageData.page,
+                totalPages: pageData.totalPages,
+                hasNext: pageData.hasNext,
+                totalElements: pageData.totalElements,
+                onPageChange: (nextPage) => {
+                  setIsLoading(true);
+                  setPage(nextPage);
+                },
+              }
+            : undefined
+        }
+      >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
