@@ -15,10 +15,14 @@ import {
   ClipboardList,
   FileSignature,
   FlaskConical,
+  HelpCircle,
   KeyRound,
   Layers,
+  LifeBuoy,
   ListChecks,
   Loader2,
+  Megaphone,
+  MessageCircleQuestion,
   Package,
   Percent,
   PlayCircle,
@@ -71,6 +75,10 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Sparkles: <Sparkles size={14} />,
   ListChecks: <ListChecks size={14} />,
   Boxes: <Boxes size={14} />,
+  LifeBuoy: <LifeBuoy size={14} />,
+  HelpCircle: <HelpCircle size={14} />,
+  Megaphone: <Megaphone size={14} />,
+  MessageCircleQuestion: <MessageCircleQuestion size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;

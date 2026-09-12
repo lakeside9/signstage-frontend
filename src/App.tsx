@@ -36,6 +36,11 @@ import { AdminDemoConfigList } from './pages/AdminDemoConfigList';
 import { CeremonyEffectManagement } from './pages/CeremonyEffectManagement';
 import { CeremonyEffectRegister } from './pages/CeremonyEffectRegister';
 import { CeremonyEffectEdit } from './pages/CeremonyEffectEdit';
+import { AdminFaqManagement } from './pages/AdminFaqManagement';
+import { AdminAnnouncementManagement } from './pages/AdminAnnouncementManagement';
+import { AdminCeremonyInquiries } from './pages/AdminCeremonyInquiries';
+import { UserFaqList } from './pages/UserFaqList';
+import { UserAnnouncementList } from './pages/UserAnnouncementList';
 import { UserDashboard } from './pages/UserDashboard';
 import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
@@ -116,6 +121,8 @@ function App() {
             path="ceremonies/:organizationId/:ceremonyId/templates/:templateId"
             element={<UserTemplateDetail />}
           />
+          <Route path="faqs" element={<UserFaqList />} />
+          <Route path="announcements" element={<UserAnnouncementList />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
@@ -165,6 +172,9 @@ function App() {
           <Route path="effects" element={<CeremonyEffectManagement />} />
           <Route path="effects/new" element={<CeremonyEffectRegister />} />
           <Route path="effects/:id/edit" element={<CeremonyEffectEdit />} />
+          <Route path="faqs" element={<AdminFaqManagement />} />
+          <Route path="announcements" element={<AdminAnnouncementManagement />} />
+          <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 

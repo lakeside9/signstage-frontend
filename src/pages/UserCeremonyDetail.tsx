@@ -16,6 +16,7 @@ import {
   FileSignature,
   FileText,
   Loader2,
+  MessageCircleQuestion,
   Pencil,
   Plus,
   Settings,
@@ -176,11 +177,11 @@ const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPA
  * (행사 수정 화면)로 분리했다. 섹션마다 독립적으로 불러오고 실패해도 서로 막지 않는다
  * (AdminOrganizationDetail과 같은 패턴).
  *
- * <p>타이틀 줄의 버튼 3개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
- * `UserCeremonyEdit`의 탭 3개(행사 수정/플랫폼 이용료/고객 견적)마다 `?tab=` 쿼리로 바로
- * 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록 했다. 행사별 1:1
- * 문의(signstage-docs business/partner-support-center-review.md)가 구현되면 같은 줄에
- * 4번째 버튼으로 이어 붙일 자리다.
+ * <p>타이틀 줄의 버튼 4개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
+ * `UserCeremonyEdit`의 탭 4개(행사 수정/플랫폼 이용료/고객 견적/문의)마다 `?tab=` 쿼리로 바로
+ * 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록 했다. "문의" 버튼은
+ * 행사별 1:1 문의(signstage-docs business/partner-support-center-review.md 5장) 구현과
+ * 함께 같은 날 이어 붙였다.
  */
 export const UserCeremonyDetail: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -995,6 +996,13 @@ export const UserCeremonyDetail: FC = () => {
           >
             <Banknote size={16} />
             고객 견적
+          </Link>
+          <Link
+            to={`${detailPath}/edit?tab=inquiries`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <MessageCircleQuestion size={16} />
+            문의
           </Link>
         </div>
       </div>

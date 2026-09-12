@@ -11,6 +11,7 @@ import {
   History,
   Info,
   Loader2,
+  MessageCircleQuestion,
   Package,
   Receipt,
   Settings,
@@ -23,6 +24,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
 import { UNIT_PRODUCT_CATEGORY_OPTIONS, UNIT_PRODUCT_TYPE_LABEL, planSubtotal } from './billingCatalog/constants';
+import { CeremonyInquirySection } from './ceremony/CeremonyInquirySection';
 import { CustomerQuoteSection } from './ceremony/CustomerQuoteSection';
 import type {
   BillingPlanSummary,
@@ -81,20 +83,20 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
  * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
  *
- * <p>"행사 수정"/"플랫폼 이용료"/"고객 견적" 3탭으로 나뉜다(2026-09-10, 사용자 요청 —
+ * <p>"행사 수정"/"플랫폼 이용료"/"고객 견적"/"문의" 4탭으로 나뉜다(2026-09-10, 사용자 요청 —
  * signstage-docs business/ceremony-registration-flow-and-billing-tab-separation-review.md).
- * `?tab=billing`/`?tab=customerQuote` 쿼리로 해당 탭을 곧장 열 수 있다 — 행사 등록
- * 직후(`UserCeremonyCreate.tsx`)가 `?tab=billing`으로 진입한다(등록 시 플랜 선택이 더 이상
- * 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다). "고객 견적" 탭(파트너→실고객,
+ * `?tab=billing`/`?tab=customerQuote`/`?tab=inquiries` 쿼리로 해당 탭을 곧장 열 수 있다 —
+ * 행사 등록 직후(`UserCeremonyCreate.tsx`)가 `?tab=billing`으로 진입한다(등록 시 플랜 선택이
+ * 더 이상 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다). "고객 견적" 탭(파트너→실고객,
  * `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
  * business/partner-customer-quote-design-review.md 결정(2026-09-11). 탭 이름은 같은 날
  * "과금"/"고객 견적" → "플랫폼 이용료"/"고객 정산" → 다시 "고객 견적"으로 바뀌었다(둘 다
- * 사용자 요청). **탭을 행사 상세 화면의 타이틀 버튼으로도 노출(2026-09-12, 사용자 요청)** —
- * `UserCeremonyDetail.tsx` 타이틀 줄의 버튼 3개("행사 수정"/"플랫폼 이용료"/"고객 견적")가
- * 각 탭으로 바로 진입하는 링크다. 첫 탭 라벨을 "기본 정보"에서 "행사 수정"으로 바꿔 그 버튼
- * 라벨과 맞췄다. 행사별 1:1 문의 기능(signstage-docs business/partner-support-center-review.md)이
- * 구현되면 같은 타이틀 버튼 줄에 4번째 버튼으로 이어 붙일 걸 염두에 뒀다 — 아직 구현 전이라
- * 버튼은 없다.
+ * 사용자 요청). "문의" 탭(`CeremonyInquirySection.tsx`)은 행사별 1:1 문의(파트너 ↔ 플랫폼
+ * 관리자) — signstage-docs business/partner-support-center-review.md 5장 결정, 2026-09-12
+ * 구현. **탭을 행사 상세 화면의 타이틀 버튼으로도 노출(2026-09-12, 사용자 요청)** —
+ * `UserCeremonyDetail.tsx` 타이틀 줄의 버튼 4개("행사 수정"/"플랫폼 이용료"/"고객 견적"/
+ * "문의")가 각 탭으로 바로 진입하는 링크다. 첫 탭 라벨을 "기본 정보"에서 "행사 수정"으로 바꿔
+ * 그 버튼 라벨과 맞췄다.
  *
  * <p>플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
@@ -114,7 +116,7 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 이용료"로 바뀌었다. 구매 이력은 요청자 본인이 볼 수 있는 이력이고, 대기중(PENDING)/
  * 승인됨(APPROVED)/반려됨(REJECTED) 상태를 그대로 보여준다.
  */
-type EditTab = 'info' | 'billing' | 'customerQuote';
+type EditTab = 'info' | 'billing' | 'customerQuote' | 'inquiries';
 
 export const UserCeremonyEdit: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -123,7 +125,7 @@ export const UserCeremonyEdit: FC = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<EditTab>(
-    initialTab === 'billing' || initialTab === 'customerQuote' ? initialTab : 'info',
+    initialTab === 'billing' || initialTab === 'customerQuote' || initialTab === 'inquiries' ? initialTab : 'info',
   );
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
@@ -661,6 +663,7 @@ export const UserCeremonyEdit: FC = () => {
             { value: 'info', label: '행사 수정', icon: FileSignature },
             { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
             { value: 'customerQuote', label: '고객 견적', icon: Banknote },
+            { value: 'inquiries', label: '문의', icon: MessageCircleQuestion },
           ] as const
         ).map((tab) => {
           const isActive = activeTab === tab.value;
@@ -1276,6 +1279,12 @@ export const UserCeremonyEdit: FC = () => {
       <div hidden={activeTab !== 'customerQuote'}>
         {organizationId && ceremonyId && (
           <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} isDraft={isDraft} />
+        )}
+      </div>
+
+      <div hidden={activeTab !== 'inquiries'}>
+        {organizationId && ceremonyId && (
+          <CeremonyInquirySection organizationId={organizationId} ceremonyId={ceremonyId} />
         )}
       </div>
 

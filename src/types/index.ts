@@ -1431,10 +1431,10 @@ export interface CeremonyEventLogSummary {
 
 /**
  * PUT .../signers/display-orders, .../templates/display-orders, .../events/display-orders,
- * PUT /api/platform-admin/unit-products/display-orders 요청(DisplayOrderRequest.
- * UpdateDisplayOrders)과 맞춘다 — 네 컨트롤러가 같은 모양을 공유한다. 목록 화면의 위/아래
- * 이동 버튼이 전체 배열을 원하는 순서로 다시 인덱싱해 통째로 보낸다(2026-08-27 legacy 포팅,
- * 2026-09-10 단위 상품 카탈로그에도 적용).
+ * PUT /api/platform-admin/unit-products/display-orders, PUT /api/platform-admin/faqs/order
+ * 요청(DisplayOrderRequest.UpdateDisplayOrders)과 맞춘다 — 다섯 컨트롤러가 같은 모양을
+ * 공유한다. 목록 화면의 위/아래 이동 버튼이 전체 배열을 원하는 순서로 다시 인덱싱해 통째로
+ * 보낸다(2026-08-27 legacy 포팅, 2026-09-10 단위 상품 카탈로그·2026-09-12 FAQ에도 적용).
  */
 export interface UpdateDisplayOrdersRequest {
   items: { id: number; displayOrder: number }[];
@@ -1934,4 +1934,126 @@ export interface CustomerQuoteLineSummary {
 export interface CustomerQuoteDetail {
   summary: CustomerQuoteSummary;
   lines: CustomerQuoteLineSummary[];
+}
+
+// ──────────────────────────── 공지사항/FAQ/행사별 1:1 문의 ────────────────────────────
+// signstage-docs business/partner-support-center-review.md.
+
+/** GET /api/faqs, /api/platform-admin/faqs 응답(FaqDto.Response.FaqSummary)과 맞춘다. */
+export interface FaqSummary {
+  id: number;
+  category: string | null;
+  question: string;
+  answer: string;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreateFaqRequest {
+  category: string | null;
+  question: string;
+  answer: string;
+}
+
+export interface UpdateFaqRequest {
+  category: string | null;
+  question: string;
+  answer: string;
+  active: boolean;
+}
+
+/** GET /api/announcements, /api/platform-admin/announcements 응답(AnnouncementDto.Response.AnnouncementSummary)과 맞춘다. */
+export interface AnnouncementSummary {
+  id: number;
+  title: string;
+  content: string;
+  pinned: boolean;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  content: string;
+  pinned?: boolean;
+}
+
+export interface UpdateAnnouncementRequest {
+  title: string;
+  content: string;
+  pinned: boolean;
+  active: boolean;
+}
+
+/**
+ * 행사별 1:1 문의 상태(feature.ceremony.entity.InquiryStatus) — 메시지 추가 시 서버가 자동
+ * 전이시킨다(파트너가 쓰면 OPEN, 관리자가 쓰면 ANSWERED). CLOSED만 명시적 액션이고
+ * 재오픈하지 않는다.
+ */
+export type InquiryStatus = 'OPEN' | 'ANSWERED' | 'CLOSED';
+
+export type InquirySenderType = 'PARTNER' | 'PLATFORM_ADMIN';
+
+/** 파트너 쪽 GET .../ceremonies/{ceremonyId}/inquiries 응답(CeremonyInquiryDto.Response.InquirySummary)과 맞춘다. */
+export interface CeremonyInquirySummary {
+  id: number;
+  ceremonyId: number;
+  title: string;
+  status: InquiryStatus;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface CeremonyInquiryMessageSummary {
+  id: number;
+  senderType: InquirySenderType;
+  content: string;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+export interface CeremonyInquiryDetail {
+  id: number;
+  ceremonyId: number;
+  title: string;
+  status: InquiryStatus;
+  lastMessageAt: string;
+  createdAt: string;
+  messages: CeremonyInquiryMessageSummary[];
+}
+
+export interface CreateCeremonyInquiryRequest {
+  title: string;
+  content: string;
+}
+
+/** 플랫폼 관리자 쪽 GET /api/platform-admin/ceremony-inquiries 응답(PlatformAdminCeremonyInquiryDto.Response.InquirySummary)과 맞춘다. */
+export interface PlatformAdminCeremonyInquirySummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  ceremonyId: number;
+  ceremonyTitle: string;
+  requesterLoginId: string | null;
+  requesterName: string | null;
+  title: string;
+  status: InquiryStatus;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface PlatformAdminCeremonyInquiryDetail {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  ceremonyId: number;
+  ceremonyTitle: string;
+  requesterLoginId: string | null;
+  requesterName: string | null;
+  title: string;
+  status: InquiryStatus;
+  lastMessageAt: string;
+  createdAt: string;
+  messages: CeremonyInquiryMessageSummary[];
 }

@@ -6,9 +6,11 @@ import {
   Building2,
   ChevronLeft,
   FileSignature,
+  HelpCircle,
   Key,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   Settings,
   ShieldCheck,
@@ -33,6 +35,8 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Building2: <Building2 size={20} />,
   User: <User size={20} />,
   ShieldCheck: <ShieldCheck size={20} />,
+  HelpCircle: <HelpCircle size={20} />,
+  Megaphone: <Megaphone size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
