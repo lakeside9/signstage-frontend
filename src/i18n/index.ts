@@ -15,7 +15,7 @@ const resources = {
         dashboard: '대시보드', ceremonies: '행사 관리', organization: '회사정보관리', profile: '내 정보',
         partners: '파트너관리', partnerRequests: '파트너등록요청관리', users: '회원 관리',
         adminAccounts: '관리자 계정', billingCatalog: '과금 카탈로그', billingSimulator: '과금 시뮬레이터',
-        purchaseRequests: '추가구매 내역', auditLogs: '감사 로그',
+        purchaseRequests: '파트너사 구매 내역', auditLogs: '감사 로그',
         ceremonyDiscounts: '행사 건별 재량 할인', organizationDiscountOverrides: '파트너별 할인 오버라이드',
       },
       permission: {

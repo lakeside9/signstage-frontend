@@ -85,21 +85,23 @@ const EMPTY_SEARCH: SearchValues = { status: 'ALL', requesterKeyword: '', ceremo
 const EMPTY_SEARCH_FOR_CEREMONY: SearchValues = { status: 'ALL', requesterKeyword: '', ceremonyTitle: '' };
 
 /**
- * 플랫폼 관리자의 단위 상품 "추가구매 내역" 화면(2026-09-12 개명 — 옛 "추가구매 요청") —
- * signstage-docs business/billing-catalog-unit-product-model-redesign-review.md 결정
- * (2026-09-10) 옛 용량/선택옵션 2종 승인 큐를 하나로 합쳤다(장바구니형 요청이라 승인/반려/
- * 취소도 요청 전체 단위다). 조회는 PLATFORM_SUPPORT 이상, 승인/반려/취소는 PLATFORM_OPS
- * 이상만 가능하다({@link AdminOrganizationRequestList}와 같은 등급 규칙).
+ * 플랫폼 관리자의 단위 상품 "파트너사 구매 내역" 화면(2026-09-12 개명 — 옛 "추가구매 요청" →
+ * "추가구매 내역" → "파트너사 구매 내역") — signstage-docs
+ * business/billing-catalog-unit-product-model-redesign-review.md 결정(2026-09-10) 옛
+ * 용량/선택옵션 2종 승인 큐를 하나로 합쳤다(장바구니형 요청이라 승인/반려/취소도 요청 전체
+ * 단위다). 조회는 PLATFORM_SUPPORT 이상, 승인/반려/취소는 PLATFORM_OPS 이상만 가능하다
+ * ({@link AdminOrganizationRequestList}와 같은 등급 규칙).
  *
- * <p><b>개명 배경(2026-09-12 사용자 요청)</b> — 자가-체크아웃 도입(signstage-docs
+ * <p><b>개명 배경(2026-09-12 사용자 요청, 2차)</b> — 자가-체크아웃 도입(signstage-docs
  * business/unit-product-purchase-self-checkout-review.md 결정, 2026-09-11)으로 시스템
  * 사용료 추가구매는 대부분 승인 단계 없이 즉시 APPROVED로 생긴다. "요청"이라는 이름과
  * 기본 상태 필터 PENDING이 "관리자가 처리해야 할 대기열"이라는 옛 그림을 계속 암시해서
  * 실제(이력 조회가 대부분, 승인/반려가 필요한 PENDING은 배포 전 레거시 정도만 남음)와
- * 어긋났다 — 화면 제목을 "추가구매 내역"으로, 기본 상태 필터를 "전체"로, 상태 라벨을
- * 승인 큐 어감의 한글(승인 대기/승인됨) 대신 원래 코드값(PENDING/APPROVED/...)으로 바꿔
- * 이 실제 모습에 맞췄다. 검색에 요청자·행사명 키워드를 추가하고 목록에 금액·요청자 실명도
- * 보여준다(같은 요청).
+ * 어긋났다 — 1차로 "추가구매 내역"으로 바꿨다가, 같은 날 사용자가 메뉴·화면 제목을
+ * "파트너사 구매 내역"으로 다시 지정해 최종 이름이 됐다. 기본 상태 필터를 "전체"로,
+ * 상태 라벨을 승인 큐 어감의 한글(승인 대기/승인됨) 대신 원래 코드값
+ * (PENDING/APPROVED/...)으로 바꿔 실제 모습에 맞췄다. 검색에 요청자·행사명 키워드를
+ * 추가하고 목록에 금액·요청자 실명도 보여준다(같은 1차 요청).
  *
  * <p>승인은 입력할 값이 없어(이미 존재하는 PENDING 행의 상태만 바꾼다) 조직 생성 요청 승인처럼
  * 펼침 입력폼을 열지 않고 버튼 한 번으로 바로 확정한다. 반려/취소는 사유가 필요해 펼침
@@ -152,7 +154,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
         if (!cancelled) setPageData(data);
       } catch (err) {
         if (!cancelled) {
-          showSnackbar(err instanceof Error ? err.message : '단위 상품 추가구매 내역을 불러오지 못했습니다.', 'error');
+          showSnackbar(err instanceof Error ? err.message : '파트너사 구매 내역을 불러오지 못했습니다.', 'error');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -254,7 +256,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
         <div>
           <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
             <ShoppingCart size={20} className="text-gray-400" />
-            추가구매 내역
+            파트너사 구매 내역
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             행사의 단위 상품 추가구매 내역입니다(장바구니형 — 한 건에 여러 줄이 담길 수 있습니다). 자가-체크아웃
@@ -303,7 +305,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
         <ListContainer
           isLoading={isLoading}
           isEmpty={requests.length === 0}
-          emptyMessage="해당 조건의 추가구매 내역이 없습니다."
+          emptyMessage="해당 조건의 파트너사 구매 내역이 없습니다."
           pagination={
             pageData
               ? {
