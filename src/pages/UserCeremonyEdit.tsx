@@ -81,14 +81,20 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
  * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
  *
- * <p>"기본 정보"/"플랫폼 이용료" 2탭으로 나뉜다(2026-09-10, 사용자 요청 — signstage-docs
- * business/ceremony-registration-flow-and-billing-tab-separation-review.md). `?tab=billing`
- * 쿼리로 이 탭을 곧장 열 수 있다 — 행사 등록 직후(`UserCeremonyCreate.tsx`)가 이 방식으로
- * 진입한다(등록 시 플랜 선택이 더 이상 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다).
- * "고객 견적" 탭(파트너→실고객, `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
+ * <p>"행사 수정"/"플랫폼 이용료"/"고객 견적" 3탭으로 나뉜다(2026-09-10, 사용자 요청 —
+ * signstage-docs business/ceremony-registration-flow-and-billing-tab-separation-review.md).
+ * `?tab=billing`/`?tab=customerQuote` 쿼리로 해당 탭을 곧장 열 수 있다 — 행사 등록
+ * 직후(`UserCeremonyCreate.tsx`)가 `?tab=billing`으로 진입한다(등록 시 플랜 선택이 더 이상
+ * 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다). "고객 견적" 탭(파트너→실고객,
+ * `CustomerQuoteSection.tsx`)은 별개다 — signstage-docs
  * business/partner-customer-quote-design-review.md 결정(2026-09-11). 탭 이름은 같은 날
  * "과금"/"고객 견적" → "플랫폼 이용료"/"고객 정산" → 다시 "고객 견적"으로 바뀌었다(둘 다
- * 사용자 요청).
+ * 사용자 요청). **탭을 행사 상세 화면의 타이틀 버튼으로도 노출(2026-09-12, 사용자 요청)** —
+ * `UserCeremonyDetail.tsx` 타이틀 줄의 버튼 3개("행사 수정"/"플랫폼 이용료"/"고객 견적")가
+ * 각 탭으로 바로 진입하는 링크다. 첫 탭 라벨을 "기본 정보"에서 "행사 수정"으로 바꿔 그 버튼
+ * 라벨과 맞췄다. 행사별 1:1 문의 기능(signstage-docs business/partner-support-center-review.md)이
+ * 구현되면 같은 타이틀 버튼 줄에 4번째 버튼으로 이어 붙일 걸 염두에 뒀다 — 아직 구현 전이라
+ * 버튼은 없다.
  *
  * <p>플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
@@ -115,7 +121,10 @@ export const UserCeremonyEdit: FC = () => {
   const navigate = useNavigate();
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<EditTab>(searchParams.get('tab') === 'billing' ? 'billing' : 'info');
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<EditTab>(
+    initialTab === 'billing' || initialTab === 'customerQuote' ? initialTab : 'info',
+  );
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -649,7 +658,7 @@ export const UserCeremonyEdit: FC = () => {
       <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
         {(
           [
-            { value: 'info', label: '기본 정보', icon: FileSignature },
+            { value: 'info', label: '행사 수정', icon: FileSignature },
             { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
             { value: 'customerQuote', label: '고객 견적', icon: Banknote },
           ] as const

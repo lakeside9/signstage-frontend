@@ -5,10 +5,12 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  Banknote,
   CalendarClock,
   ChevronDown,
   ChevronUp,
   Copy,
+  CreditCard,
   Download,
   ExternalLink,
   FileSignature,
@@ -173,6 +175,12 @@ const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPA
  * 중심 화면이라 행사 자체에 변화를 주는 조작(용량/선택옵션 추가구매)은 `UserCeremonyEdit`
  * (행사 수정 화면)로 분리했다. 섹션마다 독립적으로 불러오고 실패해도 서로 막지 않는다
  * (AdminOrganizationDetail과 같은 패턴).
+ *
+ * <p>타이틀 줄의 버튼 3개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
+ * `UserCeremonyEdit`의 탭 3개(행사 수정/플랫폼 이용료/고객 견적)마다 `?tab=` 쿼리로 바로
+ * 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록 했다. 행사별 1:1
+ * 문의(signstage-docs business/partner-support-center-review.md)가 구현되면 같은 줄에
+ * 4번째 버튼으로 이어 붙일 자리다.
  */
 export const UserCeremonyDetail: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -966,13 +974,29 @@ export const UserCeremonyDetail: FC = () => {
             <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
           )}
         </div>
-        <Link
-          to={`${detailPath}/edit`}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-        >
-          <Settings size={16} />
-          행사 수정
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to={`${detailPath}/edit`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <Settings size={16} />
+            행사 수정
+          </Link>
+          <Link
+            to={`${detailPath}/edit?tab=billing`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <CreditCard size={16} />
+            플랫폼 이용료
+          </Link>
+          <Link
+            to={`${detailPath}/edit?tab=customerQuote`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <Banknote size={16} />
+            고객 견적
+          </Link>
+        </div>
       </div>
 
       {isDraft && (
