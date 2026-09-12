@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Check, ShoppingCart, X } from 'lucide-react';
+import { Building2, Check, ChevronDown, ShoppingCart, X } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
@@ -10,7 +10,13 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
-import type { PageResponse, PlatformAdminUnitProductPurchaseRequestSummary, PurchaseStatus } from '../types';
+import type {
+  CeremonyEventType,
+  PageResponse,
+  PlatformAdminCeremonyEventStatusSummary,
+  PlatformAdminUnitProductPurchaseRequestSummary,
+  PurchaseStatus,
+} from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -18,6 +24,7 @@ const STATUS_OPTIONS: Array<{ value: PurchaseStatus | 'ALL'; label: string }> = 
   { value: 'PENDING', label: '승인 대기' },
   { value: 'APPROVED', label: '승인됨' },
   { value: 'REJECTED', label: '반려됨' },
+  { value: 'CANCELLED', label: '취소됨' },
   { value: 'ALL', label: '전체' },
 ];
 
@@ -25,7 +32,35 @@ const STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
   APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
+
+const EVENT_TYPE_LABEL: Record<CeremonyEventType, string> = {
+  TEST: '테스트',
+  REHEARSAL: '리허설',
+  MAIN: '본행사',
+};
+
+const EVENT_TYPE_ORDER: CeremonyEventType[] = ['TEST', 'REHEARSAL', 'MAIN'];
+
+/**
+ * 하위 행사를 타입별로 압축한다 — signstage-docs
+ * business/ceremony-unit-product-purchase-cancellation-review.md 3.6절(2026-09-12) 표시
+ * 규칙. 개별 행사를 전부 나열하지 않고 타입당 한 칩만 두며, 그 타입에 `STARTED`인 게
+ * 하나라도 있으면 그것만 강조한다(그 외 상태는 세분화하지 않는다) — 취소 시 이벤트 효과
+ * 자동 해제를 STARTED만 예외로 두는 하이브리드 판단에 필요한 정보가 이것뿐이기 때문이다.
+ */
+const summarizeCeremonyEventsByType = (
+  events: PlatformAdminCeremonyEventStatusSummary[],
+): Array<{ eventType: CeremonyEventType; events: PlatformAdminCeremonyEventStatusSummary[]; startedCount: number }> =>
+  EVENT_TYPE_ORDER.map((eventType) => {
+    const eventsOfType = events.filter((event) => event.eventType === eventType);
+    return {
+      eventType,
+      events: eventsOfType,
+      startedCount: eventsOfType.filter((event) => event.status === 'STARTED').length,
+    };
+  }).filter((group) => group.events.length > 0);
 
 /** 처리할 게 남은 요청부터 보이는 게 자연스러운 승인 큐라서, 다른 목록과 달리 기본값을 PENDING으로 둔다. */
 const EMPTY_SEARCH: { status: PurchaseStatus | 'ALL' } = { status: 'PENDING' };
@@ -66,6 +101,10 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [reasonDraft, setReasonDraft] = useState('');
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelReasonDraft, setCancelReasonDraft] = useState('');
+  /** 하위 행사 칩을 펼친 (요청 id, eventType) 키 — 한 번에 여러 개를 펼쳐둘 수 있다. */
+  const [expandedEventChip, setExpandedEventChip] = useState<string | null>(null);
 
   const fetchRequests = async () => {
     const query = new URLSearchParams();
@@ -151,6 +190,29 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
       await refresh();
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '반려에 실패했습니다.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const openCancel = (requestId: number) => {
+    setCancellingId(requestId);
+    setCancelReasonDraft('');
+  };
+
+  const handleCancel = async (requestId: number) => {
+    if (!cancelReasonDraft.trim()) {
+      showSnackbar('취소 사유를 입력해주세요.', 'error');
+      return;
+    }
+    setProcessingId(requestId);
+    try {
+      await api.put(`/platform-admin/unit-product-purchases/${requestId}/cancel`, { cancellationReason: cancelReasonDraft.trim() });
+      showSnackbar('구매를 취소했습니다.', 'success');
+      setCancellingId(null);
+      await refresh();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '취소에 실패했습니다.', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -242,6 +304,36 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                         <Building2 size={14} className="text-gray-400" />
                         {request.ceremonyTitle}
                       </Link>
+                      {(() => {
+                        const groups = summarizeCeremonyEventsByType(request.ceremonyEvents);
+                        if (groups.length === 0) {
+                          return <p className="mt-1 text-xs text-gray-400">하위 행사 없음</p>;
+                        }
+                        return (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {groups.map((group) => {
+                              const chipKey = `${request.id}-${group.eventType}`;
+                              const isExpanded = expandedEventChip === chipKey;
+                              return (
+                                <button
+                                  key={group.eventType}
+                                  type="button"
+                                  onClick={() => setExpandedEventChip(isExpanded ? null : chipKey)}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border ${
+                                    group.startedCount > 0
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-gray-50 text-gray-500 border-gray-200'
+                                  }`}
+                                >
+                                  {EVENT_TYPE_LABEL[group.eventType]} {group.events.length}건
+                                  {group.startedCount > 0 && ` · 진행중 ${group.startedCount}건`}
+                                  <ChevronDown size={10} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {request.lines.map((line) => `${line.purchasedName} × ${line.quantity}`).join(', ')}
@@ -255,9 +347,17 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                       {request.status === 'REJECTED' && request.rejectionReason && (
                         <p className="mt-1 text-xs text-red-600">{request.rejectionReason}</p>
                       )}
-                      {request.status !== 'PENDING' && request.reviewerLoginId && request.reviewedAt && (
+                      {request.status === 'CANCELLED' && request.cancellationReason && (
+                        <p className="mt-1 text-xs text-gray-600">{request.cancellationReason}</p>
+                      )}
+                      {request.status !== 'PENDING' && request.status !== 'CANCELLED' && request.reviewerLoginId && request.reviewedAt && (
                         <p className="mt-1 text-xs text-gray-400">
                           {request.reviewerLoginId} · {formatDateTime(request.reviewedAt)}
+                        </p>
+                      )}
+                      {request.status === 'CANCELLED' && request.cancellerLoginId && request.cancelledAt && (
+                        <p className="mt-1 text-xs text-gray-400">
+                          {request.cancellerLoginId} · {formatDateTime(request.cancelledAt)}
                         </p>
                       )}
                     </td>
@@ -269,7 +369,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                         {request.status === 'PENDING' &&
                           (rejectingId === request.id ? (
                             <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
-                              취소
+                              닫기
                             </Button>
                           ) : (
                             <div className="flex justify-end gap-2">
@@ -281,6 +381,16 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                                 반려
                               </Button>
                             </div>
+                          ))}
+                        {request.status === 'APPROVED' &&
+                          (cancellingId === request.id ? (
+                            <Button variant="secondary" size="sm" onClick={() => setCancellingId(null)} disabled={processingId === request.id}>
+                              닫기
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" size="sm" onClick={() => openCancel(request.id)} disabled={processingId === request.id}>
+                              구매 취소
+                            </Button>
                           ))}
                       </td>
                     )}
@@ -305,6 +415,57 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                       </td>
                     </tr>
                   )}
+                  {canManage && cancellingId === request.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={columnCount} className="px-4 py-3">
+                        <div className="flex items-center gap-2 max-w-md">
+                          <input
+                            type="text"
+                            value={cancelReasonDraft}
+                            onChange={(e) => setCancelReasonDraft(e.target.value)}
+                            disabled={processingId === request.id}
+                            placeholder="취소 사유"
+                            className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
+                          />
+                          <Button variant="danger" size="sm" onClick={() => handleCancel(request.id)} disabled={processingId === request.id}>
+                            <X size={12} />
+                            취소 확정
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {summarizeCeremonyEventsByType(request.ceremonyEvents).map((group) => {
+                    const chipKey = `${request.id}-${group.eventType}`;
+                    if (expandedEventChip !== chipKey) return null;
+                    return (
+                      <tr key={chipKey} className="bg-gray-50">
+                        <td colSpan={columnCount} className="px-4 py-3">
+                          <p className="text-xs font-medium text-gray-500 mb-1.5">
+                            {EVENT_TYPE_LABEL[group.eventType]} 하위 행사 {group.events.length}건
+                          </p>
+                          <ul className="space-y-1">
+                            {group.events.map((event, index) => (
+                              <li key={index} className="text-xs text-gray-600 flex items-center gap-2">
+                                <span className="font-medium text-gray-950">{event.name}</span>
+                                <span
+                                  className={`inline-block px-1.5 py-0.5 rounded-full border ${
+                                    event.status === 'STARTED'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                                  }`}
+                                >
+                                  {event.status}
+                                </span>
+                                {event.scheduledStartAt && <span className="text-gray-400">예정 {formatDateTime(event.scheduledStartAt)}</span>}
+                                {event.actualStartAt && <span className="text-gray-400">실제 {formatDateTime(event.actualStartAt)}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </Fragment>
               ))}
             </tbody>

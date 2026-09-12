@@ -985,8 +985,11 @@ export interface CeremonyPlanHistorySummary {
 /**
  * feature.ceremony.entity.PurchaseStatus 값과 맞춘다. 요청 즉시 PENDING으로 생기고,
  * 플랫폼 관리자가 APPROVED로 승인해야 유효 한도/구매한 단위 상품 집계에 반영된다.
+ * `CANCELLED`는 이미 APPROVED된 구매를 관리자가 나중에 취소한 것 — signstage-docs
+ * business/ceremony-unit-product-purchase-cancellation-review.md 결정(2026-09-12).
+ * `REJECTED`(승인 자체가 안 됨)와 의미가 달라 별도 값이다.
  */
-export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type PurchaseStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 /**
  * POST .../unit-product-cart/items 요청(CeremonyDto.Request.AddToCart)과 맞춘다 — "추가
@@ -1056,6 +1059,9 @@ export interface UnitProductPurchaseSummary {
   status: PurchaseStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
+  /** 관리자가 이미 승인된 이 구매를 취소했다면 그 사유·시각(2026-09-12 추가). */
+  cancellationReason: string | null;
+  cancelledAt: string | null;
   createdAt: string;
 }
 
@@ -1077,7 +1083,32 @@ export interface PlatformAdminUnitProductPurchaseRequestSummary {
   rejectionReason: string | null;
   reviewerLoginId: string | null;
   reviewedAt: string | null;
+  /** 취소한 관리자 — 승인/반려한 사람(reviewerLoginId)과 별도 컬럼이다(2026-09-12). */
+  cancellerLoginId: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  /**
+   * 이 행사의 하위 행사(TEST/REHEARSAL/MAIN) 진행상태 — signstage-docs
+   * business/ceremony-unit-product-purchase-cancellation-review.md 3.6절(2026-09-12 추가).
+   * 관리자가 취소(특히 이벤트 효과 묶음)를 판단할 근거로 쓴다. 개별 행사를 그대로 나열한
+   * 목록이고, 타입별 압축 표시는 이 화면이 직접 한다.
+   */
+  ceremonyEvents: PlatformAdminCeremonyEventStatusSummary[];
   createdAt: string;
+}
+
+/** {@link PlatformAdminUnitProductPurchaseRequestSummary.ceremonyEvents}의 개별 행사 하나. */
+export interface PlatformAdminCeremonyEventStatusSummary {
+  eventType: CeremonyEventType;
+  name: string;
+  status: CeremonyEventStatus;
+  scheduledStartAt: string | null;
+  actualStartAt: string | null;
+}
+
+/** PUT .../unit-product-purchases/{id}/cancel 요청(PlatformAdminCeremonyPurchaseDto.Request.Cancel)과 맞춘다. */
+export interface CancelUnitProductPurchaseRequest {
+  cancellationReason: string;
 }
 
 /**

@@ -52,12 +52,14 @@ const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = {
   PENDING: '대기중',
   APPROVED: '승인됨',
   REJECTED: '반려됨',
+  CANCELLED: '취소됨',
 };
 
 const PURCHASE_STATUS_BADGE_CLASS: Record<PurchaseStatus, string> = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
   APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
@@ -561,11 +563,15 @@ export const UserCeremonyEdit: FC = () => {
   /**
    * 이벤트 효과 묶음(EVENT_EFFECT_BUNDLE)은 토글형이라 PENDING/APPROVED 요청이 있으면 재구매를
    * 막는다(백엔드 검증과 같은 규칙, 3.6절) — REJECTED는 재요청할 수 있어야 하므로 제외한다.
-   * 그 외 종류(용량 계열)는 여러 번 구매해 누적할 수 있어 막지 않는다.
+   * CANCELLED(관리자가 취소한 것, 2026-09-12 추가)도 같은 이유로 재구매를 막지 않는다 —
+   * 백엔드 checkPurchaseQuantity도 PENDING/APPROVED만 "이미 구매됨"으로 본다. 그 외 종류
+   * (용량 계열)는 여러 번 구매해 누적할 수 있어 막지 않는다.
    */
   const activePurchaseStatus = (unitProductId: number): PurchaseStatus | undefined =>
     purchases.find(
-      (purchase) => purchase.status !== 'REJECTED' && purchase.lines.some((line) => line.unitProductId === unitProductId),
+      (purchase) =>
+        (purchase.status === 'PENDING' || purchase.status === 'APPROVED') &&
+        purchase.lines.some((line) => line.unitProductId === unitProductId),
     )?.status;
   const hasActiveEventEffectPurchase = (unitProductId: number) => activePurchaseStatus(unitProductId) !== undefined;
 
@@ -1010,6 +1016,9 @@ export const UserCeremonyEdit: FC = () => {
                       <p className="text-xs text-gray-400">{formatDateTime(purchase.createdAt)}</p>
                       {purchase.status === 'REJECTED' && purchase.rejectionReason && (
                         <p className="mt-0.5 text-xs text-red-600">{purchase.rejectionReason}</p>
+                      )}
+                      {purchase.status === 'CANCELLED' && purchase.cancellationReason && (
+                        <p className="mt-0.5 text-xs text-gray-500">취소됨: {purchase.cancellationReason}</p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
