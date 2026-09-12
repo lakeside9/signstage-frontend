@@ -29,14 +29,13 @@ const inputClass =
 const formatRequestedAt = (value: string) => `${value.slice(0, 10)} ${value.slice(11, 16)}`;
 
 /**
- * 00:00~23:30 30분 단위 시각 목록("00:00", "00:30", ..., "23:30", 48개). 현장지원은
- * 새벽 이동/설치처럼 `EventDateTimeInput`의 07:00~23:00 현장 운영 시간대 제한이 맞지
- * 않을 수 있어 하루 전체를 열어둔다(사용자 요청, 2026-09-12 — 날짜는 달력, 시간은 30분
- * 단위 선택).
+ * 07:00~20:00 30분 단위 시각 목록("07:00", "07:30", ..., "20:00", 27개) — 현장지원
+ * 요청 가능 시간대(사용자 요청, 2026-09-12).
  */
-const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
-  const hh = String(Math.floor(i / 2)).padStart(2, '0');
-  const mm = i % 2 === 0 ? '00' : '30';
+const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 27 }, (_, i) => {
+  const totalMinutes = 7 * 60 + i * 30;
+  const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const mm = String(totalMinutes % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 });
 
@@ -48,10 +47,9 @@ const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
  * 관리자가 값을 매김 → 요청자가 수락/거부" 협상 패턴. 수락 시 만들어지는 구매는 "플랫폼
  * 이용료" 탭 총계·구매 이력에 곧바로 반영된다(구매 원장은 카테고리와 무관하게 전량 집계).
  *
- * <p>희망 일시는 날짜(달력)와 시간(30분 단위 드롭다운, `REQUEST_TIME_OPTIONS`)을 따로 받아
- * 합친다(사용자 요청, 2026-09-12) — `EventDateTimeInput.tsx`와 같은 원칙이지만, 그 컴포넌트의
- * 07:00~23:00 제한(하위 행사 현장 운영 시간대 전용)은 이 화면에 맞지 않아(새벽 이동/설치 등도
- * 있을 수 있음) 재사용하지 않고 00:00~23:30 전체 하루를 로컬에 따로 구현했다.
+ * <p>희망 일시는 날짜(달력)와 시간(30분 단위 드롭다운, `REQUEST_TIME_OPTIONS`, 07:00~20:00)을
+ * 따로 받아 합친다(사용자 요청, 2026-09-12) — `EventDateTimeInput.tsx`와 같은 원칙이지만
+ * 시간대 범위가 달라(그 컴포넌트는 07:00~23:00) 재사용하지 않고 로컬에 따로 구현했다.
  */
 export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyId: string }> = ({ organizationId, ceremonyId }) => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
