@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { ChevronDown, ChevronUp, HelpCircle, Loader2 } from 'lucide-react';
+import { SanitizedHtml } from '../components/SanitizedHtml';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { FaqSummary } from '../types';
@@ -8,7 +9,9 @@ import type { FaqSummary } from '../types';
 /**
  * FAQ(파트너 쪽 조회) — signstage-docs business/partner-support-center-review.md 4.3절.
  * 조직 스코프가 없는 전역 카탈로그 조회라 API는 카테고리별로 그룹핑하지 않은 평평한
- * 목록을 내려주고(9장 결정 #3), 카테고리별 아코디언 그룹핑은 이 화면이 한다.
+ * 목록을 내려주고(9장 결정 #3), 카테고리별 아코디언 그룹핑은 이 화면이 한다. `answer`는
+ * 관리자가 `HtmlEditor.tsx`로 작성한 HTML 문자열이라 `SanitizedHtml.tsx`로 렌더링한다
+ * (2026-09-12 사용자 요청).
  */
 export const UserFaqList: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
@@ -78,7 +81,7 @@ export const UserFaqList: FC = () => {
                           <ChevronDown size={16} className="shrink-0 text-gray-400" />
                         )}
                       </button>
-                      {isOpen && <p className="px-4 pb-4 text-sm text-gray-600 whitespace-pre-wrap">{faq.answer}</p>}
+                      {isOpen && <SanitizedHtml html={faq.answer} className="px-4 pb-4 text-sm text-gray-600" />}
                     </div>
                   );
                 })}

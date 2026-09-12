@@ -3,6 +3,8 @@ import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { HtmlEditor } from '../components/HtmlEditor';
+import { isHtmlContentEmpty } from '../utils/htmlContent';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { FaqSummary, UpdateFaqRequest } from '../types';
@@ -14,6 +16,7 @@ const inputClass =
  * FAQ 수정(`/admin/faqs/:faqId/edit`) — signstage-docs
  * business/partner-support-center-review.md 4장. 관리자 상세 조회(`GET .../faqs/{id}`)는
  * 활성 여부와 무관하게 반환한다 — 비활성 FAQ도 여기서 다시 활성화할 수 있어야 한다.
+ * "답변"은 HTML 리치 텍스트 에디터(`HtmlEditor.tsx`)로 입력받는다(2026-09-12 사용자 요청).
  */
 export const AdminFaqEdit: FC = () => {
   const { faqId } = useParams<{ faqId: string }>();
@@ -55,7 +58,7 @@ export const AdminFaqEdit: FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!question.trim() || !answer.trim()) return;
+    if (!question.trim() || isHtmlContentEmpty(answer)) return;
     setIsSaving(true);
     try {
       await api.put(`/platform-admin/faqs/${faqId}`, {
@@ -88,7 +91,7 @@ export const AdminFaqEdit: FC = () => {
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 max-w-lg">
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
             <input
@@ -105,13 +108,7 @@ export const AdminFaqEdit: FC = () => {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">답변</label>
-            <textarea
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              disabled={isSaving}
-              rows={6}
-              className={`${inputClass} resize-none`}
-            />
+            <HtmlEditor value={answer} onChange={setAnswer} disabled={isSaving} placeholder="답변 내용을 입력하세요" />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} disabled={isSaving} />
@@ -121,7 +118,7 @@ export const AdminFaqEdit: FC = () => {
             <Button to="/admin/faqs" variant="secondary">
               취소
             </Button>
-            <Button type="submit" disabled={isSaving || !question.trim() || !answer.trim()}>
+            <Button type="submit" disabled={isSaving || !question.trim() || isHtmlContentEmpty(answer)}>
               {isSaving ? '저장 중...' : '저장'}
             </Button>
           </div>

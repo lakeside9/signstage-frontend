@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Megaphone, Pin } from 'lucide-react';
+import { SanitizedHtml } from '../components/SanitizedHtml';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
@@ -9,7 +10,8 @@ import type { AnnouncementSummary } from '../types';
 /**
  * 공지사항(파트너 쪽 조회) — signstage-docs business/partner-support-center-review.md 3.3절.
  * v1은 플랫폼 전체 공개만 지원한다(조직별 타겟팅 없음). 활성 공지만 고정 우선 + 최신순으로
- * 내려온다(서버가 이미 정렬).
+ * 내려온다(서버가 이미 정렬). `content`는 관리자가 `HtmlEditor.tsx`로 작성한 HTML
+ * 문자열이라 `SanitizedHtml.tsx`로 렌더링한다(2026-09-12 사용자 요청).
  */
 export const UserAnnouncementList: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
@@ -71,7 +73,7 @@ export const UserAnnouncementList: FC = () => {
                     {isOpen ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                   </span>
                 </button>
-                {isOpen && <p className="px-4 pb-4 text-sm text-gray-600 whitespace-pre-wrap">{announcement.content}</p>}
+                {isOpen && <SanitizedHtml html={announcement.content} className="px-4 pb-4 text-sm text-gray-600" />}
               </div>
             );
           })}

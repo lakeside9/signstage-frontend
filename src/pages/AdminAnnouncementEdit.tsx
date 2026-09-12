@@ -3,6 +3,8 @@ import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { HtmlEditor } from '../components/HtmlEditor';
+import { isHtmlContentEmpty } from '../utils/htmlContent';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { AnnouncementSummary, UpdateAnnouncementRequest } from '../types';
@@ -14,6 +16,7 @@ const inputClass =
  * 공지사항 수정(`/admin/announcements/:announcementId/edit`) — signstage-docs
  * business/partner-support-center-review.md 3장. 관리자 상세 조회(`GET .../announcements/{id}`)
  * 는 활성 여부와 무관하게 반환한다 — 비활성 공지도 여기서 다시 활성화할 수 있어야 한다.
+ * "내용"은 HTML 리치 텍스트 에디터(`HtmlEditor.tsx`)로 입력받는다(2026-09-12 사용자 요청).
  */
 export const AdminAnnouncementEdit: FC = () => {
   const { announcementId } = useParams<{ announcementId: string }>();
@@ -55,7 +58,7 @@ export const AdminAnnouncementEdit: FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!title.trim() || isHtmlContentEmpty(content)) return;
     setIsSaving(true);
     try {
       await api.put(`/platform-admin/announcements/${announcementId}`, {
@@ -88,20 +91,14 @@ export const AdminAnnouncementEdit: FC = () => {
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 max-w-lg">
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isSaving} className={inputClass} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">내용</label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={isSaving}
-              rows={7}
-              className={`${inputClass} resize-none`}
-            />
+            <HtmlEditor value={content} onChange={setContent} disabled={isSaving} placeholder="공지 내용을 입력하세요" />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} disabled={isSaving} />
@@ -115,7 +112,7 @@ export const AdminAnnouncementEdit: FC = () => {
             <Button to="/admin/announcements" variant="secondary">
               취소
             </Button>
-            <Button type="submit" disabled={isSaving || !title.trim() || !content.trim()}>
+            <Button type="submit" disabled={isSaving || !title.trim() || isHtmlContentEmpty(content)}>
               {isSaving ? '저장 중...' : '저장'}
             </Button>
           </div>
