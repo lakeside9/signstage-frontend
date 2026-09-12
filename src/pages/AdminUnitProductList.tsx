@@ -177,6 +177,7 @@ export const AdminUnitProductList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">이름</th>
               <th className="text-left px-4 py-3 font-medium">분류</th>
               <th className="text-left px-4 py-3 font-medium">배타 그룹</th>
+              <th className="text-left px-4 py-3 font-medium">최대 구매 수량</th>
               <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
@@ -217,6 +218,13 @@ export const AdminUnitProductList: FC = () => {
                 </td>
                 <td className="px-4 py-3 text-gray-600">{UNIT_PRODUCT_CATEGORY_LABEL[product.category] ?? product.category}</td>
                 <td className="px-4 py-3 text-gray-500">{product.exclusivityGroup ?? '—'}</td>
+                <td className="px-4 py-3 text-gray-500">
+                  {product.type === 'EVENT_EFFECT_BUNDLE'
+                    ? '1개(고정)'
+                    : product.maxPurchaseQuantity === null
+                      ? '무제한'
+                      : `${product.maxPurchaseQuantity}개`}
+                </td>
                 <td className="px-4 py-3 text-gray-600">
                   {product.salePrice === null
                     ? '-'
