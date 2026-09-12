@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
-import { EffectDefinitionPicker, ExclusivityGroupField, Field, PeriodStatusBadge, UsageWarning } from './billingCatalog/components';
+import { EffectDefinitionPicker, ExclusivityGroupField, Field, PeriodStatusBadge, PlatformUsageFeeField, UsageWarning } from './billingCatalog/components';
 import {
   UNIT_PRODUCT_CATEGORY_OPTIONS,
   UNIT_PRODUCT_TYPE_LABEL,
@@ -59,6 +59,7 @@ export const AdminUnitProductEdit: FC = () => {
             exclusivityGroup: found.exclusivityGroup ?? '',
             maxPurchaseQuantity: found.maxPurchaseQuantity,
             category: found.category,
+            platformUsageFee: found.platformUsageFee,
             effectDefinitionIds: found.effectDefinitionIds,
           });
         }
@@ -167,6 +168,11 @@ export const AdminUnitProductEdit: FC = () => {
                 ))}
               </select>
             </Field>
+            <PlatformUsageFeeField
+              platformUsageFee={draft.platformUsageFee}
+              disabled={isSaving}
+              onChange={(platformUsageFee) => setDraft((prev) => prev && { ...prev, platformUsageFee })}
+            />
             {product.type === 'EVENT_EFFECT_BUNDLE' ? (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}

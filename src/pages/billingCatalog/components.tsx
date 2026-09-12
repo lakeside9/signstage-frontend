@@ -222,6 +222,31 @@ export const ActiveField: FC<{ active: boolean; disabled: boolean; onChange: (ac
   </Field>
 );
 
+/**
+ * 플랫폼 이용료 대상 여부 — 카테고리와 별개인 명시적 분류(2026-09-12, signstage-docs
+ * business/onsite-support-negotiation-and-billing-classification-review.md 3.1절 결정).
+ * 대부분은 분류(필수/애플리케이션 ↔ 장비/인력)와 일치하지만, 관리자가 필요하면 자유롭게
+ * override할 수 있다 — 예를 들어 현장지원 요청(관리자 견적) 전용 상품은 분류가 인력이지만
+ * 플랫폼 이용료 대상이다.
+ */
+export const PlatformUsageFeeField: FC<{
+  platformUsageFee: boolean;
+  disabled: boolean;
+  onChange: (platformUsageFee: boolean) => void;
+}> = ({ platformUsageFee, disabled, onChange }) => (
+  <Field label="과금 대상">
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
+      <input
+        type="checkbox"
+        checked={platformUsageFee}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {platformUsageFee ? '플랫폼 이용료' : '파트너 자율가(고객 정산)'}
+    </label>
+  </Field>
+);
+
 /** 목록의 "상태" 열이 쓰는 배지 — 오늘 기준 유효한 판매가격 기간의 상태를 보여준다. */
 export const PeriodStatusBadge: FC<{ status: string }> = ({ status }) => (
   <span

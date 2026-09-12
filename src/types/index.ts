@@ -503,6 +503,13 @@ export interface UnitProductSummary {
    */
   maxPurchaseQuantity: number | null;
   category: UnitProductCategory;
+  /**
+   * 플랫폼 이용료 대상인지 — 카테고리와 별개인 명시적 분류다(2026-09-12, signstage-docs
+   * business/onsite-support-negotiation-and-billing-classification-review.md 3.1절 결정).
+   * 대부분은 카테고리와 일치하지만(ESSENTIAL/APPLICATION=true, EQUIPMENT/PERSONNEL=false),
+   * 관리자가 등록/수정 시 override할 수 있다.
+   */
+  platformUsageFee: boolean;
   /** 이 단위 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
   /** 이 묶음이 여는 이벤트 효과 id 목록. `type`이 `EVENT_EFFECT_BUNDLE`가 아니면 항상 빈 배열이다. */
@@ -541,6 +548,7 @@ export interface UnitProductHistorySummary {
   category: UnitProductCategory;
   exclusivityGroup: string | null;
   maxPurchaseQuantity: number | null;
+  platformUsageFee: boolean;
   createdBy: number;
   createdAt: string;
 }
@@ -561,6 +569,12 @@ export interface CreateUnitProductRequest {
    * 사용자 요청). `type === 'EVENT_EFFECT_BUNDLE'`이면 보내도 무시된다.
    */
   maxPurchaseQuantity?: number | null;
+  /**
+   * 플랫폼 이용료 대상인지 — 생략하면(undefined) 카테고리로부터 자동 계산한다
+   * (ESSENTIAL/APPLICATION=true, EQUIPMENT/PERSONNEL=false). 명시하면 그 값을 우선한다
+   * (2026-09-12 사용자 요청 — 분류체계 명시화).
+   */
+  platformUsageFee?: boolean | null;
   currencyCode?: string;
   supplyPrice: number | null;
   salePrice: number;
@@ -587,6 +601,8 @@ export interface UpdateUnitProductRequest {
   exclusivityGroup: string | null;
   /** 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. null이면 무제한. `EVENT_EFFECT_BUNDLE`이면 보내도 무시된다. */
   maxPurchaseQuantity: number | null;
+  /** 플랫폼 이용료 대상인지 — 수정 화면은 항상 값을 보낸다(생략 불가). 관리자가 자유롭게 override할 수 있다. */
+  platformUsageFee: boolean;
   category: UnitProductCategory;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —

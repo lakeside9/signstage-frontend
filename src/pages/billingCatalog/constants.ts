@@ -74,6 +74,16 @@ export const DEFAULT_CATEGORY_BY_TYPE: Record<UnitProductType, UnitProductCatego
 };
 
 /**
+ * 카테고리로부터 "플랫폼 이용료" 기본값을 제안한다 — 백엔드
+ * `UnitProductCategory#isSystemUsageFee()`의 기본 계산과 같은 규칙이다(2026-09-12, signstage-docs
+ * business/onsite-support-negotiation-and-billing-classification-review.md 3.1절). 등록/수정
+ * 폼이 카테고리를 고르면 미리 채워주는 제안값일 뿐 — 관리자가 체크박스로 자유롭게 override할
+ * 수 있다.
+ */
+export const defaultPlatformUsageFeeByCategory = (category: UnitProductCategory): boolean =>
+  category === 'ESSENTIAL' || category === 'APPLICATION';
+
+/**
  * 필수 5종 — 플랜 목록 화면의 "한도(서명자/템플릿/테스트/리허설/본행사)" 요약 열이 고정 순서로
  * 보여주는 데 쓴다(`AdminBillingPlanList.tsx`). 예전엔 이 5종만 기본 포함 수량을 가질 수 있다는
  * 제약(`PLAN_INCLUDABLE_UNIT_PRODUCT_TYPES`)과 같은 목록이었지만, 그 제약은 폐지됐다 — 지금은

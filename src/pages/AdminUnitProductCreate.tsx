@@ -6,12 +6,13 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, EffectDefinitionPicker, ExclusivityGroupField, Field } from './billingCatalog/components';
+import { ActiveField, EffectDefinitionPicker, ExclusivityGroupField, Field, PlatformUsageFeeField } from './billingCatalog/components';
 import {
   DEFAULT_CATEGORY_BY_TYPE,
   UNIT_PRODUCT_CATEGORY_OPTIONS,
   UNIT_PRODUCT_TYPE_LABEL,
   UNIT_PRODUCT_TYPE_OPTIONS,
+  defaultPlatformUsageFeeByCategory,
   inputClass,
   normalizeDescription,
   normalizeExclusivityGroup,
@@ -21,13 +22,15 @@ import type { CeremonyEffectDefinition, CreateUnitProductRequest, UnitProductCat
 
 const EMPTY_DRAFT = (): CreateUnitProductRequest => {
   const type = UNIT_PRODUCT_TYPE_OPTIONS[0].value;
+  const category = DEFAULT_CATEGORY_BY_TYPE[type];
   return {
     type,
     name: '',
     description: '',
-    category: DEFAULT_CATEGORY_BY_TYPE[type],
+    category,
     exclusivityGroup: '',
     maxPurchaseQuantity: null,
+    platformUsageFee: defaultPlatformUsageFeeByCategory(category),
     currencyCode: 'KRW',
     supplyPrice: null,
     salePrice: 0,
@@ -141,7 +144,8 @@ export const AdminUnitProductCreate: FC = () => {
                 value={draft.type}
                 onChange={(e) => {
                   const type = e.target.value as UnitProductType;
-                  setDraft((prev) => ({ ...prev, type, category: DEFAULT_CATEGORY_BY_TYPE[type] ?? prev.category }));
+                  const category = DEFAULT_CATEGORY_BY_TYPE[type] ?? draft.category;
+                  setDraft((prev) => ({ ...prev, type, category, platformUsageFee: defaultPlatformUsageFeeByCategory(category) }));
                 }}
                 disabled={isLoading}
                 className={inputClass}
@@ -223,7 +227,10 @@ export const AdminUnitProductCreate: FC = () => {
             <Field label="분류">
               <select
                 value={draft.category}
-                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as UnitProductCategory }))}
+                onChange={(e) => {
+                  const category = e.target.value as UnitProductCategory;
+                  setDraft((prev) => ({ ...prev, category, platformUsageFee: defaultPlatformUsageFeeByCategory(category) }));
+                }}
                 disabled={isLoading}
                 className={inputClass}
               >
@@ -234,6 +241,11 @@ export const AdminUnitProductCreate: FC = () => {
                 ))}
               </select>
             </Field>
+            <PlatformUsageFeeField
+              platformUsageFee={draft.platformUsageFee ?? false}
+              disabled={isLoading}
+              onChange={(platformUsageFee) => setDraft((prev) => ({ ...prev, platformUsageFee }))}
+            />
             {draft.type === 'EVENT_EFFECT_BUNDLE' ? (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}

@@ -158,6 +158,7 @@ export const AdminUnitProductDetail: FC = () => {
             />
             <DetailRow label="상태" value={<PeriodStatusBadge status={product.periodStatus} />} />
             <DetailRow label="분류" value={UNIT_PRODUCT_CATEGORY_LABEL[product.category] ?? product.category} />
+            <DetailRow label="과금 대상" value={product.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가(고객 정산)'} />
             <DetailRow label="배타 그룹" value={product.exclusivityGroup ?? '없음'} />
             {product.type === 'EVENT_EFFECT_BUNDLE' ? (
               <DetailRow label="여는 이벤트 효과" value={product.effectDefinitionIds.map(effectName).join(', ') || '없음'} />
@@ -192,6 +193,8 @@ export const AdminUnitProductDetail: FC = () => {
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {UNIT_PRODUCT_CATEGORY_LABEL[h.category] ?? h.category}
+                  {' · '}
+                  {h.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가'}
                   {h.exclusivityGroup && ` · 배타 그룹: ${h.exclusivityGroup}`}
                   {h.maxPurchaseQuantity !== null && ` · 최대 구매 수량: ${h.maxPurchaseQuantity}개`}
                 </p>
