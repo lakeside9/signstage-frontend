@@ -856,6 +856,18 @@ export interface CeremonyDiscountSummary {
 export interface CreateCeremonyRequest {
   billingPlanId?: number;
   title: string;
+  /**
+   * title 외 나머지 항목은 전부 선택 입력이다(2026-09-12 사용자 요청 — 등록 화면에서 제목만
+   * 우선 받던 것을 나머지 정보도 함께 받을 수 있게 확장). {@link UpdateCeremonyRequest}와 같은
+   * 필드 구성 — 생략해도 나중에 수정 화면에서 채울 수 있다.
+   */
+  description?: string | null;
+  organizingInstitution?: string | null;
+  organizingDepartment?: string | null;
+  contactName?: string | null;
+  contactTitle?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
 }
 
 /**
