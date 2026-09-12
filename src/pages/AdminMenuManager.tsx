@@ -21,6 +21,7 @@ import {
   LifeBuoy,
   ListChecks,
   Loader2,
+  MapPin,
   Megaphone,
   MessageCircleQuestion,
   Package,
@@ -79,6 +80,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   HelpCircle: <HelpCircle size={14} />,
   Megaphone: <Megaphone size={14} />,
   MessageCircleQuestion: <MessageCircleQuestion size={14} />,
+  MapPin: <MapPin size={14} />,
 };
 const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
 const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;

@@ -16,6 +16,7 @@ import {
   FileSignature,
   FileText,
   Loader2,
+  MapPin,
   MessageCircleQuestion,
   Pencil,
   Plus,
@@ -177,11 +178,14 @@ const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPA
  * (행사 수정 화면)로 분리했다. 섹션마다 독립적으로 불러오고 실패해도 서로 막지 않는다
  * (AdminOrganizationDetail과 같은 패턴).
  *
- * <p>타이틀 줄의 버튼 4개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
- * `UserCeremonyEdit`의 탭 4개(행사 수정/플랫폼 이용료/고객 견적/문의)마다 `?tab=` 쿼리로 바로
- * 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록 했다. "문의" 버튼은
- * 행사별 1:1 문의(signstage-docs business/partner-support-center-review.md 5장) 구현과
- * 함께 같은 날 이어 붙였다.
+ * <p>타이틀 줄의 버튼 5개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
+ * `UserCeremonyEdit`의 탭 5개(행사 수정/플랫폼 이용료/고객 견적/현장지원 요청/문의)마다
+ * `?tab=` 쿼리로 바로 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록
+ * 했다. "문의" 버튼은 행사별 1:1 문의(signstage-docs
+ * business/partner-support-center-review.md 5장) 구현과 함께 같은 날 이어 붙였고, "현장지원
+ * 요청" 버튼은 관리자 견적 협상 플로우(signstage-docs
+ * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절) 구현과
+ * 함께 그 다음으로 이어 붙였다.
  */
 export const UserCeremonyDetail: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
@@ -996,6 +1000,13 @@ export const UserCeremonyDetail: FC = () => {
           >
             <Banknote size={16} />
             고객 견적
+          </Link>
+          <Link
+            to={`${detailPath}/edit?tab=onsiteSupportRequests`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+          >
+            <MapPin size={16} />
+            현장지원 요청
           </Link>
           <Link
             to={`${detailPath}/edit?tab=inquiries`}

@@ -20,6 +20,7 @@ import {
   Link as LinkIcon,
   ListChecks,
   LogOut,
+  MapPin,
   Megaphone,
   Menu,
   MessageCircleQuestion,
@@ -79,6 +80,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   HelpCircle: <HelpCircle size={20} />,
   Megaphone: <Megaphone size={20} />,
   MessageCircleQuestion: <MessageCircleQuestion size={20} />,
+  MapPin: <MapPin size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

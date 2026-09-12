@@ -414,6 +414,12 @@ export type DiscountType = 'PERCENT' | 'FIXED_AMOUNT';
  *
  * `EVENT_EFFECT_BUNDLE`은 한 타입을 여러 `UnitProductSummary` 행이 공유한다(예: "3종"/"5종"
  * 묶음, 3.6절) — 묶음이 실제로 여는 효과 목록은 각 행의 `effectDefinitionIds`가 갖는다.
+ *
+ * `ONSITE_SUPPORT_REQUEST`는 현장지원 요청(관리자 견적) 협상 플로우 전용 앵커 상품 타입이다
+ * (signstage-docs business/onsite-support-negotiation-and-billing-classification-review.md
+ * 3.2절, 2026-09-12) — 마이그레이션이 정확히 1행만 시딩하고, 관리자가 카탈로그에서 직접 새
+ * 행을 만들 수 없게 `UNIT_PRODUCT_TYPE_OPTIONS`(등록 화면 드롭다운)에서는 의도적으로 뺐다.
+ * 응답 타입 안전을 위해 유니온에는 포함한다.
  */
 export type UnitProductType =
   | 'SIGNERS'
@@ -424,7 +430,8 @@ export type UnitProductType =
   | 'TABLETS'
   | 'ONSITE_SUPPORT'
   | 'ONLINE_SUPPORT'
-  | 'EVENT_EFFECT_BUNDLE';
+  | 'EVENT_EFFECT_BUNDLE'
+  | 'ONSITE_SUPPORT_REQUEST';
 
 /**
  * feature.ceremony.entity.UnitProductCategory 값과 맞춘다. 옛 `OptionalFeatureCategory`
@@ -2076,4 +2083,59 @@ export interface PlatformAdminCeremonyInquiryDetail {
   lastMessageAt: string;
   createdAt: string;
   messages: CeremonyInquiryMessageSummary[];
+}
+
+/**
+ * 현장지원 요청(관리자 견적) 협상 상태(feature.ceremony.entity.OnsiteSupportRequestStatus) —
+ * signstage-docs business/onsite-support-negotiation-and-billing-classification-review.md
+ * 3.2절(2026-09-12). "요청 → 관리자가 값을 매김 → 요청자가 수락/거부" 흐름:
+ * REQUESTED(파트너 요청) → QUOTED(관리자 견적) → ACCEPTED/DECLINED(파트너 응답, 종결).
+ */
+export type OnsiteSupportRequestStatus = 'REQUESTED' | 'QUOTED' | 'ACCEPTED' | 'DECLINED';
+
+/** 파트너 쪽 GET/POST .../onsite-support-requests 응답(CeremonyOnsiteSupportRequestDto.Response.RequestSummary)과 맞춘다. */
+export interface CeremonyOnsiteSupportRequestSummary {
+  id: number;
+  ceremonyId: number;
+  requestedAt: string;
+  location: string;
+  requesterNote: string | null;
+  status: OnsiteSupportRequestStatus;
+  quotedAmount: number | null;
+  quotedNote: string | null;
+  quotedAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateOnsiteSupportRequestRequest {
+  requestedAt: string;
+  location: string;
+  requesterNote?: string;
+}
+
+/** 플랫폼 관리자 쪽 GET /api/platform-admin/onsite-support-requests 응답(PlatformAdminOnsiteSupportRequestDto.Response.RequestSummary)과 맞춘다. */
+export interface PlatformAdminOnsiteSupportRequestSummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  ceremonyId: number;
+  ceremonyTitle: string;
+  requesterLoginId: string | null;
+  requesterName: string | null;
+  requestedAt: string;
+  location: string;
+  requesterNote: string | null;
+  status: OnsiteSupportRequestStatus;
+  quotedAmount: number | null;
+  quotedNote: string | null;
+  quotedByLoginId: string | null;
+  quotedAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
+export interface QuoteOnsiteSupportRequestRequest {
+  quotedAmount: number;
+  quotedNote?: string;
 }

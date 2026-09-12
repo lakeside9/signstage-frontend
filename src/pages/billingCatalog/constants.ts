@@ -32,7 +32,11 @@ export const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }
   { value: 'FIXED_AMOUNT', label: '정액' },
 ];
 
-/** feature.ceremony.entity.UnitProductType 9종 전체 — 관리자가 등록 시 자유롭게 고른다(등록 가능 제한 없음). */
+/**
+ * feature.ceremony.entity.UnitProductType 중 관리자가 카탈로그 등록 화면에서 자유롭게 고를 수
+ * 있는 9종 — `ONSITE_SUPPORT_REQUEST`(현장지원 요청 협상 플로우 전용 앵커, 3.2절)는 마이그레이션이
+ * 정확히 1행만 시딩하고 관리자가 둘째 행을 만들 수 없어야 하므로 이 목록에서 의도적으로 뺐다.
+ */
 export const UNIT_PRODUCT_TYPE_OPTIONS: Array<{ value: UnitProductType; label: string }> = [
   { value: 'SIGNERS', label: '서명자' },
   { value: 'TEMPLATES', label: '템플릿' },
@@ -45,9 +49,12 @@ export const UNIT_PRODUCT_TYPE_OPTIONS: Array<{ value: UnitProductType; label: s
   { value: 'EVENT_EFFECT_BUNDLE', label: '이벤트 효과 묶음' },
 ];
 
-export const UNIT_PRODUCT_TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  UNIT_PRODUCT_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-);
+export const UNIT_PRODUCT_TYPE_LABEL: Record<string, string> = {
+  ...Object.fromEntries(UNIT_PRODUCT_TYPE_OPTIONS.map((option) => [option.value, option.label])),
+  // 카탈로그 등록 드롭다운(UNIT_PRODUCT_TYPE_OPTIONS)에는 없지만, 단위 상품 목록/상세 화면이
+  // 앵커 상품 자체를 표시할 때(예: 관리자가 우연히 그 행을 열어볼 때) 라벨이 필요하다.
+  ONSITE_SUPPORT_REQUEST: '현장지원(요청형)',
+};
 
 export const UNIT_PRODUCT_CATEGORY_OPTIONS: Array<{ value: UnitProductCategory; label: string }> = [
   { value: 'ESSENTIAL', label: '필수' },
@@ -71,6 +78,10 @@ export const DEFAULT_CATEGORY_BY_TYPE: Record<UnitProductType, UnitProductCatego
   ONSITE_SUPPORT: 'PERSONNEL',
   ONLINE_SUPPORT: 'PERSONNEL',
   EVENT_EFFECT_BUNDLE: 'APPLICATION',
+  // 등록 드롭다운(UNIT_PRODUCT_TYPE_OPTIONS)에는 없지만 Record<UnitProductType, ...>가 전체
+  // 키를 요구한다 — 실제로 이 값이 쓰이는 자리는 없다(앵커 상품은 마이그레이션이 이미 카테고리
+  // PERSONNEL로 시딩해뒀고 관리자가 이 타입으로 새로 등록하는 화면 자체가 없다).
+  ONSITE_SUPPORT_REQUEST: 'PERSONNEL',
 };
 
 /**

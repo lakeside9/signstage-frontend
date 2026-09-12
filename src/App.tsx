@@ -43,6 +43,7 @@ import { AdminAnnouncementList } from './pages/AdminAnnouncementList';
 import { AdminAnnouncementCreate } from './pages/AdminAnnouncementCreate';
 import { AdminAnnouncementEdit } from './pages/AdminAnnouncementEdit';
 import { AdminCeremonyInquiries } from './pages/AdminCeremonyInquiries';
+import { AdminOnsiteSupportRequests } from './pages/AdminOnsiteSupportRequests';
 import { UserFaqList } from './pages/UserFaqList';
 import { UserAnnouncementList } from './pages/UserAnnouncementList';
 import { UserDashboard } from './pages/UserDashboard';
@@ -183,6 +184,7 @@ function App() {
           <Route path="announcements/new" element={<AdminAnnouncementCreate />} />
           <Route path="announcements/:announcementId/edit" element={<AdminAnnouncementEdit />} />
           <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
+          <Route path="onsite-support-requests" element={<AdminOnsiteSupportRequests />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
