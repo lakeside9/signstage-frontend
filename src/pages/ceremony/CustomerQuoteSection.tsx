@@ -131,9 +131,19 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         // 다만 사용중지(active=false/null) 상품은 여전히 제외한다 — `UnitProductSummary.active`
         // 주석이 명시한 계약("새 선택/구매 대상에서 제외")을 이 화면만 빠뜨려 사용중지 상품도
         // 그대로 담기던 문제를 고쳤다(2026-09-11, 추가구매 팝업의 `p.active` 필터와 같은 패턴).
+        // platformUsageFee=true인 상품(현장지원 요청 협상 플로우 전용 앵커,
+        // signstage-docs business/onsite-support-negotiation-and-billing-classification-review.md
+        // 3.2절)도 제외한다(2026-09-12 사용자 지적) — 카테고리는 PERSONNEL이라 이 필터를
+        // 그대로 통과했지만, 실제로는 "플랫폼 이용료" 전용이라 파트너가 실고객에게 팔 수 있는
+        // 품목이 아니다. 서버(`CustomerQuoteService#computeQuote`)도 이 값이 true면
+        // CUSTOMER_QUOTE_ITEM_NOT_EQUIPMENT_PERSONNEL로 거부한다 — 화면에서 애초에 못
+        // 고르게 막아 그 에러를 볼 일이 없게 한다.
         setCatalog(
           catalogData.filter(
-            (product) => (product.category === 'EQUIPMENT' || product.category === 'PERSONNEL') && product.active,
+            (product) =>
+              (product.category === 'EQUIPMENT' || product.category === 'PERSONNEL') &&
+              product.active &&
+              !product.platformUsageFee,
           ),
         );
         setQuotes(quotesData);

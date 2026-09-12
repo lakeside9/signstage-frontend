@@ -238,7 +238,9 @@ export const CeremonyInquirySection: FC<{ organizationId: string; ceremonyId: st
         </div>
       )}
 
-      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 문의 등록">
+      {/* widthClassName="max-w-lg" — 나란히 쓰는 "새 현장지원 요청" 팝업(OnsiteSupportRequestSection.tsx)과
+          크기를 맞췄다(2026-09-12 사용자 요청). */}
+      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 문의 등록" widthClassName="max-w-lg">
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
