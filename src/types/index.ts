@@ -1963,6 +1963,34 @@ export interface CustomerQuoteDetail {
   lines: CustomerQuoteLineSummary[];
 }
 
+/**
+ * POST .../customer-quotes/preview 응답(2026-09-12 사용자 요청 — "생성" 버튼은 저장하지 않고
+ * 먼저 계산 결과만 보여주고, "저장" 버튼을 눌러야 실제로 저장한다) — {@link CustomerQuoteDetail}
+ * 과 줄 모양은 같지만 아직 저장된 레코드가 아니라 `id`/`createdByLoginId`/`createdAt`이 없다.
+ * `version`은 "저장하면 몇 번째 버전이 될지" 참고용으로 채워진다.
+ */
+export interface CustomerQuotePreviewSummary {
+  id: null;
+  version: number;
+  currencyCode: string;
+  currencyFractionDigits: number;
+  systemUsageCostAmount: number;
+  marginType: MarginType;
+  marginValue: number;
+  systemUsageMarginAmount: number;
+  systemUsageCustomerAmount: number;
+  equipmentPersonnelCustomerAmount: number;
+  totalCustomerAmount: number;
+  pricingCalculatedAt: string;
+  createdByLoginId: null;
+  createdAt: null;
+}
+
+export interface CustomerQuotePreviewDetail {
+  summary: CustomerQuotePreviewSummary;
+  lines: CustomerQuoteLineSummary[];
+}
+
 // ──────────────────────────── 공지사항/FAQ/행사별 1:1 문의 ────────────────────────────
 // signstage-docs business/partner-support-center-review.md.
 

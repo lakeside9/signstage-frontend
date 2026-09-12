@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ChevronDown, FileCheck, Loader2, Pencil, Trash2, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, FileCheck, Loader2, Pencil, Trash2, X } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import { usePermissionStore } from '../../store/usePermissionStore';
 import { useSnackbarStore } from '../../store/useSnackbarStore';
@@ -8,6 +9,7 @@ import { api } from '../../utils/api';
 import { formatCurrency, formatDateTime } from '../../utils/internationalization';
 import type {
   CustomerQuoteDetail,
+  CustomerQuotePreviewDetail,
   CustomerQuoteSummary,
   EffectiveMargin,
   MarginType,
@@ -65,6 +67,12 @@ const CUSTOM_ITEM_OPTION = '__custom__';
  * <p>견적서 생성은 플랜이 확정된(DRAFT를 벗어난) 행사에서만 할 수 있다(2026-09-11 사용자
  * 요청 — 단위 상품 추가구매와 같은 기준). `isDraft`는 부모(`UserCeremonyEdit`)가 이미 계산해둔
  * 값을 그대로 받는다 — 마진 설정·기존 견적서 열람은 플랜 상태와 무관하게 계속 가능하다.
+ *
+ * <p>"생성" 버튼은 곧바로 저장하지 않는다(2026-09-12 사용자 요청) — 먼저
+ * `POST .../customer-quotes/preview`로 계산 결과만 받아 화면에 보여주고("미리보기"), 그 자리의
+ * "저장" 버튼을 눌러야 실제로 `POST .../customer-quotes`가 저장된다. "닫기" 버튼은 미리보기만
+ * 접고 입력해둔 품목은 그대로 남긴다 — 다시 고쳐서 재생성할 수 있다. 생성된 견적서 각각에도
+ * 삭제 버튼(같은 날 사용자 요청)이 있다 — `DELETE .../customer-quotes/{id}`, 확인 팝업을 거친다.
  */
 export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: string; isDraft: boolean }> = ({
   organizationId,
@@ -89,13 +97,17 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   const [pickerValue, setPickerValue] = useState('');
   /** "+ 기타(직접 입력)" 줄의 로컬 key 생성용 순번 — 렌더 사이에 유지돼야 해서 ref로 둔다. */
   const customLineSeq = useRef(0);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewDetail, setPreviewDetail] = useState<CustomerQuotePreviewDetail | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [quotes, setQuotes] = useState<CustomerQuoteSummary[]>([]);
   const [isQuotesLoading, setIsQuotesLoading] = useState(true);
   const [openId, setOpenId] = useState<number | null>(null);
   const [detailById, setDetailById] = useState<Record<number, CustomerQuoteDetail>>({});
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
@@ -223,24 +235,60 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
       line.customerUnitAmount.trim() !== '' && !Number.isNaN(price) && price >= 0;
   });
 
-  const handleGenerate = async () => {
+  const buildLinesPayload = () =>
+    equipmentPersonnelLines.map((line) => ({
+      unitProductId: line.unitProductId,
+      itemName: line.itemName.trim(),
+      quantity: Number(line.quantity),
+      customerUnitAmount: Number(line.customerUnitAmount),
+    }));
+
+  /** "생성" — 저장하지 않고 계산 결과만 미리 받아 화면에 보여준다(2026-09-12 사용자 요청). */
+  const handlePreview = async () => {
     if (isDraft || !margin || margin.source === 'NONE' || !linesValid) return;
-    setIsGenerating(true);
+    setIsPreviewing(true);
     try {
-      const equipmentPersonnelLinesPayload = equipmentPersonnelLines.map((line) => ({
-        unitProductId: line.unitProductId,
-        itemName: line.itemName.trim(),
-        quantity: Number(line.quantity),
-        customerUnitAmount: Number(line.customerUnitAmount),
-      }));
-      await api.post(`${basePath}/customer-quotes`, { equipmentPersonnelLines: equipmentPersonnelLinesPayload });
-      showSnackbar('고객 견적서를 생성했습니다.', 'success');
+      const response = await api.post(`${basePath}/customer-quotes/preview`, { equipmentPersonnelLines: buildLinesPayload() });
+      setPreviewDetail(response.data as CustomerQuotePreviewDetail);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '고객 견적서 미리보기에 실패했습니다.', 'error');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  /** "저장" — 미리보기와 같은 입력을 그대로 다시 보내 실제로 저장한다. */
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await api.post(`${basePath}/customer-quotes`, { equipmentPersonnelLines: buildLinesPayload() });
+      showSnackbar('고객 견적서를 저장했습니다.', 'success');
       setEquipmentPersonnelLines([]);
+      setPreviewDetail(null);
       setQuotes(await fetchQuotes());
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '고객 견적서 생성에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '고객 견적서 저장에 실패했습니다.', 'error');
     } finally {
-      setIsGenerating(false);
+      setIsSaving(false);
+    }
+  };
+
+  /** "닫기" — 저장하지 않고 미리보기만 접는다. 입력해둔 품목은 그대로 남아 다시 고쳐 재생성할 수 있다. */
+  const handleClosePreview = () => setPreviewDetail(null);
+
+  const handleDeleteQuote = async () => {
+    if (deleteTargetId === null) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`${basePath}/customer-quotes/${deleteTargetId}`);
+      if (openId === deleteTargetId) setOpenId(null);
+      setDeleteTargetId(null);
+      setQuotes(await fetchQuotes());
+      showSnackbar('고객 견적서를 삭제했습니다.', 'success');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '고객 견적서 삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -374,6 +422,62 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
         <h3 className="text-xs font-bold text-gray-700 mb-2">장비/인력</h3>
         {isDraft ? (
           <p className="text-sm text-gray-500">플랜을 확정한 후 고객 견적서를 생성할 수 있습니다.</p>
+        ) : previewDetail ? (
+          <div className="rounded-md bg-blue-50 border border-blue-100 p-3">
+            <p className="text-xs font-medium text-blue-900 mb-2">
+              아직 저장되지 않았습니다 — 아래 내용을 확인한 후 "저장"을 눌러야 실제로 저장됩니다.
+            </p>
+            <table className="w-full text-xs">
+              <thead className="text-gray-400">
+                <tr>
+                  <th className="text-left font-medium pb-1">항목</th>
+                  <th className="text-right font-medium pb-1">수량</th>
+                  <th className="text-right font-medium pb-1">단가</th>
+                  <th className="text-right font-medium pb-1">합계</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-blue-100">
+                {previewDetail.lines.map((line, index) => (
+                  <tr key={index}>
+                    <td className="py-1 text-gray-700">{line.itemName}</td>
+                    <td className="py-1 text-right text-gray-700">{line.quantity}</td>
+                    <td className="py-1 text-right text-gray-700">
+                      {formatCurrency(line.customerUnitAmount, previewDetail.summary.currencyCode)}
+                    </td>
+                    <td className="py-1 text-right font-medium text-gray-950">
+                      {formatCurrency(line.customerAmount, previewDetail.summary.currencyCode)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-2 flex items-center justify-between border-t border-blue-100 pt-2">
+              <span className="text-xs font-medium text-blue-900">총 견적 금액</span>
+              <span className="text-sm font-bold text-gray-950">
+                {formatCurrency(previewDetail.summary.totalCustomerAmount, previewDetail.summary.currencyCode)}
+              </span>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleClosePreview}
+                disabled={isSaving}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-40"
+              >
+                <X size={12} />
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+              >
+                <CheckCircle2 size={12} />
+                {isSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
         ) : isCatalogLoading ? (
           <div className="flex items-center justify-center py-4 text-gray-400">
             <Loader2 size={16} className="animate-spin" />
@@ -452,14 +556,14 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           </>
         )}
 
-        {!isDraft && (
+        {!isDraft && !previewDetail && (
           <div className="mt-3 flex justify-end">
             <button
-              onClick={handleGenerate}
-              disabled={isGenerating || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
+              onClick={handlePreview}
+              disabled={isPreviewing || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
               className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
             >
-              {isGenerating ? '생성 중...' : '고객 견적서 생성'}
+              {isPreviewing ? '생성 중...' : '고객 견적서 생성'}
             </button>
           </div>
         )}
@@ -481,20 +585,29 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
               const detail = detailById[quote.id];
               return (
                 <div key={quote.id} className="py-2">
-                  <button onClick={() => toggleDetail(quote.id)} className="flex w-full items-center justify-between text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-950">v{quote.version}</span>
-                      <span className="text-xs text-gray-400">
-                        {quote.createdByLoginId} · {formatDateTime(quote.createdAt)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-950">
-                        {formatCurrency(quote.totalCustomerAmount, quote.currencyCode)}
-                      </span>
-                      <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </div>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => toggleDetail(quote.id)} className="flex flex-1 items-center justify-between text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-950">v{quote.version}</span>
+                        <span className="text-xs text-gray-400">
+                          {quote.createdByLoginId} · {formatDateTime(quote.createdAt)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-950">
+                          {formatCurrency(quote.totalCustomerAmount, quote.currencyCode)}
+                        </span>
+                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setDeleteTargetId(quote.id)}
+                      className="text-gray-400 hover:text-red-600 shrink-0"
+                      aria-label="견적서 삭제"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
 
                   {isOpen && (
                     <div className="mt-2 rounded-md bg-gray-50 p-3">
@@ -536,6 +649,15 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        title="고객 견적서 삭제"
+        message="이 견적서를 삭제하면 되돌릴 수 없습니다. 삭제하시겠습니까?"
+        isSubmitting={isDeleting}
+        onConfirm={handleDeleteQuote}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </section>
   );
 };
