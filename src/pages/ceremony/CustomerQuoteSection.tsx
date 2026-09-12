@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { ChevronDown, FileCheck, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
@@ -25,13 +25,24 @@ const MARGIN_TYPE_LABEL: Record<MarginType, string> = {
   FIXED_AMOUNT: '정액',
 };
 
-/** 장비/인력 고객 견적 줄 — 로컬 편집 상태. 카탈로그에서 고른 시점의 품목명을 그대로 쓴다. */
+/**
+ * 장비/인력 고객 견적 줄 — 로컬 편집 상태. `key`는 화면 안에서만 쓰는 식별자다(카탈로그
+ * 줄은 `catalog-{unitProductId}`, 자유 품목은 `custom-{순번}`) — `unitProductId`가
+ * null인 자유 품목이 여러 개 있을 수 있어(2026-09-12 사용자 요청 — 카탈로그에 없는 기타
+ * 품목도 담을 수 있어야 한다, signstage-docs
+ * business/onsite-support-negotiation-and-billing-classification-review.md 3.3절 결정)
+ * `unitProductId`만으로는 더 이상 줄을 구분할 수 없다. `itemName`은 카탈로그 줄이라도
+ * 자유롭게 고쳐 쓸 수 있다(같은 문서 결정 #6, 카탈로그 이름을 강제하지 않는다).
+ */
 interface EquipmentPersonnelDraftLine {
-  unitProductId: number;
+  key: string;
+  unitProductId: number | null;
   itemName: string;
   quantity: string;
   customerUnitAmount: string;
 }
+
+const CUSTOM_ITEM_OPTION = '__custom__';
 
 /**
  * 행사 수정 화면(`UserCeremonyEdit`)의 "고객 견적" 탭 — signstage-docs
@@ -76,6 +87,8 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [equipmentPersonnelLines, setEquipmentPersonnelLines] = useState<EquipmentPersonnelDraftLine[]>([]);
   const [pickerValue, setPickerValue] = useState('');
+  /** "+ 기타(직접 입력)" 줄의 로컬 key 생성용 순번 — 렌더 사이에 유지돼야 해서 ref로 둔다. */
+  const customLineSeq = useRef(0);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [quotes, setQuotes] = useState<CustomerQuoteSummary[]>([]);
@@ -177,25 +190,36 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           line.unitProductId === unitProductId ? { ...line, quantity: String(Number(line.quantity || '0') + 1) } : line,
         );
       }
-      return [...prev, { unitProductId, itemName: product.name, quantity: '1', customerUnitAmount: '' }];
+      return [
+        ...prev,
+        { key: `catalog-${unitProductId}`, unitProductId, itemName: product.name, quantity: '1', customerUnitAmount: '' },
+      ];
     });
     setPickerValue('');
   };
 
-  const handleRemoveLine = (unitProductId: number) => {
-    setEquipmentPersonnelLines((prev) => prev.filter((line) => line.unitProductId !== unitProductId));
+  /** "+ 기타(직접 입력)" — 카탈로그에 없는 품목(예: 태블릿 받침대)을 이름까지 직접 타이핑해 담는다. */
+  const handleAddCustomLine = () => {
+    setEquipmentPersonnelLines((prev) => [
+      ...prev,
+      { key: `custom-${customLineSeq.current++}`, unitProductId: null, itemName: '', quantity: '1', customerUnitAmount: '' },
+    ]);
+    setPickerValue('');
   };
 
-  const updateLine = (unitProductId: number, patch: Partial<EquipmentPersonnelDraftLine>) => {
-    setEquipmentPersonnelLines((prev) =>
-      prev.map((line) => (line.unitProductId === unitProductId ? { ...line, ...patch } : line)),
-    );
+  const handleRemoveLine = (key: string) => {
+    setEquipmentPersonnelLines((prev) => prev.filter((line) => line.key !== key));
+  };
+
+  const updateLine = (key: string, patch: Partial<EquipmentPersonnelDraftLine>) => {
+    setEquipmentPersonnelLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   };
 
   const linesValid = equipmentPersonnelLines.every((line) => {
     const quantity = Number(line.quantity);
     const price = Number(line.customerUnitAmount);
-    return line.quantity.trim() !== '' && Number.isInteger(quantity) && quantity >= 1 &&
+    return line.itemName.trim() !== '' &&
+      line.quantity.trim() !== '' && Number.isInteger(quantity) && quantity >= 1 &&
       line.customerUnitAmount.trim() !== '' && !Number.isNaN(price) && price >= 0;
   });
 
@@ -205,6 +229,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
     try {
       const equipmentPersonnelLinesPayload = equipmentPersonnelLines.map((line) => ({
         unitProductId: line.unitProductId,
+        itemName: line.itemName.trim(),
         quantity: Number(line.quantity),
         customerUnitAmount: Number(line.customerUnitAmount),
       }));
@@ -359,11 +384,16 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
               <select
                 value={pickerValue}
                 onChange={(e) => {
-                  if (e.target.value) handleAddLine(Number(e.target.value));
+                  if (e.target.value === CUSTOM_ITEM_OPTION) {
+                    handleAddCustomLine();
+                  } else if (e.target.value) {
+                    handleAddLine(Number(e.target.value));
+                  }
                 }}
                 className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
               >
                 <option value="">+ 품목 추가</option>
+                <option value={CUSTOM_ITEM_OPTION}>+ 기타(직접 입력)</option>
                 {pickableCatalog.map((product) => (
                   <option key={product.id} value={product.id}>
                     {product.name}
@@ -373,17 +403,30 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
             </div>
 
             {equipmentPersonnelLines.length === 0 ? (
-              <p className="text-xs text-gray-400">담긴 품목이 없습니다 — 위 드롭다운에서 태블릿·현장지원 등을 골라 담으세요.</p>
+              <p className="text-xs text-gray-400">
+                담긴 품목이 없습니다 — 위 드롭다운에서 태블릿·현장지원 등을 골라 담거나, "+ 기타(직접 입력)"으로 카탈로그에 없는
+                품목을 직접 추가하세요.
+              </p>
             ) : (
               <div className="space-y-2">
                 {equipmentPersonnelLines.map((line) => (
-                  <div key={line.unitProductId} className="flex items-center gap-2 text-sm">
-                    <span className="flex-1 text-gray-950 truncate">{line.itemName}</span>
+                  <div key={line.key} className="flex items-center gap-2 text-sm">
+                    {line.unitProductId === null ? (
+                      <input
+                        type="text"
+                        value={line.itemName}
+                        onChange={(e) => updateLine(line.key, { itemName: e.target.value })}
+                        placeholder="품목명 직접 입력"
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
+                      />
+                    ) : (
+                      <span className="flex-1 text-gray-950 truncate">{line.itemName}</span>
+                    )}
                     <FormattedNumberInput
                       min={1}
                       step="1"
                       value={line.quantity}
-                      onChange={(raw) => updateLine(line.unitProductId, { quantity: raw })}
+                      onChange={(raw) => updateLine(line.key, { quantity: raw })}
                       placeholder="수량"
                       className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                     />
@@ -391,12 +434,12 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
                       min={0}
                       step="1"
                       value={line.customerUnitAmount}
-                      onChange={(raw) => updateLine(line.unitProductId, { customerUnitAmount: raw })}
+                      onChange={(raw) => updateLine(line.key, { customerUnitAmount: raw })}
                       placeholder="고객 단가"
                       className="w-32 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                     />
                     <button
-                      onClick={() => handleRemoveLine(line.unitProductId)}
+                      onClick={() => handleRemoveLine(line.key)}
                       className="text-gray-400 hover:text-red-600 shrink-0"
                       aria-label="빼기"
                     >

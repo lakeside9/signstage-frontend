@@ -1891,10 +1891,14 @@ export interface EffectiveMargin {
  * 품목·수량·고객 단가(CustomerQuoteDto.Request.EquipmentPersonnelLine)와 맞춘다
  * (signstage-docs business/unit-product-purchase-self-checkout-review.md 8.5절 결정,
  * 2026-09-11). 승인된 구매 기록에서 역산하던 옛 방식(품목·수량은 서버가 정하고 가격만
- * 입력받던 방식)을 완전히 대체한다.
+ * 입력받던 방식)을 완전히 대체한다. `unitProductId`는 생략하면 카탈로그에 없는 자유
+ * 품목이다(2026-09-12 사용자 요청, signstage-docs
+ * business/onsite-support-negotiation-and-billing-classification-review.md 3.3절 결정) —
+ * `itemName`은 카탈로그 줄이든 자유 품목이든 항상 필수다.
  */
 export interface EquipmentPersonnelLine {
-  unitProductId: number;
+  unitProductId?: number | null;
+  itemName: string;
   quantity: number;
   customerUnitAmount: number;
 }
