@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { EffectDefinitionPicker, ExclusivityGroupField, Field, PeriodStatusBadge, UsageWarning } from './billingCatalog/components';
 import {
   UNIT_PRODUCT_CATEGORY_OPTIONS,
@@ -56,6 +57,7 @@ export const AdminUnitProductEdit: FC = () => {
             name: found.name,
             description: found.description,
             exclusivityGroup: found.exclusivityGroup ?? '',
+            maxPurchaseQuantity: found.maxPurchaseQuantity,
             category: found.category,
             effectDefinitionIds: found.effectDefinitionIds,
           });
@@ -165,13 +167,24 @@ export const AdminUnitProductEdit: FC = () => {
                 ))}
               </select>
             </Field>
-            {product.type === 'EVENT_EFFECT_BUNDLE' && (
+            {product.type === 'EVENT_EFFECT_BUNDLE' ? (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
                 selectedIds={draft.effectDefinitionIds ?? []}
                 disabled={isSaving}
                 onChange={(effectDefinitionIds) => setDraft((prev) => prev && { ...prev, effectDefinitionIds })}
               />
+            ) : (
+              <Field label="최대 구매 수량(선택)">
+                <FormattedNumberInput
+                  min={1}
+                  value={draft.maxPurchaseQuantity ?? ''}
+                  onChange={(raw) => setDraft((prev) => prev && { ...prev, maxPurchaseQuantity: raw === '' ? null : Number(raw) })}
+                  placeholder="무제한"
+                  disabled={isSaving}
+                  className={inputClass}
+                />
+              </Field>
             )}
           </div>
 
@@ -185,6 +198,14 @@ export const AdminUnitProductEdit: FC = () => {
               className={`${inputClass} resize-y`}
             />
           </Field>
+
+          {product.type !== 'EVENT_EFFECT_BUNDLE' && (
+            <p className="text-xs text-gray-400">
+              최대 구매 수량을 비워두면 한 행사가 이 상품을 몇 개든 추가구매할 수 있습니다. 값을 넣으면 그 행사의 누적
+              구매(대기중+승인) 수량이 이 값을 넘는 요청을 거부합니다 — 플랜에 기본 포함된 수량은 이 합계에 들어가지
+              않습니다.
+            </p>
+          )}
 
           <UsageWarning count={product.usageCount} itemLabel="단위 상품" />
 

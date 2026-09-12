@@ -496,6 +496,12 @@ export interface UnitProductSummary {
   description: string | null;
   /** 같은 값을 가진 다른 단위 상품과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
+  /**
+   * 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. null이면 무제한(2026-09-12 사용자
+   * 요청). 토글형(`type === 'EVENT_EFFECT_BUNDLE'`)은 항상 null이다 — 그 타입은 최대 1로
+   * 이미 고정돼 있어(타입 자체의 규칙) 이 필드를 쓰지 않는다.
+   */
+  maxPurchaseQuantity: number | null;
   category: UnitProductCategory;
   /** 이 단위 상품을 승인받아 쓰는 구매 건수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
@@ -534,6 +540,7 @@ export interface UnitProductHistorySummary {
   description: string | null;
   category: UnitProductCategory;
   exclusivityGroup: string | null;
+  maxPurchaseQuantity: number | null;
   createdBy: number;
   createdAt: string;
 }
@@ -549,6 +556,11 @@ export interface CreateUnitProductRequest {
   description?: string | null;
   category: UnitProductCategory;
   exclusivityGroup?: string | null;
+  /**
+   * 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. 생략하면(undefined) 무제한(2026-09-12
+   * 사용자 요청). `type === 'EVENT_EFFECT_BUNDLE'`이면 보내도 무시된다.
+   */
+  maxPurchaseQuantity?: number | null;
   currencyCode?: string;
   supplyPrice: number | null;
   salePrice: number;
@@ -573,6 +585,8 @@ export interface UpdateUnitProductRequest {
   /** 이 상품이 무엇인지 설명하는 자유 텍스트. null이면 설명 없음(2026-09-11 사용자 요청). */
   description: string | null;
   exclusivityGroup: string | null;
+  /** 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. null이면 무제한. `EVENT_EFFECT_BUNDLE`이면 보내도 무시된다. */
+  maxPurchaseQuantity: number | null;
   category: UnitProductCategory;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록을 통째로 교체한다(delete-all-then-recreate) —

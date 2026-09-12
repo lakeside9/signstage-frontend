@@ -159,8 +159,13 @@ export const AdminUnitProductDetail: FC = () => {
             <DetailRow label="상태" value={<PeriodStatusBadge status={product.periodStatus} />} />
             <DetailRow label="분류" value={UNIT_PRODUCT_CATEGORY_LABEL[product.category] ?? product.category} />
             <DetailRow label="배타 그룹" value={product.exclusivityGroup ?? '없음'} />
-            {product.type === 'EVENT_EFFECT_BUNDLE' && (
+            {product.type === 'EVENT_EFFECT_BUNDLE' ? (
               <DetailRow label="여는 이벤트 효과" value={product.effectDefinitionIds.map(effectName).join(', ') || '없음'} />
+            ) : (
+              <DetailRow
+                label="최대 구매 수량"
+                value={product.maxPurchaseQuantity === null ? '무제한' : `${product.maxPurchaseQuantity}개`}
+              />
             )}
             <DetailRow label="사용 건수" value={`${product.usageCount}건`} />
             <DetailRow label="생성일" value={formatDateTime(product.createdAt)} />
@@ -188,6 +193,7 @@ export const AdminUnitProductDetail: FC = () => {
                 <p className="text-xs text-gray-400 mt-0.5">
                   {UNIT_PRODUCT_CATEGORY_LABEL[h.category] ?? h.category}
                   {h.exclusivityGroup && ` · 배타 그룹: ${h.exclusivityGroup}`}
+                  {h.maxPurchaseQuantity !== null && ` · 최대 구매 수량: ${h.maxPurchaseQuantity}개`}
                 </p>
                 {h.description && <p className="text-xs text-gray-400 mt-0.5">설명: {h.description}</p>}
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>

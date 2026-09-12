@@ -1146,6 +1146,7 @@ export const UserCeremonyEdit: FC = () => {
                           <p className="text-xs text-gray-500">
                             {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
                             {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                            {product.maxPurchaseQuantity !== null && ` · 최대 ${product.maxPurchaseQuantity}개`}
                           </p>
                           {product.description && <p className="text-xs text-gray-400 mt-0.5">{product.description}</p>}
                         </div>

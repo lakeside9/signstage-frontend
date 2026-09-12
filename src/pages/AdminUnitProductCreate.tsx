@@ -27,6 +27,7 @@ const EMPTY_DRAFT = (): CreateUnitProductRequest => {
     description: '',
     category: DEFAULT_CATEGORY_BY_TYPE[type],
     exclusivityGroup: '',
+    maxPurchaseQuantity: null,
     currencyCode: 'KRW',
     supplyPrice: null,
     salePrice: 0,
@@ -233,13 +234,24 @@ export const AdminUnitProductCreate: FC = () => {
                 ))}
               </select>
             </Field>
-            {draft.type === 'EVENT_EFFECT_BUNDLE' && (
+            {draft.type === 'EVENT_EFFECT_BUNDLE' ? (
               <EffectDefinitionPicker
                 definitions={effectDefinitions}
                 selectedIds={draft.effectDefinitionIds ?? []}
                 disabled={isLoading}
                 onChange={(effectDefinitionIds) => setDraft((prev) => ({ ...prev, effectDefinitionIds }))}
               />
+            ) : (
+              <Field label="최대 구매 수량(선택)">
+                <FormattedNumberInput
+                  min={1}
+                  value={draft.maxPurchaseQuantity ?? ''}
+                  onChange={(raw) => setDraft((prev) => ({ ...prev, maxPurchaseQuantity: raw === '' ? null : Number(raw) }))}
+                  placeholder="무제한"
+                  disabled={isLoading}
+                  className={inputClass}
+                />
+              </Field>
             )}
           </div>
           <Field label="설명(선택)">
@@ -256,6 +268,13 @@ export const AdminUnitProductCreate: FC = () => {
             배타 그룹에 같은 값을 넣으면, 그 값을 공유하는 단위 상품들은 하위 행사 하나에 동시 적용할 수 없습니다(예: 서명
             하이라이트 색상 옵션 여러 개 중 하나만 고르게 하고 싶을 때).
           </p>
+          {draft.type !== 'EVENT_EFFECT_BUNDLE' && (
+            <p className="text-xs text-gray-400">
+              최대 구매 수량을 비워두면 한 행사가 이 상품을 몇 개든 추가구매할 수 있습니다. 값을 넣으면 그 행사의 누적
+              구매(대기중+승인) 수량이 이 값을 넘는 요청을 거부합니다 — 플랜에 기본 포함된 수량은 이 합계에 들어가지
+              않습니다.
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button to="/admin/billing-catalog/unit-products" variant="secondary">
               취소
