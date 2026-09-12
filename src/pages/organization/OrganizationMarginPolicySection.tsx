@@ -134,13 +134,15 @@ export const OrganizationMarginPolicySection: FC<{ organizationId: string }> = (
               className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
             />
           </div>
-          <button
-            type="submit"
-            disabled={isSaving || !marginValue.trim() || Number(marginValue) < 0}
-            className="w-full py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
-          >
-            {isSaving ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isSaving || !marginValue.trim() || Number(marginValue) < 0}
+              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+            >
+              {isSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
         </form>
       ) : policy?.marginType ? (
         <p className="text-sm text-gray-950 font-medium">

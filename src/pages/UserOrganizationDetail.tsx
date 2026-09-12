@@ -256,7 +256,7 @@ export const UserOrganizationDetail: FC = () => {
   const canEditMember = (member: MemberSummary) => canManageMembers && (organization.myRole === 'OWNER' || member.role !== 'OWNER');
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <Link
         to="/organizations"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4"
