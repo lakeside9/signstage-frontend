@@ -124,7 +124,7 @@ export const AdminLayout: FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
