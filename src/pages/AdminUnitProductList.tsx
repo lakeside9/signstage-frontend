@@ -179,6 +179,7 @@ export const AdminUnitProductList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">과금 대상</th>
               <th className="text-left px-4 py-3 font-medium">배타 그룹</th>
               <th className="text-left px-4 py-3 font-medium">최대 구매 수량</th>
+              <th className="text-left px-4 py-3 font-medium">판매 단위</th>
               <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
@@ -237,6 +238,9 @@ export const AdminUnitProductList: FC = () => {
                       ? '무제한'
                       : `${product.maxPurchaseQuantity}개`}
                 </td>
+                <td className="px-4 py-3 text-gray-500">
+                  {product.saleUnitQuantity > 1 ? `${product.saleUnitQuantity}개 단위` : '낱개(1개)'}
+                </td>
                 <td className="px-4 py-3 text-gray-600">
                   {product.salePrice === null ? (
                     '-'
@@ -246,8 +250,7 @@ export const AdminUnitProductList: FC = () => {
                       {formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
                       {product.saleUnitQuantity > 1 && (
                         <span className="block text-xs text-gray-400">
-                          {product.saleUnitQuantity}개 단위(1묶음{' '}
-                          {formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')})
+                          1묶음 {formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}
                         </span>
                       )}
                     </>
