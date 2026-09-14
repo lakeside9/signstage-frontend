@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Loader2 } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -24,8 +24,22 @@ const STATUS_LABEL: Record<string, string> = {
  * `/organization-requests`) 화면은 당분간 사이드바에서 숨겨져 있다 — 지금은 플랫폼 관리자가
  * 직접 파트너(조직)를 등록한다(2026-08-30 결정). 그래서 조직이 없는 사용자에게도 그 메뉴 대신
  * 관리자에게 문의하라고 안내한다.
+ *
+ * <p>속한 조직이 정확히 1개면 목록을 보여주지 않고 그 조직 상세로 바로 넘어간다(2026-09-14,
+ * 사용자 요청) — "한 사람이 속한 조직 수가 적다"는 전제(위 설계 주석)가 실제로는 거의 항상
+ * "정확히 1개"라 목록 화면이 클릭 한 번을 더 시키는 불필요한 중간 단계가 되는 경우가
+ * 많았다. `replace: true`로 이동해 `/organizations`가 히스토리에 안 남게 한다 — 상세
+ * 화면에서 브라우저 뒤로가기를 눌러도 이 목록으로 안 튕기고 그 이전 화면으로 곧장 간다.
+ * 상세 화면의 "회사정보관리로" 링크를 눌렀을 때는 이 목록을 다시 거쳐 제자리로 돌아오는
+ * 셈이지만(목록 렌더링 없이 바로 리다이렉트되어 체감상 거의 눈에 띄지 않는다), 그 정도
+ * 트레이드오프는 감수하기로 했다 — 조직이 1개뿐인지 상세 화면이 미리 알 방법이 없어
+ * 링크 자체를 조건부로 숨기려면 API 호출이 하나 더 필요해진다. `UserSubscriptionMarginList.tsx`
+ * ("구독·마진 관리")도 같은 이유로 같은 패턴을 쓴다 — 두 화면은 원래도 같은 목록→상세
+ * 구조를 복제한 쌍이라 한쪽만 고치면 동작이 어긋난다(signstage-docs
+ * business/subscription-margin-screen-separation-review.md 참고).
  */
 export const UserOrganizationList: FC = () => {
+  const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,12 +47,22 @@ export const UserOrganizationList: FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // 리다이렉트 분기에서는 finally에서 setIsLoading(false)를 하지 않는다 — 안 그러면
+    // organizations가 빈 배열인 채로 로딩 상태만 풀려, navigate()가 실제 라우트를 바꾸기
+    // 직전 한 프레임 동안 "아직 속한 조직이 없습니다" 빈 상태 문구가 잠깐 보일 수 있다.
+    let redirecting = false;
 
     (async () => {
       try {
         const response = await api.get('/organizations');
         if (!cancelled) {
-          setOrganizations(response.data as OrganizationSummary[]);
+          const data = response.data as OrganizationSummary[];
+          if (data.length === 1) {
+            redirecting = true;
+            navigate(`/organizations/${data[0].id}`, { replace: true });
+            return;
+          }
+          setOrganizations(data);
         }
       } catch (err) {
         if (!cancelled) {
@@ -46,7 +70,7 @@ export const UserOrganizationList: FC = () => {
           showSnackbar(message, 'error');
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !redirecting) {
           setIsLoading(false);
         }
       }

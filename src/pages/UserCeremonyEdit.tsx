@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
@@ -85,9 +86,13 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * 중심(서명자/문서양식/하위행사 목록)으로 두고, 행사 자체에 변화를 주는 조작(이름/설명 수정,
  * 플랜 변경/확정, 추가구매)은 별도 수정 화면에 모은다.
  *
- * <p>"행사 수정"/"플랫폼 이용료"/"고객 견적"/"현장지원 요청"/"문의" 5탭으로 나뉜다(2026-09-10,
+ * <p>"행사 수정"/"플랫폼 이용료"/"고객 견적"/"현장지원 출장비 요청"/"문의" 5탭으로 나뉜다(2026-09-10,
  * 사용자 요청 — signstage-docs
- * business/ceremony-registration-flow-and-billing-tab-separation-review.md).
+ * business/ceremony-registration-flow-and-billing-tab-separation-review.md). "고객 견적"
+ * 탭은 `ACTION_CUSTOMER_QUOTE_MANAGE`(OWNER 전용) 권한이 없으면 목록에서 아예 빠진다
+ * (2026-09-14 정정 — signstage-docs
+ * business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정, 예전엔 탭은 항상
+ * 보이고 안 내용만 비어 보였다) — 그 멤버에게는 사실상 4탭이다.
  * `?tab=billing`/`?tab=customerQuote`/`?tab=onsiteSupportRequests`/`?tab=inquiries` 쿼리로
  * 해당 탭을 곧장 열 수 있다 — 행사 등록 직후(`UserCeremonyCreate.tsx`)가 `?tab=billing`으로
  * 진입한다(등록 시 플랜 선택이 더 이상 필수가 아니라, 등록 직후 바로 플랜을 고르게 안내한다).
@@ -96,13 +101,16 @@ const PurchaseStatusBadge: FC<{ status: PurchaseStatus }> = ({ status }) => (
  * "과금"/"고객 견적" → "플랫폼 이용료"/"고객 정산" → 다시 "고객 견적"으로 바뀌었다(둘 다
  * 사용자 요청). "문의" 탭(`CeremonyInquirySection.tsx`)은 행사별 1:1 문의(파트너 ↔ 플랫폼
  * 관리자) — signstage-docs business/partner-support-center-review.md 5장 결정, 2026-09-12
- * 구현. "현장지원 요청" 탭(`OnsiteSupportRequestSection.tsx`)은 "요청 → 관리자가 값을 매김 →
- * 요청자가 수락/거부" 협상 플로우 — signstage-docs
+ * 구현. "현장지원 출장비 요청" 탭(`OnsiteSupportRequestSection.tsx`)은 "요청 → 관리자가 값을
+ * 매김 → 요청자가 수락/거부" 협상 플로우 — signstage-docs
  * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절 결정,
  * 2026-09-12 구현. **탭을 행사 상세 화면의 타이틀 버튼으로도 노출(2026-09-12, 사용자 요청)** —
  * `UserCeremonyDetail.tsx` 타이틀 줄의 버튼 5개("행사 수정"/"플랫폼 이용료"/"고객 견적"/
- * "현장지원 요청"/"문의")가 각 탭으로 바로 진입하는 링크다. 첫 탭 라벨을 "기본 정보"에서
- * "행사 수정"으로 바꿔 그 버튼 라벨과 맞췄다.
+ * "현장지원 출장비 요청"/"문의")가 각 탭으로 바로 진입하는 링크다. 첫 탭 라벨을 "기본 정보"에서
+ * "행사 수정"으로 바꿔 그 버튼 라벨과 맞췄다. **탭 이름 정정(2026-09-14)** — "고객 견적" 탭의
+ * 정액 카탈로그 품목(현장지원(수도권) 등)과 이름이 겹쳐 혼동될 수 있다는 지적으로 "현장지원
+ * 요청"을 "현장지원 출장비 요청"으로 바꿨다 — signstage-docs
+ * business/platform-admin-partner-ux-confusion-review.md 2.1절/6장 결정.
  *
  * <p>플랜은 확정 전(DRAFT)에만 바꿀 수 있고, "플랜 확정"으로 DRAFT → IN_PROGRESS로 단방향
  * 전이하면 그때부터 바꿀 수 없다(signstage-docs business/ceremony-plan-confirmation-review.md).
@@ -128,10 +136,16 @@ export const UserCeremonyEdit: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
   const navigate = useNavigate();
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  // "고객 견적" 탭은 OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)이라 그 권한이 없는 멤버에게는
+  // 탭 자체를 목록에서 뺀다(2026-09-14, signstage-docs
+  // business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정) — 예전엔 탭은 항상
+  // 보이고 `CustomerQuoteSection`만 내용을 숨겨(`return null`) 클릭하면 빈 화면처럼 보였다.
+  const canViewCustomerQuote = usePermissionStore((state) => state.hasPermission('ACTION_CUSTOMER_QUOTE_MANAGE'));
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<EditTab>(
-    initialTab === 'billing' || initialTab === 'customerQuote' || initialTab === 'inquiries' || initialTab === 'onsiteSupportRequests'
+    (initialTab === 'billing' || initialTab === 'inquiries' || initialTab === 'onsiteSupportRequests') ||
+      (initialTab === 'customerQuote' && canViewCustomerQuote)
       ? initialTab
       : 'info',
   );
@@ -670,8 +684,8 @@ export const UserCeremonyEdit: FC = () => {
           [
             { value: 'info', label: '행사 수정', icon: FileSignature },
             { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
-            { value: 'customerQuote', label: '고객 견적', icon: Banknote },
-            { value: 'onsiteSupportRequests', label: '현장지원 요청', icon: MapPin },
+            ...(canViewCustomerQuote ? [{ value: 'customerQuote', label: '고객 견적', icon: Banknote }] as const : []),
+            { value: 'onsiteSupportRequests', label: '현장지원 출장비 요청', icon: MapPin },
             { value: 'inquiries', label: '문의', icon: MessageCircleQuestion },
           ] as const
         ).map((tab) => {

@@ -15,6 +15,7 @@ import {
   Settings,
   ShieldCheck,
   User,
+  Wallet,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -37,6 +38,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   ShieldCheck: <ShieldCheck size={20} />,
   HelpCircle: <HelpCircle size={20} />,
   Megaphone: <Megaphone size={20} />,
+  Wallet: <Wallet size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

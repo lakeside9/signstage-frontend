@@ -62,7 +62,11 @@ const CUSTOM_ITEM_OPTION = '__custom__';
  * 카탈로그(`GET /api/unit-products`, 조직·플랜 큐레이션 없음)에서 파트너가 직접 품목을 골라
  * 수량·고객 단가까지 자유롭게 입력한다 — "참고 원가"도 더는 보여주지 않는다(파트너가 플랫폼에
  * 내는 원가 자체가 없어졌다). OWNER 전용(`ACTION_CUSTOMER_QUOTE_MANAGE`)이라 그 권한이 없으면
- * 탭 내용 자체를 숨긴다.
+ * `return null`로 내용을 숨긴다 — 부모(`UserCeremonyEdit`)가 같은 권한으로 탭 자체를 탭
+ * 목록에서 먼저 빼므로(2026-09-14, signstage-docs
+ * business/platform-admin-partner-ux-confusion-review.md 2.3절 결정) 이 컴포넌트가 실제로
+ * `null`을 반환하는 경로는 정상 화면에서는 타지 않는다 — 그래도 이 컴포넌트만 따로 다른
+ * 경로로 마운트될 가능성에 대비한 방어적 가드로 남겨둔다.
  *
  * <p>견적서 생성은 플랜이 확정된(DRAFT를 벗어난) 행사에서만 할 수 있다(2026-09-11 사용자
  * 요청 — 단위 상품 추가구매와 같은 기준). `isDraft`는 부모(`UserCeremonyEdit`)가 이미 계산해둔

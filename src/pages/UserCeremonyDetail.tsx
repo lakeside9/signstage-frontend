@@ -31,6 +31,7 @@ import { EventDateTimeInput } from '../components/EventDateTimeInput';
 import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { CeremonyEventEffectSelectionFields } from '../components/effects/settings/CeremonyEventEffectSelectionFields';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
@@ -179,18 +180,26 @@ const formatCapacity = (limit: number, unit: string) => (limit >= UNLIMITED_CAPA
  * (AdminOrganizationDetail과 같은 패턴).
  *
  * <p>타이틀 줄의 버튼 5개(2026-09-12, 사용자 요청)는 예전엔 "행사 수정" 버튼 하나였다 —
- * `UserCeremonyEdit`의 탭 5개(행사 수정/플랫폼 이용료/고객 견적/현장지원 요청/문의)마다
+ * `UserCeremonyEdit`의 탭 5개(행사 수정/플랫폼 이용료/고객 견적/현장지원 출장비 요청/문의)마다
  * `?tab=` 쿼리로 바로 진입하는 링크로 나눠, 여기서 두 번 클릭해야 닿던 탭도 한 번에 열리도록
  * 했다. "문의" 버튼은 행사별 1:1 문의(signstage-docs
  * business/partner-support-center-review.md 5장) 구현과 함께 같은 날 이어 붙였고, "현장지원
- * 요청" 버튼은 관리자 견적 협상 플로우(signstage-docs
+ * 출장비 요청" 버튼(2026-09-14 명칭 정정 — 2.1절/6장 참고)은 관리자 견적 협상
+ * 플로우(signstage-docs
  * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절) 구현과
- * 함께 그 다음으로 이어 붙였다.
+ * 함께 그 다음으로 이어 붙였다. "고객 견적" 버튼은 `ACTION_CUSTOMER_QUOTE_MANAGE`(OWNER
+ * 전용) 권한이 없으면 안 보인다(2026-09-14 정정 — `UserCeremonyEdit`의 탭 숨김과 같은
+ * 이유, business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정) — 그 외
+ * 멤버에게는 사실상 버튼 4개다.
  */
 export const UserCeremonyDetail: FC = () => {
   const { organizationId, ceremonyId } = useParams<{ organizationId: string; ceremonyId: string }>();
   const navigate = useNavigate();
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  // "고객 견적" 바로가기 버튼도 탭과 같은 권한으로 숨긴다(2026-09-14, signstage-docs
+  // business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정) — UserCeremonyEdit
+  // 참고.
+  const canViewCustomerQuote = usePermissionStore((state) => state.hasPermission('ACTION_CUSTOMER_QUOTE_MANAGE'));
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
@@ -994,19 +1003,21 @@ export const UserCeremonyDetail: FC = () => {
             <CreditCard size={16} />
             플랫폼 이용료
           </Link>
-          <Link
-            to={`${detailPath}/edit?tab=customerQuote`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
-          >
-            <Banknote size={16} />
-            고객 견적
-          </Link>
+          {canViewCustomerQuote && (
+            <Link
+              to={`${detailPath}/edit?tab=customerQuote`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            >
+              <Banknote size={16} />
+              고객 견적
+            </Link>
+          )}
           <Link
             to={`${detailPath}/edit?tab=onsiteSupportRequests`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
           >
             <MapPin size={16} />
-            현장지원 요청
+            현장지원 출장비 요청
           </Link>
           <Link
             to={`${detailPath}/edit?tab=inquiries`}

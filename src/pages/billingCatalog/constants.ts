@@ -53,7 +53,7 @@ export const UNIT_PRODUCT_TYPE_LABEL: Record<string, string> = {
   ...Object.fromEntries(UNIT_PRODUCT_TYPE_OPTIONS.map((option) => [option.value, option.label])),
   // 카탈로그 등록 드롭다운(UNIT_PRODUCT_TYPE_OPTIONS)에는 없지만, 단위 상품 목록/상세 화면이
   // 앵커 상품 자체를 표시할 때(예: 관리자가 우연히 그 행을 열어볼 때) 라벨이 필요하다.
-  ONSITE_SUPPORT_REQUEST: '현장지원(요청형)',
+  ONSITE_SUPPORT_REQUEST: '현장지원 출장비(요청형)',
 };
 
 export const UNIT_PRODUCT_CATEGORY_OPTIONS: Array<{ value: UnitProductCategory; label: string }> = [

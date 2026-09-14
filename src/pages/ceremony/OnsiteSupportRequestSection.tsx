@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { CheckCircle2, Loader2, MapPin, Plus, XCircle } from 'lucide-react';
 import { Button } from '../../components/Button';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Modal } from '../../components/Modal';
 import { useSnackbarStore } from '../../store/useSnackbarStore';
 import { api } from '../../utils/api';
@@ -44,12 +45,23 @@ const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 27 }, (_, i) => {
 });
 
 /**
- * 행사 수정 화면(`UserCeremonyEdit`)의 "현장지원 요청" 탭 — signstage-docs
+ * 행사 수정 화면(`UserCeremonyEdit`)의 "현장지원 출장비 요청" 탭 — signstage-docs
  * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절(2026-09-12).
  * 파트너가 일시·장소를 적어 현장지원을 요청하면(REQUESTED), 플랫폼 관리자가 거리 등을 보고
  * 실제 금액을 매기고(QUOTED), 파트너가 그 금액을 수락(ACCEPTED)/거부(DECLINED)한다 — "요청 →
  * 관리자가 값을 매김 → 요청자가 수락/거부" 협상 패턴. 수락 시 만들어지는 구매는 "플랫폼
  * 이용료" 탭 총계·구매 이력에 곧바로 반영된다(구매 원장은 카테고리와 무관하게 전량 집계).
+ *
+ * <p>탭 라벨 "현장지원 요청" → "현장지원 출장비 요청"(2026-09-14 정정) — "고객 견적" 탭의
+ * 정액 카탈로그 품목(현장지원(수도권) 등)과 이름이 겹쳐 파트너가 혼동할 수 있다는 지적으로,
+ * 이 거리 기준 협상형 비용을 이미 부르던 도메인 용어 "출장비"(business/
+ * ceremony-support-services-billing-review.md)를 화면 문구 전체에 반영했다 — signstage-docs
+ * business/platform-admin-partner-ux-confusion-review.md 2.1절/6장 결정.
+ *
+ * <p>"수락" 버튼에 확인 절차 추가(2026-09-14, 같은 문서 2.2절/6장 결정) — 클릭 즉시
+ * `purchase.approve()`를 타는 단방향 확정 액션인데 확인 없이 한 번의 클릭으로 끝나던
+ * 것을, 같은 화면군(`CustomerQuoteSection.tsx` 삭제 확인 등)이 이미 쓰던 공용
+ * `ConfirmDialog`로 통일했다 — 금액과 "되돌릴 수 없다"는 문구를 확인 팝업에 명시한다.
  *
  * <p>희망 일시는 날짜(달력)와 시간(30분 단위 드롭다운, `REQUEST_TIME_OPTIONS`, 07:00~20:00)을
  * 따로 받아 합친다(사용자 요청, 2026-09-12) — `EventDateTimeInput.tsx`와 같은 원칙이지만
@@ -69,6 +81,10 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
   const [location, setLocation] = useState('');
   const [requesterNote, setRequesterNote] = useState('');
 
+  /** "수락" 확인 팝업 대상 — id만이 아니라 요청 전체를 들고 있어야 팝업 문구에 금액을
+   * 보여줄 수 있다(2026-09-14, 2.2절 결정). */
+  const [acceptTarget, setAcceptTarget] = useState<CeremonyOnsiteSupportRequestSummary | null>(null);
+
   const fetchRequests = async () => {
     const response = await api.get(basePath);
     setRequests(response.data as CeremonyOnsiteSupportRequestSummary[]);
@@ -81,7 +97,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
         const response = await api.get(basePath);
         if (!cancelled) setRequests(response.data as CeremonyOnsiteSupportRequestSummary[]);
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '현장지원 요청 목록을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '현장지원 출장비 요청 목록을 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -112,18 +128,20 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
       });
       setIsCreateOpen(false);
       await fetchRequests();
-      showSnackbar('현장지원을 요청했습니다.', 'success');
+      showSnackbar('현장지원 출장비를 요청했습니다.', 'success');
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '현장지원 요청에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '현장지원 출장비 요청에 실패했습니다.', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleAccept = async (requestId: number) => {
+  const handleAccept = async () => {
+    if (!acceptTarget) return;
     setIsSubmitting(true);
     try {
-      await api.put(`${basePath}/${requestId}/accept`, {});
+      await api.put(`${basePath}/${acceptTarget.id}/accept`, {});
+      setAcceptTarget(null);
       await fetchRequests();
       showSnackbar('견적을 수락했습니다 — 플랫폼 이용료에 반영됐습니다.', 'success');
     } catch (err) {
@@ -150,7 +168,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          일시·장소를 적어 현장지원을 요청하면 플랫폼 관리자가 거리 등을 보고 금액을 매깁니다. 견적이 도착하면 수락/거부를 선택할 수 있습니다.
+          일시·장소를 적어 현장지원 출장비를 요청하면 플랫폼 관리자가 거리 등을 보고 금액을 매깁니다. 견적이 도착하면 수락/거부를 선택할 수 있습니다 — 수락하면 즉시 "플랫폼 이용료"에 반영됩니다.
         </p>
         <Button size="sm" onClick={openCreate}>
           <Plus size={14} /> 새 요청
@@ -162,7 +180,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : requests.length === 0 ? (
-        <p className="py-12 text-center text-sm text-gray-500">등록된 현장지원 요청이 없습니다.</p>
+        <p className="py-12 text-center text-sm text-gray-500">등록된 현장지원 출장비 요청이 없습니다.</p>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
           {requests.map((request) => (
@@ -186,7 +204,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
                     {request.quotedNote && <p className="mt-0.5 text-xs text-blue-700">{request.quotedNote}</p>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => handleAccept(request.id)} disabled={isSubmitting}>
+                    <Button size="sm" onClick={() => setAcceptTarget(request)} disabled={isSubmitting}>
                       <CheckCircle2 size={12} /> 수락
                     </Button>
                     <Button variant="secondary" size="sm" onClick={() => handleDecline(request.id)} disabled={isSubmitting}>
@@ -214,7 +232,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
         </div>
       )}
 
-      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 현장지원 요청" widthClassName="max-w-lg">
+      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 현장지원 출장비 요청" widthClassName="max-w-lg">
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">희망 일시</label>
@@ -276,6 +294,20 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={acceptTarget !== null}
+        title="현장지원 출장비 요청 수락"
+        message={
+          acceptTarget
+            ? `${formatCurrency(acceptTarget.quotedAmount ?? 0)}을 수락하면 즉시 "플랫폼 이용료"에 반영되며 되돌릴 수 없습니다(취소하려면 관리자에게 문의해야 합니다). 수락하시겠습니까?`
+            : ''
+        }
+        confirmLabel="수락"
+        isSubmitting={isSubmitting}
+        onConfirm={handleAccept}
+        onCancel={() => setAcceptTarget(null)}
+      />
     </div>
   );
 };

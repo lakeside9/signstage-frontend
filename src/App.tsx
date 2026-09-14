@@ -14,7 +14,6 @@ import { AdminAccountList } from './pages/AdminAccountList';
 import { AdminAccountCreate } from './pages/AdminAccountCreate';
 import { AdminAuditLogList } from './pages/AdminAuditLogList';
 import { AdminBillingPlanList } from './pages/AdminBillingPlanList';
-import { AdminSubscriptionPlanCatalog } from './pages/AdminSubscriptionPlanCatalog';
 import { AdminSubscriptionRequestList } from './pages/AdminSubscriptionRequestList';
 import { AdminBillingPlanCreate } from './pages/AdminBillingPlanCreate';
 import { AdminBillingPlanDetail } from './pages/AdminBillingPlanDetail';
@@ -49,6 +48,8 @@ import { UserAnnouncementList } from './pages/UserAnnouncementList';
 import { UserDashboard } from './pages/UserDashboard';
 import { UserOrganizationList } from './pages/UserOrganizationList';
 import { UserOrganizationDetail } from './pages/UserOrganizationDetail';
+import { UserSubscriptionMarginList } from './pages/UserSubscriptionMarginList';
+import { UserSubscriptionMarginDetail } from './pages/UserSubscriptionMarginDetail';
 import { UserOrganizationRequests } from './pages/UserOrganizationRequests';
 import { AdminOrganizationRequestList } from './pages/AdminOrganizationRequestList';
 import { UserCeremonyEntry } from './pages/UserCeremonyEntry';
@@ -107,6 +108,8 @@ function App() {
           <Route index element={<UserDashboard />} />
           <Route path="organizations" element={<UserOrganizationList />} />
           <Route path="organizations/:organizationId" element={<UserOrganizationDetail />} />
+          <Route path="subscription-margin" element={<UserSubscriptionMarginList />} />
+          <Route path="subscription-margin/:organizationId" element={<UserSubscriptionMarginDetail />} />
           <Route path="organization-requests" element={<UserOrganizationRequests />} />
           <Route path="ceremonies" element={<UserCeremonyEntry />} />
           <Route path="ceremonies/:organizationId" element={<UserCeremonyList />} />
@@ -155,7 +158,10 @@ function App() {
           <Route path="billing-catalog/plans/new" element={<AdminBillingPlanCreate />} />
           <Route path="billing-catalog/plans/:id" element={<AdminBillingPlanDetail />} />
           <Route path="billing-catalog/plans/:id/edit" element={<AdminBillingPlanEdit />} />
-          <Route path="billing-catalog/subscription-plans" element={<AdminSubscriptionPlanCatalog />} />
+          {/* "구독 플랜 카탈로그" 화면을 AdminBillingPlanList로 통합(2026-09-14, signstage-docs
+              business/platform-admin-partner-ux-confusion-review.md 3.1절 "안 B") — 옛 URL로
+              들어온 북마크·메뉴 이력은 통합 화면의 구독형 필터로 리다이렉트한다. */}
+          <Route path="billing-catalog/subscription-plans" element={<Navigate to="/admin/billing-catalog/plans?type=SUBSCRIPTION" replace />} />
           <Route path="subscription-requests" element={<AdminSubscriptionRequestList />} />
           <Route path="billing-catalog/unit-products" element={<AdminUnitProductList />} />
           <Route path="billing-catalog/unit-products/new" element={<AdminUnitProductCreate />} />

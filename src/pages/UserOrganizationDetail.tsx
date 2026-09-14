@@ -7,8 +7,6 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
-import { OrganizationMarginPolicySection } from './organization/OrganizationMarginPolicySection';
-import { OrganizationSubscriptionSection } from './organization/OrganizationSubscriptionSection';
 import type { MemberRole, MemberSummary, OrganizationHistorySummary, OrganizationSummary } from '../types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -29,6 +27,13 @@ const ALL_ROLE_OPTIONS: MemberRole[] = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'];
  *   규칙은 서버가 강제). OWNER 역할의 지정/해제·제거는 OWNER만 할 수 있어, ADMIN으로 로그인한
  *   경우 OWNER 행은 읽기 전용으로만 보여주고 역할 선택지에서도 OWNER를 뺀다 — 어차피 서버가
  *   거부할 조작을 화면에서 미리 걸러내는 용도다.
+ *
+ * <p>"구독"(`OrganizationSubscriptionSection`)·"재판매 마진"(`OrganizationMarginPolicySection`)
+ * 섹션은 여기 있었으나 2026-09-14(사용자 요청)로 별도 최상위 메뉴 "구독·마진 관리"
+ * (`UserSubscriptionMarginList`/`Detail.tsx`, `/subscription-margin`)로 옮겼다 — 관리자 콘솔의
+ * "행사 건별 재량 할인"/"파트너별 할인 오버라이드" 분리 선례(signstage-docs
+ * business/discount-management-screen-separation-review.md)와 같은 이유(조직 상세 맨 아래
+ * 묻혀 있어 존재를 놓치기 쉬움). 이 화면엔 조직 정보·멤버 관리만 남는다.
  */
 export const UserOrganizationDetail: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -383,9 +388,6 @@ export const UserOrganizationDetail: FC = () => {
           )}
         </div>
       )}
-
-      {organizationId && <OrganizationSubscriptionSection organizationId={organizationId} myRole={organization.myRole} />}
-      {organizationId && <OrganizationMarginPolicySection organizationId={organizationId} />}
 
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
