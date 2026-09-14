@@ -145,13 +145,19 @@ export const AdminUnitProductDetail: FC = () => {
             <DetailRow label="이름" value={product.name} />
             <DetailRow label="설명" value={product.description ?? '없음'} />
             <DetailRow
-              label="공급가/판매가"
+              label="공급가/판매가(개당)"
               value={
                 product.salePrice === null
                   ? '-'
                   : `${formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} / ${formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}`
               }
             />
+            {product.salePrice !== null && product.saleUnitQuantity > 1 && (
+              <DetailRow
+                label="판매 단위"
+                value={`${product.saleUnitQuantity}개 단위 구매 — 1묶음 ${formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}`}
+              />
+            )}
             <DetailRow
               label="판매 기간"
               value={product.effectiveFrom ? `${product.effectiveFrom} ~ ${product.effectiveTo ?? '무기한'}` : '-'}
@@ -197,6 +203,7 @@ export const AdminUnitProductDetail: FC = () => {
                   {h.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가'}
                   {h.exclusivityGroup && ` · 배타 그룹: ${h.exclusivityGroup}`}
                   {h.maxPurchaseQuantity !== null && ` · 최대 구매 수량: ${h.maxPurchaseQuantity}개`}
+                  {h.saleUnitQuantity > 1 && ` · 판매 단위: ${h.saleUnitQuantity}개`}
                 </p>
                 {h.description && <p className="text-xs text-gray-400 mt-0.5">설명: {h.description}</p>}
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>

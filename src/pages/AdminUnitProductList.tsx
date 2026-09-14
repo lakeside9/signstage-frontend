@@ -238,9 +238,20 @@ export const AdminUnitProductList: FC = () => {
                       : `${product.maxPurchaseQuantity}개`}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {product.salePrice === null
-                    ? '-'
-                    : `${formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} / ${formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}`}
+                  {product.salePrice === null ? (
+                    '-'
+                  ) : (
+                    <>
+                      {formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} /{' '}
+                      {formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                      {product.saleUnitQuantity > 1 && (
+                        <span className="block text-xs text-gray-400">
+                          {product.saleUnitQuantity}개 단위(1묶음{' '}
+                          {formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')})
+                        </span>
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <PeriodStatusBadge status={product.periodStatus} />

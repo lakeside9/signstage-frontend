@@ -58,6 +58,7 @@ export const AdminUnitProductEdit: FC = () => {
             description: found.description,
             exclusivityGroup: found.exclusivityGroup ?? '',
             maxPurchaseQuantity: found.maxPurchaseQuantity,
+            saleUnitQuantity: found.saleUnitQuantity,
             category: found.category,
             platformUsageFee: found.platformUsageFee,
             effectDefinitionIds: found.effectDefinitionIds,
@@ -181,16 +182,28 @@ export const AdminUnitProductEdit: FC = () => {
                 onChange={(effectDefinitionIds) => setDraft((prev) => prev && { ...prev, effectDefinitionIds })}
               />
             ) : (
-              <Field label="최대 구매 수량(선택)">
-                <FormattedNumberInput
-                  min={1}
-                  value={draft.maxPurchaseQuantity ?? ''}
-                  onChange={(raw) => setDraft((prev) => prev && { ...prev, maxPurchaseQuantity: raw === '' ? null : Number(raw) })}
-                  placeholder="무제한"
-                  disabled={isSaving}
-                  className={inputClass}
-                />
-              </Field>
+              <>
+                <Field label="최대 구매 수량(선택)">
+                  <FormattedNumberInput
+                    min={1}
+                    value={draft.maxPurchaseQuantity ?? ''}
+                    onChange={(raw) => setDraft((prev) => prev && { ...prev, maxPurchaseQuantity: raw === '' ? null : Number(raw) })}
+                    placeholder="무제한"
+                    disabled={isSaving}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="판매 단위 수량(선택)">
+                  <FormattedNumberInput
+                    min={1}
+                    value={draft.saleUnitQuantity ?? ''}
+                    onChange={(raw) => setDraft((prev) => prev && { ...prev, saleUnitQuantity: raw === '' ? null : Number(raw) })}
+                    placeholder="낱개(1)"
+                    disabled={isSaving}
+                    className={inputClass}
+                  />
+                </Field>
+              </>
             )}
           </div>
 
@@ -209,7 +222,10 @@ export const AdminUnitProductEdit: FC = () => {
             <p className="text-xs text-gray-400">
               최대 구매 수량을 비워두면 한 행사가 이 상품을 몇 개든 추가구매할 수 있습니다. 값을 넣으면 그 행사의 누적
               구매(대기중+승인) 수량이 이 값을 넘는 요청을 거부합니다 — 플랜에 기본 포함된 수량은 이 합계에 들어가지
-              않습니다.
+              않습니다. 판매 단위 수량을 비워두면(=1) 낱개로 구매할 수 있습니다. 값을 넣으면 그 배수로만 구매할 수
+              있습니다 — 예를 들어 10을 넣고 판매가를 1,000원으로 등록하면 "10개 1묶음 10,000원"에 파는 것과
+              같습니다(판매가는 여전히 개당 가격입니다). 최대 구매 수량을 함께 설정한다면 판매 단위 수량의 배수여야
+              합니다.
             </p>
           )}
 

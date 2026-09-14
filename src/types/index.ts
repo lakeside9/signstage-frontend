@@ -509,6 +509,12 @@ export interface UnitProductSummary {
    * 이미 고정돼 있어(타입 자체의 규칙) 이 필드를 쓰지 않는다.
    */
   maxPurchaseQuantity: number | null;
+  /**
+   * 추가구매가 허용되는 수량 단위(배수). 1이면 제약 없음(낱개 구매). 예: 10이면 고객은
+   * 10/20/30개 단위로만 살 수 있다("템플릿 문서 10개 1묶음 10,000원", 2026-09-14 사용자
+   * 요청). 토글형은 항상 1이다.
+   */
+  saleUnitQuantity: number;
   category: UnitProductCategory;
   /**
    * 플랫폼 이용료 대상인지 — 카테고리와 별개인 명시적 분류다(2026-09-12, signstage-docs
@@ -555,6 +561,7 @@ export interface UnitProductHistorySummary {
   category: UnitProductCategory;
   exclusivityGroup: string | null;
   maxPurchaseQuantity: number | null;
+  saleUnitQuantity: number;
   platformUsageFee: boolean;
   createdBy: number;
   createdAt: string;
@@ -576,6 +583,13 @@ export interface CreateUnitProductRequest {
    * 사용자 요청). `type === 'EVENT_EFFECT_BUNDLE'`이면 보내도 무시된다.
    */
   maxPurchaseQuantity?: number | null;
+  /**
+   * 판매 단위 수량 — 추가구매는 이 값의 배수로만 허용된다. 생략하면(undefined) 1(제약 없음).
+   * 예: 템플릿 문서를 "10개 1묶음 10,000원"에 팔려면 판매가를 1,000원(개당)으로 등록하고
+   * 이 값을 10으로 지정한다(2026-09-14 사용자 요청). `type === 'EVENT_EFFECT_BUNDLE'`이면
+   * 보내도 무시된다.
+   */
+  saleUnitQuantity?: number | null;
   /**
    * 플랫폼 이용료 대상인지 — 생략하면(undefined) 카테고리로부터 자동 계산한다
    * (ESSENTIAL/APPLICATION=true, EQUIPMENT/PERSONNEL=false). 명시하면 그 값을 우선한다
@@ -608,6 +622,8 @@ export interface UpdateUnitProductRequest {
   exclusivityGroup: string | null;
   /** 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. null이면 무제한. `EVENT_EFFECT_BUNDLE`이면 보내도 무시된다. */
   maxPurchaseQuantity: number | null;
+  /** 판매 단위 수량 — 추가구매는 이 값의 배수로만 허용된다. null이면 1(제약 없음). `EVENT_EFFECT_BUNDLE`이면 보내도 무시된다. */
+  saleUnitQuantity: number | null;
   /** 플랫폼 이용료 대상인지 — 수정 화면은 항상 값을 보낸다(생략 불가). 관리자가 자유롭게 override할 수 있다. */
   platformUsageFee: boolean;
   category: UnitProductCategory;

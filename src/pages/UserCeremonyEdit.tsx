@@ -1176,6 +1176,9 @@ export const UserCeremonyEdit: FC = () => {
                           <p className="text-xs text-gray-500">
                             {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} ·{' '}
                             {product.salePrice === null ? '가격 정보 없음' : formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                            {product.saleUnitQuantity > 1 && ` · ${product.saleUnitQuantity}개 단위로 구매(1묶음 ${
+                              product.salePrice === null ? '-' : formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')
+                            })`}
                             {product.maxPurchaseQuantity !== null && ` · 최대 ${product.maxPurchaseQuantity}개`}
                           </p>
                           {product.description && <p className="text-xs text-gray-400 mt-0.5">{product.description}</p>}
@@ -1186,10 +1189,11 @@ export const UserCeremonyEdit: FC = () => {
                           <FormattedNumberInput
                             min={0}
                             max={isEventEffectBundle ? 1 : undefined}
+                            step={isEventEffectBundle ? undefined : product.saleUnitQuantity}
                             value={cartQuantities[product.id] || ''}
                             onChange={(raw) => setCartQuantity(product.id, Number(raw), isEventEffectBundle)}
                             disabled={isAddingToCart}
-                            placeholder="0"
+                            placeholder={product.saleUnitQuantity > 1 ? String(product.saleUnitQuantity) : '0'}
                             className="w-16 px-2 py-1 border border-gray-200 rounded-md text-sm text-right focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none"
                           />
                         )}
@@ -1242,6 +1246,7 @@ export const UserCeremonyEdit: FC = () => {
                       {line.unitProduct.salePrice === null
                         ? '가격 정보 없음'
                         : formatPrice(line.unitProduct.salePrice, line.unitProduct.currencyCode ?? 'KRW')}
+                      {line.unitProduct.saleUnitQuantity > 1 && ` · ${line.unitProduct.saleUnitQuantity}개 단위`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1253,6 +1258,7 @@ export const UserCeremonyEdit: FC = () => {
                       // FormattedNumberInput에서 장식용이라(그 컴포넌트 주석 참고) onChange에서
                       // 직접 1로 자른다.
                       max={line.unitProduct.type === 'EVENT_EFFECT_BUNDLE' ? 1 : undefined}
+                      step={line.unitProduct.type === 'EVENT_EFFECT_BUNDLE' ? undefined : line.unitProduct.saleUnitQuantity}
                       value={line.quantity}
                       onChange={(raw) => {
                         const next = Number(raw);
