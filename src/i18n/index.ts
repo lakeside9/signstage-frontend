@@ -43,6 +43,16 @@ const resources = {
         passwordChangeFailed: '비밀번호 변경에 실패했습니다.', changePassword: '비밀번호 변경', changingPassword: '변경 중...',
         backToSignIn: '로그인으로 돌아가기',
       },
+      intro: {
+        title: '행사 서명을 한 화면에서, SignStage',
+        description: '협약식·행사 서명 진행부터 프로젝터 연동, 서명자 포털, 문서 검증까지 하나의 플랫폼에서 관리하세요.',
+        feature: {
+          signing: { title: '실시간 전자서명', description: '행사 현장에서 서명 진행 상황을 실시간으로 관리합니다.' },
+          projector: { title: '프로젝터 연동 전시', description: '서명 장면을 행사장 화면에 실시간으로 전시합니다.' },
+          portal: { title: 'QR 서명자 포털', description: 'QR코드로 서명자 전용 화면에 바로 접속합니다.' },
+        },
+        footer: '© {{year}} SignStage. All rights reserved.',
+      },
       profile: {
         title: '내 정보', description: '프로필과 비밀번호를 수정할 수 있습니다.', profile: '프로필', loginId: '로그인 아이디',
         name: '이름', email: '이메일', phone: '전화번호', optional: '선택 입력', language: '언어',
@@ -109,6 +119,16 @@ const resources = {
         passwordMismatch: 'The new passwords do not match.', passwordChanged: 'Your password has been changed. Sign in with the new password.',
         passwordChangeFailed: 'The password could not be changed.', changePassword: 'Change password', changingPassword: 'Changing...',
         backToSignIn: 'Back to sign in',
+      },
+      intro: {
+        title: 'Every signing ceremony, in one place — SignStage',
+        description: 'Run ceremony sign-ins, projector displays, the signer portal, and document verification all from a single platform.',
+        feature: {
+          signing: { title: 'Live e-signing', description: 'Track signing progress in real time at the event.' },
+          projector: { title: 'Projector display', description: 'Show the signing moment live on the venue screen.' },
+          portal: { title: 'QR signer portal', description: 'Signers jump straight to their screen by scanning a QR code.' },
+        },
+        footer: '© {{year}} SignStage. All rights reserved.',
       },
       profile: {
         title: 'My profile', description: 'Update your profile and password.', profile: 'Profile', loginId: 'Login ID',

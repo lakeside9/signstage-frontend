@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { FC, ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { IntroView } from '../pages/IntroView';
 
 const decodeExpiry = (token: string): number | null => {
   try {
@@ -53,6 +54,11 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin
   }, [token, logout]);
 
   if (!isLoggedIn) {
+    // 루트("/")에 인증 없이 들어오면 로그인 화면 대신 인트로 화면을 먼저 보여준다.
+    // 그 외 보호된 경로로 직접 들어오면 기존대로 로그인 화면으로 돌려보낸다.
+    if (location.pathname === '/') {
+      return <IntroView />;
+    }
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
