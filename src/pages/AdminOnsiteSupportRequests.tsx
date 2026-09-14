@@ -41,14 +41,15 @@ interface SearchValues {
 const EMPTY_SEARCH: SearchValues = { status: 'ALL', requesterKeyword: '' };
 
 /**
- * 플랫폼 관리자의 현장지원 출장비 요청(관리자 견적) 협상 관리 화면 — signstage-docs
+ * 플랫폼 관리자의 플랫폼 운영사 현장지원 요청(관리자 견적) 협상 관리 화면 — signstage-docs
  * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절(2026-09-12).
  * `AdminCeremonyInquiries.tsx`와 같은 조직 横단 검색·조회 패턴. 조회는 PLATFORM_SUPPORT 이상,
  * 견적 입력(quote)은 ACTION_ONSITE_SUPPORT_REQUEST_MANAGE가 허용된 등급(PLATFORM_OPS 이상)만
  * 가능하다 — REQUESTED 상태에서만 견적을 입력할 수 있다(그 외 상태는 이미 종결/응답 대기중).
  *
- * <p>화면 문구 "현장지원 요청" → "현장지원 출장비 요청"(2026-09-14 정정) — 파트너 쪽 "고객
- * 견적" 탭의 정액 카탈로그 품목(현장지원(수도권) 등)과 겹쳐 보일 수 있다는 지적, signstage-docs
+ * <p>화면 문구 "현장지원 요청" → "현장지원 출장비 요청"(2026-09-14 정정) → "플랫폼 운영사
+ * 현장지원 요청"(2026-09-14 재정정) — 파트너 쪽 "고객 견적" 탭의 정액 카탈로그 품목(현장지원
+ * (수도권) 등)과 겹쳐 보일 수 있다는 지적, signstage-docs
  * business/platform-admin-partner-ux-confusion-review.md 2.1절/6장 결정.
  */
 export const AdminOnsiteSupportRequests: FC = () => {
@@ -84,7 +85,7 @@ export const AdminOnsiteSupportRequests: FC = () => {
         const data = await fetchRequests();
         if (!cancelled) setPageData(data);
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '현장지원 출장비 요청 목록을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '플랫폼 운영사 현장지원 요청 목록을 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -152,7 +153,7 @@ export const AdminOnsiteSupportRequests: FC = () => {
       <div>
         <h1 className="text-xl font-bold text-gray-950 flex items-center gap-2">
           <MapPin size={20} className="text-gray-400" />
-          현장지원 출장비 요청 관리
+          플랫폼 운영사 현장지원 요청 관리
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           파트너가 일시·장소를 적어 요청한 현장지원 출장비입니다. 거리 등을 보고 금액을 매기면 파트너가 수락/거부를 선택합니다.
@@ -188,7 +189,7 @@ export const AdminOnsiteSupportRequests: FC = () => {
         <ListContainer
           isLoading={isLoading}
           isEmpty={requests.length === 0}
-          emptyMessage="해당 조건의 현장지원 출장비 요청이 없습니다."
+          emptyMessage="해당 조건의 플랫폼 운영사 현장지원 요청이 없습니다."
           pagination={
             pageData
               ? {

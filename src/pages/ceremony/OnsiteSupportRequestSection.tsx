@@ -45,7 +45,7 @@ const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 27 }, (_, i) => {
 });
 
 /**
- * 행사 수정 화면(`UserCeremonyEdit`)의 "현장지원 출장비 요청" 탭 — signstage-docs
+ * 행사 수정 화면(`UserCeremonyEdit`)의 "플랫폼 운영사 현장지원 요청" 탭 — signstage-docs
  * business/onsite-support-negotiation-and-billing-classification-review.md 3.2절(2026-09-12).
  * 파트너가 일시·장소를 적어 현장지원을 요청하면(REQUESTED), 플랫폼 관리자가 거리 등을 보고
  * 실제 금액을 매기고(QUOTED), 파트너가 그 금액을 수락(ACCEPTED)/거부(DECLINED)한다 — "요청 →
@@ -56,7 +56,8 @@ const REQUEST_TIME_OPTIONS: string[] = Array.from({ length: 27 }, (_, i) => {
  * 정액 카탈로그 품목(현장지원(수도권) 등)과 이름이 겹쳐 파트너가 혼동할 수 있다는 지적으로,
  * 이 거리 기준 협상형 비용을 이미 부르던 도메인 용어 "출장비"(business/
  * ceremony-support-services-billing-review.md)를 화면 문구 전체에 반영했다 — signstage-docs
- * business/platform-admin-partner-ux-confusion-review.md 2.1절/6장 결정.
+ * business/platform-admin-partner-ux-confusion-review.md 2.1절/6장 결정. 같은 날 다시
+ * "플랫폼 운영사 현장지원 요청"으로 재정정 — 같은 결정 항목.
  *
  * <p>"수락" 버튼에 확인 절차 추가(2026-09-14, 같은 문서 2.2절/6장 결정) — 클릭 즉시
  * `purchase.approve()`를 타는 단방향 확정 액션인데 확인 없이 한 번의 클릭으로 끝나던
@@ -97,7 +98,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
         const response = await api.get(basePath);
         if (!cancelled) setRequests(response.data as CeremonyOnsiteSupportRequestSummary[]);
       } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '현장지원 출장비 요청 목록을 불러오지 못했습니다.', 'error');
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '플랫폼 운영사 현장지원 요청 목록을 불러오지 못했습니다.', 'error');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -130,7 +131,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
       await fetchRequests();
       showSnackbar('현장지원 출장비를 요청했습니다.', 'success');
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '현장지원 출장비 요청에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : '플랫폼 운영사 현장지원 요청에 실패했습니다.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +181,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : requests.length === 0 ? (
-        <p className="py-12 text-center text-sm text-gray-500">등록된 현장지원 출장비 요청이 없습니다.</p>
+        <p className="py-12 text-center text-sm text-gray-500">등록된 플랫폼 운영사 현장지원 요청이 없습니다.</p>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
           {requests.map((request) => (
@@ -232,7 +233,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
         </div>
       )}
 
-      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 현장지원 출장비 요청" widthClassName="max-w-lg">
+      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="새 플랫폼 운영사 현장지원 요청" widthClassName="max-w-lg">
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">희망 일시</label>
@@ -297,7 +298,7 @@ export const OnsiteSupportRequestSection: FC<{ organizationId: string; ceremonyI
 
       <ConfirmDialog
         open={acceptTarget !== null}
-        title="현장지원 출장비 요청 수락"
+        title="플랫폼 운영사 현장지원 요청 수락"
         message={
           acceptTarget
             ? `${formatCurrency(acceptTarget.quotedAmount ?? 0)}을 수락하면 즉시 "플랫폼 이용료"에 반영되며 되돌릴 수 없습니다(취소하려면 관리자에게 문의해야 합니다). 수락하시겠습니까?`

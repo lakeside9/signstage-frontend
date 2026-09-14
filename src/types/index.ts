@@ -1817,6 +1817,9 @@ export interface OrganizationSubscriptionSummary {
   subscriptionTypeSnapshot: 'PERIOD_AND_COUNT' | 'COUNT_ONLY' | null;
   periodMonthsSnapshot: number | null;
   allowedCountSnapshot: number | null;
+  /** "구매 비용"(플랜 소계 - 할인) 스냅샷(2026-09-14 추가) — 승인 전(PENDING)이면 null. */
+  purchaseAmountSnapshot: number | null;
+  currencyCodeSnapshot: string | null;
   usedCount: number | null;
   remainingCount: number | null;
   startDate: string | null;
