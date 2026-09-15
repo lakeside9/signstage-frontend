@@ -78,7 +78,6 @@ function App() {
         <Route path="/login" element={<LoginView />} />
         <Route path="/signup" element={<SignupView />} />
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
-        <Route path="/verify" element={<DocumentVerificationView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
         <Route
           path="/demo"
@@ -131,6 +130,7 @@ function App() {
           />
           <Route path="faqs" element={<UserFaqList />} />
           <Route path="announcements" element={<UserAnnouncementList />} />
+          <Route path="verify" element={<DocumentVerificationView />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
@@ -191,6 +191,7 @@ function App() {
           <Route path="announcements/:announcementId/edit" element={<AdminAnnouncementEdit />} />
           <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
           <Route path="onsite-support-requests" element={<AdminOnsiteSupportRequests />} />
+          <Route path="verify" element={<DocumentVerificationView />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
 
