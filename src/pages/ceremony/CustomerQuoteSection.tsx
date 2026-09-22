@@ -27,6 +27,20 @@ const MARGIN_TYPE_LABEL: Record<MarginType, string> = {
   FIXED_AMOUNT: '정액',
 };
 
+const QuoteMarginSnapshot: FC<{ summary: Pick<CustomerQuoteSummary,
+  'marginPolicySnapshot' | 'marginType' | 'marginValue' | 'currencyCode'> }> = ({ summary }) => {
+  const snapshot = summary.marginPolicySnapshot;
+  return <div className="mb-3 text-xs text-gray-600 space-y-1">
+    <p>적용 마진: {summary.marginType === 'PERCENT' ? `${summary.marginValue}%`
+      : formatCurrency(summary.marginValue, summary.currencyCode)}</p>
+    {snapshot ? <>
+      <p>정책: {snapshot.source === 'CEREMONY_OVERRIDE' ? '행사별 마진' : '파트너 기본 마진'} #{snapshot.sourceId}</p>
+      {snapshot.source === 'ORGANIZATION_DEFAULT' && <p>정책 기간: {snapshot.effectiveFrom} ~ {snapshot.effectiveTo ?? '종료일 없음'}</p>}
+      <p>적용 기준일: {snapshot.appliedOn} ({snapshot.timeZoneId})</p>
+    </> : <p>기존 견적: 적용 정책 이력 없음 (저장된 마진 값 유지)</p>}
+  </div>;
+};
+
 /**
  * 장비/인력 고객 견적 줄 — 로컬 편집 상태. `key`는 화면 안에서만 쓰는 식별자다(카탈로그
  * 줄은 `catalog-{unitProductId}`, 자유 품목은 `custom-{순번}`) — `unitProductId`가
@@ -424,7 +438,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           </p>
         ) : (
           <p className="text-sm text-amber-700">
-            마진이 설정되지 않았습니다. 조직 상세의 "재판매 마진"에서 기본값을 설정하거나, 이 행사만 따로 설정해주세요.
+            오늘 적용할 마진이 없습니다. "구독/재판매 마진"에서 기간별 정책을 설정하거나, 이 행사만 따로 설정해주세요.
           </p>
         )}
       </div>
@@ -440,7 +454,9 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
           <div className="rounded-md bg-blue-50 border border-blue-100 p-3">
             <p className="text-xs font-medium text-blue-900 mb-2">
               아직 저장되지 않았습니다 — 아래 내용을 확인한 후 "저장"을 눌러야 실제로 저장됩니다.
+              저장 시점의 유효한 마진 정책으로 다시 계산합니다.
             </p>
+            <QuoteMarginSnapshot summary={previewDetail.summary} />
             <table className="w-full text-xs">
               <thead className="text-gray-400">
                 <tr>
@@ -625,6 +641,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
 
                   {isOpen && (
                     <div className="mt-2 rounded-md bg-gray-50 p-3">
+                      <QuoteMarginSnapshot summary={detail?.summary ?? quote} />
                       {isDetailLoading && !detail ? (
                         <div className="flex items-center justify-center py-4 text-gray-400">
                           <Loader2 size={16} className="animate-spin" />

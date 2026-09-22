@@ -1,157 +1,164 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Loader2, Percent, Pencil, X } from 'lucide-react';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import { usePermissionStore } from '../../store/usePermissionStore';
 import { useSnackbarStore } from '../../store/useSnackbarStore';
 import { api } from '../../utils/api';
 import { formatCurrency } from '../../utils/internationalization';
-import type { MarginType, OrganizationMarginPolicy } from '../../types';
+import type { MarginType, OrganizationMarginPeriod } from '../../types';
 
-const MARGIN_TYPE_LABEL: Record<MarginType, string> = {
-  PERCENT: '정률(%)',
-  FIXED_AMOUNT: '정액',
+const STATUS_LABEL = { ACTIVE: '적용 중', SCHEDULED: '예정', EXPIRED: '종료' };
+const MAX_MARGIN_DATE = '9999-12-31';
+const MIN_MARGIN_DATE = '1000-01-01';
+const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-md text-sm';
+
+export const OrganizationMarginPolicySection: FC<{ organizationId: string }> = ({ organizationId }) => {
+  return <MarginPeriodList key={organizationId} organizationId={organizationId} />;
 };
 
-/**
- * 조직 상세(`UserOrganizationDetail`) 안에 얹는 "재판매 마진" 섹션 — signstage-docs
- * business/platform-partner-customer-billing-model-reference.md 4장 결정(2026-09-11). 파트너가
- * 실고객에게 시스템 사용료를 재판매할 때 원가 위에 얹는 기본 마진이다 — 행사별로 다르게
- * 쓰고 싶으면 행사 수정 화면의 "고객 견적" 탭에서 override할 수 있다. 설정·조회 전부
- * OWNER 전용(`ACTION_MARGIN_POLICY_MANAGE`)이라 그 권한이 없으면 섹션 자체를 숨긴다 — 플랫폼은
- * 이 값에 상한·승인 등 어떤 통제도 두지 않는다(파트너 재량).
- */
-export const OrganizationMarginPolicySection: FC<{ organizationId: string }> = ({ organizationId }) => {
-  const hasPermission = usePermissionStore((state) => state.hasPermission);
-  const canManage = hasPermission('ACTION_MARGIN_POLICY_MANAGE');
-
-  const [policy, setPolicy] = useState<OrganizationMarginPolicy | null>(null);
+const MarginPeriodList: FC<{ organizationId: string }> = ({ organizationId }) => {
+  const canManage = usePermissionStore((state) => state.hasPermission('ACTION_MARGIN_POLICY_MANAGE'));
+  const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const [policies, setPolicies] = useState<OrganizationMarginPeriod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [editing, setEditing] = useState<{ id: number | null } | null>(null);
   const [marginType, setMarginType] = useState<MarginType>('PERCENT');
   const [marginValue, setMarginValue] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState('');
+  const [effectiveTo, setEffectiveTo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
-  const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const [reload, setReload] = useState(0);
+  const basePath = `/organizations/${organizationId}/margin-policy/periods`;
 
   useEffect(() => {
-    if (!canManage) {
-      return;
-    }
+    if (!canManage) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const response = await api.get(`/organizations/${organizationId}/margin-policy`);
-        if (!cancelled) setPolicy(response.data as OrganizationMarginPolicy);
-      } catch (err) {
-        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '마진 설정을 불러오지 못했습니다.', 'error');
-      } finally {
-        if (!cancelled) setIsLoading(false);
+    api.get(basePath).then((response) => {
+      if (!cancelled) setPolicies(response.data as OrganizationMarginPeriod[]);
+    }).catch((err: unknown) => {
+      if (!cancelled) {
+        setLoadFailed(true);
+        showSnackbar(err instanceof Error ? err.message : '마진 목록을 불러오지 못했습니다.', 'error');
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, canManage]);
+    }).finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, [basePath, canManage, reload, showSnackbar]);
 
-  const openEditForm = () => {
+  const openForm = (policy?: OrganizationMarginPeriod) => {
+    setEditing({ id: policy?.id ?? null });
     setMarginType(policy?.marginType ?? 'PERCENT');
-    setMarginValue(policy?.marginValue != null ? String(policy.marginValue) : '');
-    setIsEditing(true);
+    setMarginValue(policy ? String(policy.marginValue) : '');
+    setEffectiveFrom(policy?.effectiveFrom ?? '');
+    setEffectiveTo(policy?.effectiveTo ?? '');
   };
+
+  const latestEnd = policies.reduce<string | null>((latest, policy) => {
+    const end = policy.effectiveTo ?? MAX_MARGIN_DATE;
+    return latest === null || end > latest ? end : latest;
+  }, null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!editing || isSaving) return;
     const value = Number(marginValue);
-    if (!marginValue.trim() || Number.isNaN(value) || value < 0) return;
+    const resolvedTo = effectiveTo || MAX_MARGIN_DATE;
+    if (!marginValue.trim() || !Number.isFinite(value) || value < 0 || !effectiveFrom
+      || effectiveFrom < MIN_MARGIN_DATE || effectiveFrom > MAX_MARGIN_DATE
+      || resolvedTo > MAX_MARGIN_DATE || effectiveFrom > resolvedTo) {
+      showSnackbar('유효한 기간과 0 이상의 마진을 입력해주세요.', 'error');
+      return;
+    }
+    if (policies.some((policy) => policy.id !== editing.id && policy.effectiveFrom <= resolvedTo
+      && (policy.effectiveTo === null || policy.effectiveTo >= effectiveFrom))) {
+      showSnackbar('기존 마진 정책과 기간이 겹칩니다. 기존 정책의 종료일을 먼저 조정해주세요.', 'error');
+      return;
+    }
+    if (editing.id === null && latestEnd !== null && effectiveFrom <= latestEnd) {
+      showSnackbar(`새 시작일은 기존 정책의 가장 늦은 종료일(${latestEnd})보다 뒤여야 합니다.`, 'error');
+      return;
+    }
     setIsSaving(true);
     try {
-      const response = await api.put(`/organizations/${organizationId}/margin-policy`, { marginType, marginValue: value });
-      setPolicy(response.data as OrganizationMarginPolicy);
-      setIsEditing(false);
-      showSnackbar('기본 마진을 저장했습니다.', 'success');
+      const body = { marginType, marginValue: value, effectiveFrom, effectiveTo: effectiveTo || null };
+      if (editing.id === null) await api.post(basePath, body);
+      else await api.put(`${basePath}/${editing.id}`, body);
+      setEditing(null);
+      setIsLoading(true);
+      setLoadFailed(false);
+      setReload((value) => value + 1);
+      showSnackbar('마진 정책을 저장했습니다. 기존 견적은 변경되지 않습니다.', 'success');
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '마진 저장에 실패했습니다.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
+    } finally { setIsSaving(false); }
   };
 
   if (!canManage) return null;
-
   return (
-    <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+    <section className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5">
-          <Percent size={14} />
-          재판매 마진
-        </h2>
-        {!isEditing && (
-          <button
-            onClick={openEditForm}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
-          >
-            <Pencil size={12} />
-            {policy?.marginType ? '수정' : '설정'}
-          </button>
-        )}
+        <h2 className="text-sm font-bold text-gray-950">재판매 마진</h2>
+        {!editing && <button type="button" disabled={isLoading || loadFailed} onClick={() => openForm()}
+          className="px-3 py-1.5 border rounded-md text-xs disabled:opacity-40">기간 추가</button>}
       </div>
-      <p className="text-xs text-gray-400 mb-3">
-        실고객에게 시스템 사용료를 재판매할 때 원가 위에 얹을 기본 마진입니다. 행사별로 다르게 쓰고 싶으면 해당 행사의
-        "고객 견적" 탭에서 따로 설정할 수 있습니다.
+      <p className="text-xs text-gray-500 mb-3">
+        우리 파트너사의 시스템 사용료 재판매 마진입니다. 견적 저장일의 정책을 적용하며 시작일·종료일을 모두 포함합니다.
+        행사별 마진이 있으면 우선 적용합니다. 0%도 설정할 수 있습니다. 저장된 견적은 정책 수정 후에도 유지됩니다.
       </p>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-6 text-gray-400">
-          <Loader2 size={18} className="animate-spin" />
-        </div>
-      ) : isEditing ? (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-gray-500">마진</label>
-            <button type="button" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-950">
-              <X size={14} />
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={marginType}
-              onChange={(e) => setMarginType(e.target.value as MarginType)}
-              disabled={isSaving}
-              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
-            >
-              <option value="PERCENT">정률(%)</option>
-              <option value="FIXED_AMOUNT">정액</option>
-            </select>
-            <FormattedNumberInput
-              min={0}
-              step="0.01"
-              value={marginValue}
-              onChange={setMarginValue}
-              disabled={isSaving}
-              placeholder={marginType === 'PERCENT' ? '예: 20' : '예: 10000'}
-              className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all"
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSaving || !marginValue.trim() || Number(marginValue) < 0}
-              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
-            >
+      {policies[0] && <p className="text-xs text-gray-500 mb-3">적용 기준 시간대: {policies[0].timeZoneId}</p>}
+      <div className="mb-3 rounded-md bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+        <p>기간 추가: 새 시작일은 기존 정책의 가장 늦은 종료일보다 뒤여야 합니다. 과거 기간이나 중간 공백에 추가할 수 없습니다.</p>
+        <p>종료일 당일까지 포함하므로 종료일과 새 시작일이 같아도 등록할 수 없습니다. 수정 시에도 다른 정책과 기간이 겹칠 수 없습니다.</p>
+        {latestEnd && <p>현재 가장 늦은 종료일: {latestEnd}</p>}
+        {latestEnd === MAX_MARGIN_DATE && <p>새 기간을 추가하려면 기존 정책의 종료일(9999-12-31)을 먼저 수정해주세요.</p>}
+      </div>
+      {editing && (
+        <form onSubmit={handleSubmit} className="mb-4 p-3 bg-gray-50 rounded-md space-y-3">
+          <h3 className="text-sm font-medium">{editing.id === null ? '기간 추가' : '기간 수정'}</h3>
+          <fieldset disabled={isSaving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <label className="text-xs space-y-1">시작일<input aria-label="시작일" type="date" required min={MIN_MARGIN_DATE} max={MAX_MARGIN_DATE} value={effectiveFrom}
+              onChange={(e) => setEffectiveFrom(e.target.value)} className={inputClass} /></label>
+            <label className="text-xs space-y-1">종료일 (선택)<input aria-label="종료일" type="date" min={effectiveFrom || MIN_MARGIN_DATE} max={MAX_MARGIN_DATE} value={effectiveTo}
+              onChange={(e) => setEffectiveTo(e.target.value)} className={inputClass} /></label>
+            <label className="text-xs space-y-1">마진 유형<select aria-label="마진 유형" value={marginType}
+              onChange={(e) => setMarginType(e.target.value as MarginType)} className={inputClass}>
+              <option value="PERCENT">정률(%)</option><option value="FIXED_AMOUNT">정액</option>
+            </select></label>
+            <label className="text-xs space-y-1">마진 값<FormattedNumberInput min={0} step="0.0001"
+              value={marginValue} onChange={setMarginValue} className={inputClass} /></label>
+          </fieldset>
+          <p className="text-xs text-gray-500">종료일을 비워두면 9999-12-31로 저장합니다.</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={isSaving} onClick={() => setEditing(null)} className="px-3 py-1.5 text-xs">취소</button>
+            <button type="submit" disabled={isSaving} className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs disabled:opacity-40">
               {isSaving ? '저장 중...' : '저장'}
             </button>
           </div>
         </form>
-      ) : policy?.marginType ? (
-        <p className="text-sm text-gray-950 font-medium">
-          {policy.marginType === 'PERCENT' ? `${policy.marginValue}%` : formatCurrency(policy.marginValue ?? 0, 'KRW')}
-          <span className="ml-1.5 text-xs font-normal text-gray-400">({MARGIN_TYPE_LABEL[policy.marginType]})</span>
-        </p>
-      ) : (
-        <p className="text-sm text-gray-500">아직 기본 마진을 설정하지 않았습니다.</p>
       )}
-    </div>
+      {isLoading ? <p className="text-sm text-gray-500">불러오는 중...</p> : loadFailed ? (
+        <button type="button" onClick={() => {
+          setIsLoading(true);
+          setLoadFailed(false);
+          setReload((value) => value + 1);
+        }} className="text-sm underline">목록 다시 불러오기</button>
+      ) : policies.length === 0 ? <p className="text-sm text-gray-500">등록된 마진 정책이 없습니다.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="text-xs text-gray-500 border-b"><tr>
+              <th className="py-2 pr-3">시작일</th><th className="pr-3">종료일</th><th className="pr-3">유형</th>
+              <th className="pr-3">마진</th><th className="pr-3">상태</th><th>관리</th>
+            </tr></thead>
+            <tbody>{policies.map((policy) => <tr key={policy.id} className="border-b border-gray-100">
+              <td className="py-3 pr-3">{policy.effectiveFrom}</td><td className="pr-3">{policy.effectiveTo ?? '종료일 없음 (기존 정책)'}</td>
+              <td className="pr-3">{policy.marginType === 'PERCENT' ? '정률' : '정액'}</td>
+              <td className="pr-3">{policy.marginType === 'PERCENT' ? `${policy.marginValue}%` : formatCurrency(policy.marginValue, policy.currencyCode)}</td>
+              <td className="pr-3">{STATUS_LABEL[policy.status]}</td>
+              <td><button type="button" disabled={isSaving} onClick={() => openForm(policy)} className="text-xs underline">수정</button></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 };

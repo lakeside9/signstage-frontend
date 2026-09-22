@@ -1918,13 +1918,13 @@ export interface UpsertDemoConfigRequest {
 /** PERCENT | FIXED_AMOUNT — DiscountType과 같은 표현을 재사용한다(할인의 부호 반대 버전). */
 export type MarginType = 'PERCENT' | 'FIXED_AMOUNT';
 
-/** PUT .../margin-policy, PUT .../customer-margin 요청(CustomerQuoteDto.Request.UpdateMargin)과 맞춘다. */
+/** PUT .../customer-margin 요청(CustomerQuoteDto.Request.UpdateMargin)과 맞춘다. */
 export interface UpdateMarginRequest {
   marginType: MarginType;
   marginValue: number;
 }
 
-/** GET/PUT /organizations/{id}/margin-policy 응답 — 설정한 적이 없으면 둘 다 null. */
+/** GET /organizations/{id}/margin-policy 응답 — 오늘 적용할 정책이 없으면 둘 다 null. */
 export interface OrganizationMarginPolicy {
   marginType: MarginType | null;
   marginValue: number | null;
@@ -1935,6 +1935,26 @@ export interface EffectiveMargin {
   marginType: MarginType | null;
   marginValue: number | null;
   source: 'CEREMONY_OVERRIDE' | 'ORGANIZATION_DEFAULT' | 'NONE';
+}
+
+export interface OrganizationMarginPeriod {
+  id: number;
+  marginType: MarginType;
+  marginValue: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  status: 'ACTIVE' | 'SCHEDULED' | 'EXPIRED';
+  currencyCode: string;
+  timeZoneId: string;
+}
+
+export interface MarginPolicySnapshot {
+  source: 'CEREMONY_OVERRIDE' | 'ORGANIZATION_DEFAULT';
+  sourceId: number;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  appliedOn: string;
+  timeZoneId: string;
 }
 
 /**
@@ -1960,6 +1980,7 @@ export interface GenerateCustomerQuoteRequest {
 }
 
 export interface CustomerQuoteSummary {
+  marginPolicySnapshot?: MarginPolicySnapshot | null;
   id: number;
   version: number;
   currencyCode: string;
@@ -1998,6 +2019,7 @@ export interface CustomerQuoteDetail {
  * `version`은 "저장하면 몇 번째 버전이 될지" 참고용으로 채워진다.
  */
 export interface CustomerQuotePreviewSummary {
+  marginPolicySnapshot?: MarginPolicySnapshot | null;
   id: null;
   version: number;
   currencyCode: string;
