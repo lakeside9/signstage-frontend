@@ -4,6 +4,7 @@ import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Building2,
+  Calculator,
   ChevronLeft,
   FileSignature,
   HelpCircle,
@@ -30,6 +31,7 @@ import { useTranslation } from 'react-i18next';
  * (signstage-docs business/menu-and-action-permission-management-review.md 7.1절).
  */
 const ICON_BY_KEY: Record<string, ReactNode> = {
+  Calculator: <Calculator size={20} />,
   LayoutDashboard: <LayoutDashboard size={20} />,
   FileSignature: <FileSignature size={20} />,
   Settings: <Settings size={20} />,

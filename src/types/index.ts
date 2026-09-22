@@ -893,6 +893,9 @@ export interface CeremonyDiscountSummary {
  * 없이 DRAFT로 만들어지고, 나중에 PUT .../plan(changePlan)으로 최초 선택을 한다.
  */
 export interface CreateCeremonyRequest {
+  location?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
   billingPlanId?: number;
   title: string;
   /**
@@ -925,6 +928,9 @@ export interface CreateCeremonyRequest {
 export type CeremonyStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
 
 export interface CeremonySummary {
+  location?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
   id: number;
   organizationId: number;
   /** null이면 아직 플랜을 선택하지 않은 것이다(2026-09-10 — DRAFT에서만 가능, 확정하려면 먼저 선택해야 한다). */
@@ -984,6 +990,9 @@ export interface EstimatedTotal {
  * (CeremonyDto.Request.UpdateCeremony)과 맞춘다. 플랜은 여기서 바꿀 수 없다(생성 시점에 고정).
  */
 export interface UpdateCeremonyRequest {
+  location?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
   title: string;
   description: string | null;
   organizingInstitution: string | null;

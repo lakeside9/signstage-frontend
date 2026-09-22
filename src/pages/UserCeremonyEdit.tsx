@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
+import { CeremonyScheduleFields } from '../components/CeremonyScheduleFields';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -169,6 +170,9 @@ export const UserCeremonyEdit: FC = () => {
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [locationDraft, setLocationDraft] = useState('');
+  const [startsAtDraft, setStartsAtDraft] = useState('');
+  const [endsAtDraft, setEndsAtDraft] = useState('');
   const [organizingInstitutionDraft, setOrganizingInstitutionDraft] = useState('');
   const [organizingDepartmentDraft, setOrganizingDepartmentDraft] = useState('');
   const [contactNameDraft, setContactNameDraft] = useState('');
@@ -203,6 +207,9 @@ export const UserCeremonyEdit: FC = () => {
           setCeremony(data);
           setTitleDraft(data.title);
           setDescriptionDraft(data.description ?? '');
+          setLocationDraft(data.location ?? '');
+          setStartsAtDraft(data.startsAt ?? '');
+          setEndsAtDraft(data.endsAt ?? '');
           setOrganizingInstitutionDraft(data.organizingInstitution ?? '');
           setOrganizingDepartmentDraft(data.organizingDepartment ?? '');
           setContactNameDraft(data.contactName ?? '');
@@ -421,11 +428,18 @@ export const UserCeremonyEdit: FC = () => {
       return;
     }
 
+    if (startsAtDraft && endsAtDraft && new Date(endsAtDraft) < new Date(startsAtDraft)) {
+      showSnackbar('종료일시는 시작일시보다 빠를 수 없습니다.', 'error');
+      return;
+    }
     setIsSavingInfo(true);
     try {
       const response = await api.put(basePath, {
         title: titleDraft.trim(),
         description: descriptionDraft.trim() || null,
+        location: locationDraft.trim() || null,
+        startsAt: startsAtDraft || null,
+        endsAt: endsAtDraft || null,
         organizingInstitution: organizingInstitutionDraft.trim() || null,
         organizingDepartment: organizingDepartmentDraft.trim() || null,
         contactName: contactNameDraft.trim() || null,
@@ -738,6 +752,12 @@ export const UserCeremonyEdit: FC = () => {
                 {CEREMONY_STATUS_LABEL[ceremony.status]}
               </span>
             </div>
+
+            <CeremonyScheduleFields
+              location={locationDraft} startsAt={startsAtDraft} endsAt={endsAtDraft}
+              onLocationChange={setLocationDraft} onStartsAtChange={setStartsAtDraft} onEndsAtChange={setEndsAtDraft}
+              disabled={isSavingInfo} timeZoneId={ceremony.timeZoneId}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>

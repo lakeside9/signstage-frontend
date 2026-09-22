@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
+import { CeremonyScheduleFields } from '../components/CeremonyScheduleFields';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { CeremonySummary } from '../types';
@@ -11,7 +12,7 @@ const inputClass =
   'w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100';
 
 /**
- * 행사(Ceremony) 등록 화면. 제목만 먼저 등록하고 플랜은 나중에 고른다(2026-09-10, 사용자
+ * 행사(Ceremony) 등록 화면. 기본 정보를 먼저 등록하고 플랜은 나중에 고른다(2026-09-10, 사용자
  * 요청 — signstage-docs
  * business/ceremony-registration-flow-and-billing-tab-separation-review.md) — "선등록
  * 후플랜" 원칙은 그대로다. 예전엔 이 화면이 플랜 선택까지 같이 받았지만(business/
@@ -21,8 +22,8 @@ const inputClass =
  * <p><b>제목 외 나머지 정보도 함께 받는다(2026-09-12 사용자 요청)</b> — 예전엔 제목만
  * 받고 설명/주관 기관·부서/담당자 정보는 등록 후 수정 화면에서만 입력할 수 있었다. 플랜과
  * 무관한 이 정보들은 "선등록 후플랜" 원칙과 충돌하지 않아 등록 화면에서 함께 받도록
- * 넓혔다 — `UserCeremonyEdit.tsx`의 "행사 정보" 탭과 같은 필드 구성이고, 전부 선택
- * 입력이라 비워두고 나중에 채워도 된다.
+ * 넓혔다 — `UserCeremonyEdit.tsx`의 "행사 정보" 탭과 같은 필드 구성이다.
+ * 등록 화면에서는 제목·장소·시작일시·종료일시가 필수이며 나머지 항목은 선택 입력이다.
  */
 export const UserCeremonyCreate: FC = () => {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -30,6 +31,9 @@ export const UserCeremonyCreate: FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
   const [organizingInstitution, setOrganizingInstitution] = useState('');
   const [organizingDepartment, setOrganizingDepartment] = useState('');
   const [contactName, setContactName] = useState('');
@@ -48,11 +52,26 @@ export const UserCeremonyCreate: FC = () => {
       return;
     }
 
+    if (!location.trim()) {
+      showSnackbar('행사장소를 입력해주세요.', 'error');
+      return;
+    }
+    if (!startsAt || !endsAt) {
+      showSnackbar('행사 시작일시와 종료일시를 입력해주세요.', 'error');
+      return;
+    }
+    if (new Date(endsAt) < new Date(startsAt)) {
+      showSnackbar('종료일시는 시작일시보다 빠를 수 없습니다.', 'error');
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await api.post(`/organizations/${organizationId}/ceremonies`, {
         title: title.trim(),
         description: description.trim() || null,
+        location: location.trim() || null,
+        startsAt: startsAt || null,
+        endsAt: endsAt || null,
         organizingInstitution: organizingInstitution.trim() || null,
         organizingDepartment: organizingDepartment.trim() || null,
         contactName: contactName.trim() || null,
@@ -84,7 +103,7 @@ export const UserCeremonyCreate: FC = () => {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">행사 등록</h1>
         <p className="mt-1 text-sm text-gray-500">
-          제목만 입력해도 등록할 수 있습니다 — 나머지 정보는 지금 채워도 되고, 등록 후 수정 화면에서 채워도 됩니다.
+          행사 제목, 행사장소, 시작일시와 종료일시는 필수 입력입니다. 나머지 정보는 등록 후에도 입력할 수 있습니다.
           과금 플랜은 등록 직후 이어지는 화면에서 고릅니다.
         </p>
       </div>
@@ -101,6 +120,13 @@ export const UserCeremonyCreate: FC = () => {
             placeholder="예: 2026년 상반기 협약식"
           />
         </div>
+
+        <CeremonyScheduleFields
+          required
+          location={location} startsAt={startsAt} endsAt={endsAt}
+          onLocationChange={setLocation} onStartsAtChange={setStartsAt} onEndsAtChange={setEndsAt}
+          disabled={isLoading}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

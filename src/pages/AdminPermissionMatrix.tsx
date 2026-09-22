@@ -113,7 +113,7 @@ export const AdminPermissionMatrix: FC = () => {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <th className="text-left font-medium py-2 px-4">권한키</th>
+              <th className="text-left font-medium py-2 px-4">권한명 / 권한키</th>
               {roleColumns.map((role) => (
                 <th key={role} className="text-center font-medium py-2 px-4">
                   {role}

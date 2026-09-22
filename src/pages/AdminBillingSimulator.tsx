@@ -170,12 +170,11 @@ export const AdminBillingSimulator: FC = () => {
   };
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
-  // 플랜 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매 후보다
-  // (2026-09-10, purchasable 필드 폐지 — AdminBillingPlanDetail.tsx와 같은 이유).
-  const purchasableProducts = useMemo(() => {
-    const purchasableIds = new Set(selectedPlan?.unitProducts.map((l) => l.unitProductId) ?? []);
-    return products.filter((p) => purchasableIds.has(p.id));
-  }, [selectedPlan, products]);
+  // 플랜 구성과 관계없이 플랫폼 이용료로 지정된 전체 단위 상품을 추가 구매 대상으로 표시한다.
+  const purchasableProducts = useMemo(
+    () => products.filter((product) => product.platformUsageFee),
+    [products],
+  );
   const groupedPurchasable = UNIT_PRODUCT_CATEGORY_OPTIONS.map((option) => ({
     category: option.label,
     items: purchasableProducts.filter((p) => p.category === option.value),
@@ -373,12 +372,11 @@ export const AdminBillingSimulator: FC = () => {
               )}
             </div>
             <p className="text-xs text-gray-400 mb-3">
-              선택한 플랜의 구성에 올라간(포함 수량이 0이든 N이든) 단위 상품만 보여줍니다. 단위 상품은 할인이 없어
-              정가 × 수량 그대로 계산됩니다(signstage-docs
-              business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10, 11장).
+              선택한 플랜의 구성과 관계없이 플랫폼 이용료 대상 단위 상품 전체를 보여줍니다.
+              추가 구매 금액은 상품 단가 × 수량으로 계산됩니다.
             </p>
             {purchasableProducts.length === 0 ? (
-              <p className="text-sm text-gray-400">이 플랜에서 추가구매할 수 있는 단위 상품이 없습니다.</p>
+              <p className="text-sm text-gray-400">플랫폼 이용료 대상 단위 상품이 없습니다.</p>
             ) : (
               <div className="space-y-4">
                 {groupedPurchasable

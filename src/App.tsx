@@ -23,6 +23,7 @@ import { AdminUnitProductCreate } from './pages/AdminUnitProductCreate';
 import { AdminUnitProductDetail } from './pages/AdminUnitProductDetail';
 import { AdminUnitProductEdit } from './pages/AdminUnitProductEdit';
 import { AdminBillingSimulator } from './pages/AdminBillingSimulator';
+import { UserBillingSimulator } from './pages/UserBillingSimulator';
 import { AdminCeremonyPurchaseRequests } from './pages/AdminCeremonyPurchaseRequests';
 import { AdminCeremonyDiscounts } from './pages/AdminCeremonyDiscounts';
 import { AdminCeremonyDiscountDetail } from './pages/AdminCeremonyDiscountDetail';
@@ -111,6 +112,7 @@ function App() {
           <Route path="subscription-margin/:organizationId" element={<UserSubscriptionMarginDetail />} />
           <Route path="organization-requests" element={<UserOrganizationRequests />} />
           <Route path="ceremonies" element={<UserCeremonyEntry />} />
+          <Route path="billing-simulator" element={<UserBillingSimulator />} />
           <Route path="ceremonies/:organizationId" element={<UserCeremonyList />} />
           <Route path="ceremonies/:organizationId/new" element={<UserCeremonyCreate />} />
           <Route path="ceremonies/:organizationId/:ceremonyId" element={<UserCeremonyDetail />} />
