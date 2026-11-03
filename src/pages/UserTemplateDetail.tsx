@@ -134,7 +134,7 @@ export const UserTemplateDetail: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCeremonyCompleted, setIsCeremonyCompleted] = useState(false);
   // 아래 훅들(키보드 삭제/이동, 마퀴 선택)이 이 값을 참조하므로 얼리 리턴보다 먼저 계산해둔다.
-  const isReadOnly = template?.status === 'COMPLETED' || isCeremonyCompleted;
+  const isReadOnly = Boolean(template?.locked) || template?.status === 'COMPLETED' || isCeremonyCompleted;
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);

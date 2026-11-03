@@ -234,6 +234,9 @@ export const UserCeremonyDetail: FC = () => {
   const [editSignerRoleCode, setEditSignerRoleCode] = useState('');
   const [deletingSignerId, setDeletingSignerId] = useState<number | null>(null);
 
+  const [renamingTemplateId, setRenamingTemplateId] = useState<number | null>(null);
+  const [renamingTitle, setRenamingTitle] = useState('');
+  const [isTitleSaving, setIsTitleSaving] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
   const [isTemplatesSectionOpen, setIsTemplatesSectionOpen] = useState(true);
@@ -846,6 +849,26 @@ export const UserCeremonyDetail: FC = () => {
     } finally {
       setIsCloningFields(false);
       setIsCloneFieldsConfirmOpen(false);
+    }
+  };
+
+  const handleRenameTemplate = async () => {
+    if (renamingTemplateId === null || isTitleSaving) return;
+    const title = renamingTitle.trim();
+    if (!title) {
+      showSnackbar('문서명을 입력해주세요.', 'error');
+      return;
+    }
+    setIsTitleSaving(true);
+    try {
+      await api.patch(`${basePath}/templates/${renamingTemplateId}/title`, { title });
+      setRenamingTemplateId(null);
+      setTemplates(await fetchTemplates());
+      showSnackbar('문서명을 변경했습니다.', 'success');
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : '문서명 변경에 실패했습니다.', 'error');
+    } finally {
+      setIsTitleSaving(false);
     }
   };
 
@@ -1474,21 +1497,29 @@ export const UserCeremonyDetail: FC = () => {
         )}
 
         <ListContainer isLoading={isTemplatesLoading} isEmpty={templates.length === 0} emptyMessage="아직 업로드된 문서 양식이 없습니다.">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-20" />
+              <col className="w-24" />
+              <col />
+              <col className="w-24" />
+              <col className="w-16" />
+              <col className="w-[480px]" />
+            </colgroup>
             <thead className="text-gray-500 text-xs">
               <tr>
-                <th className="text-left font-medium px-4 py-2 w-20 min-w-20">순서</th>
-                <th className="text-left font-medium px-4 py-2">문서 유형</th>
-                <th className="text-left font-medium px-4 py-2">양식명</th>
-                <th className="text-left font-medium px-4 py-2">상태</th>
-                <th className="text-left font-medium px-4 py-2">서명란</th>
-                <th className="text-right font-medium px-4 py-2">관리</th>
+                <th className="text-left font-medium px-2 py-2 w-20">순서</th>
+                <th className="text-left font-medium px-2 py-2">문서 유형</th>
+                <th className="text-left font-medium px-2 py-2">양식명</th>
+                <th className="text-left font-medium px-2 py-2">상태</th>
+                <th className="text-left font-medium px-2 py-2">서명란</th>
+                <th className="text-right font-medium px-2 py-2">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {templates.map((template, index) => (
                 <tr key={template.id}>
-                  <td className="px-4 py-2 w-20 min-w-20">
+                  <td className="px-2 py-2 w-20">
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"
@@ -1510,27 +1541,44 @@ export const UserCeremonyDetail: FC = () => {
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
-                  <td className="px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => setViewingTemplateId(template.id)}
-                      className="block text-left font-medium text-gray-950 hover:underline"
-                    >
-                      {template.title}
-                    </button>
-                    <p className="text-xs text-gray-400">{template.originalFilename}</p>
+                  <td className="px-2 py-2 text-gray-600">{DOCUMENT_ROLE_LABEL[template.documentRole]}</td>
+                  <td className="px-2 py-2">
+                    {renamingTemplateId === template.id ? (
+                      <form className="flex items-center gap-2" onSubmit={(event) => { event.preventDefault(); void handleRenameTemplate(); }}>
+                        <input autoFocus aria-label="문서명" maxLength={255} value={renamingTitle}
+                          disabled={isTitleSaving} onChange={(event) => setRenamingTitle(event.target.value)}
+                          onKeyDown={(event) => { if (event.key === 'Escape' && !isTitleSaving) setRenamingTemplateId(null); }}
+                          className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm" />
+                        <button type="submit" disabled={isTitleSaving} className="shrink-0 text-xs text-indigo-600 disabled:opacity-50">저장</button>
+                        <button type="button" disabled={isTitleSaving} onClick={() => setRenamingTemplateId(null)} className="shrink-0 text-xs text-gray-500 disabled:opacity-50">취소</button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setViewingTemplateId(template.id)}
+                          className="min-w-0 break-words text-left font-medium text-gray-950 hover:underline">
+                          {template.title}
+                        </button>
+                        <button type="button" aria-label={`${template.title} 문서명 변경`}
+                          title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : '문서명 변경'}
+                          disabled={isTitleSaving || isCompleted}
+                          onClick={() => { setRenamingTemplateId(template.id); setRenamingTitle(template.title); }}
+                          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-950 disabled:opacity-40">
+                          <Pencil size={12} />
+                        </button>
+                      </div>
+                    )}
+                    <p className="truncate text-xs text-gray-400" title={template.originalFilename}>{template.originalFilename}</p>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-2 py-2">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[template.status]}`}
+                      className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium border ${TEMPLATE_STATUS_COLOR[template.status]}`}
                     >
                       {TEMPLATE_STATUS_LABEL[template.status]}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{template.fieldCount}개</td>
-                  <td className="px-4 py-2">
-                    <div className="flex justify-end gap-1">
+                  <td className="px-2 py-2 text-gray-600">{template.fieldCount}개</td>
+                  <td className="px-2 py-2">
+                    <div className="flex flex-nowrap justify-end gap-1 whitespace-nowrap">
                       <button
                         onClick={() => handleDuplicateTemplate(template.id)}
                         disabled={processingTemplateId === template.id || Boolean(registerDisabledReason)}
@@ -1547,7 +1595,7 @@ export const UserCeremonyDetail: FC = () => {
                           isCompleted
                             ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
                             : template.locked
-                              ? '시작되었거나 종료된 하위 행사에 매핑돼 수정할 수 없습니다.'
+                              ? '하위 행사에 연결된 문서 양식은 수정할 수 없습니다.'
                               : template.status === 'COMPLETED'
                                 ? '설정 완료된 문서 양식은 서명란을 가져올 수 없습니다.'
                                 : '같은 유형의 다른 문서에 있는 서명란을 이 문서로 가져옵니다. (기존 서명란은 삭제됨)'
@@ -1571,7 +1619,7 @@ export const UserCeremonyDetail: FC = () => {
                           isCompleted
                             ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
                             : template.locked
-                              ? '시작되었거나 종료된 하위 행사에 매핑돼 수정할 수 없습니다.'
+                              ? '하위 행사에 연결된 문서 양식은 수정할 수 없습니다.'
                               : undefined
                         }
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"

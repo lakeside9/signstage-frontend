@@ -1564,7 +1564,7 @@ export interface TemplateSummary {
   /** 문서 양식 목록의 표시 순서 — 위/아래 이동 버튼이 이 값을 그대로 다시 인덱싱해 저장한다(2026-08-27 legacy 포팅). */
   displayOrder: number;
   fieldCount: number;
-  /** 시작/종료된 하위 행사에 매핑돼 수정이 막힌 문서 양식이면 true. */
+  /** 하위 행사에 매핑돼 수정이 막힌 문서 양식이면 true. */
   locked: boolean;
   /** 하위 행사에 매핑돼 있어 삭제할 수 없는 문서 양식이면 false — 삭제 버튼을 숨긴다. */
   deletable: boolean;
