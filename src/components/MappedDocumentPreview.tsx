@@ -1,3 +1,4 @@
+import { displaySignatureWidth } from '../utils/signatureWidth';
 import { Fragment, useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Stage, Layer, Image as KonvaImage, Rect, Text, Line } from 'react-konva';
@@ -276,7 +277,7 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
                           key={stroke.id}
                           points={points}
                           stroke="#111827"
-                          strokeWidth={2}
+                          strokeWidth={displaySignatureWidth(stageWidth)}
                           tension={0.5}
                           lineCap="round"
                           lineJoin="round"

@@ -282,6 +282,26 @@ export const UserCeremonyDetail: FC = () => {
   // (플랜 기본값 + 승인된 추가구매 반영). 못 불러와도 개수 안내만 빠질 뿐이라 조용히 넘어간다.
   const [capacityStatus, setCapacityStatus] = useState<CapacityStatus | null>(null);
 
+  const [availabilityPending, setAvailabilityPending] = useState(false);
+  const availabilityPendingRef = useRef(false);
+  const toggleAvailability = async (kind: 'templates' | 'signers', item: TemplateSummary | SignerSummary) => {
+    if (availabilityPendingRef.current) return;
+    availabilityPendingRef.current = true;
+    setAvailabilityPending(true);
+    try {
+      const response = await api.patch(`${basePath}/${kind}/${item.id}/enabled`, { enabled: !item.enabled });
+      const enabled = (response.data as { enabled: boolean }).enabled;
+      if (kind === 'templates') setTemplates(current => current.map(row => row.id === item.id ? { ...row, enabled } : row));
+      else setSigners(current => current.map(row => row.id === item.id ? { ...row, enabled } : row));
+      showSnackbar(enabled ? '사용으로 변경했습니다.' : '사용 안함으로 변경했습니다.', 'success');
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : '사용 여부 변경에 실패했습니다.', 'error');
+    } finally {
+      availabilityPendingRef.current = false;
+      setAvailabilityPending(false);
+    }
+  };
+
   const basePath = `/organizations/${organizationId}/ceremonies/${ceremonyId}`;
   const detailPath = `/ceremonies/${organizationId}/${ceremonyId}`;
 
@@ -1251,6 +1271,16 @@ export const UserCeremonyDetail: FC = () => {
                   <td className="px-4 py-2 text-gray-500">{signer.position ?? '-'}</td>
                   <td className="px-4 py-2">
                     <div className="flex justify-end gap-1">
+                      <button type="button" role="switch" aria-checked={!signer.enabled}
+                        aria-label={`${signer.name} 사용 안함`}
+                        disabled={availabilityPending || isCompleted}
+                        onClick={() => void toggleAvailability('signers', signer)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 disabled:opacity-40">
+                        <span className={`relative h-4 w-7 rounded-full ${!signer.enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white ${!signer.enabled ? 'left-3.5' : 'left-0.5'}`} />
+                        </span>
+                        사용 안함
+                      </button>
                       <button
                         onClick={() => startEditSigner(signer)}
                         disabled={processingSignerId === signer.id || signer.locked || isCompleted}
@@ -1579,6 +1609,16 @@ export const UserCeremonyDetail: FC = () => {
                   <td className="px-2 py-2 text-gray-600">{template.fieldCount}개</td>
                   <td className="px-2 py-2">
                     <div className="flex flex-nowrap justify-end gap-1 whitespace-nowrap">
+                      <button type="button" role="switch" aria-checked={!template.enabled}
+                        aria-label={`${template.title} 사용 안함`}
+                        disabled={availabilityPending || isCompleted}
+                        onClick={() => void toggleAvailability('templates', template)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 disabled:opacity-40">
+                        <span className={`relative h-4 w-7 rounded-full ${!template.enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white ${!template.enabled ? 'left-3.5' : 'left-0.5'}`} />
+                        </span>
+                        사용 안함
+                      </button>
                       <button
                         onClick={() => handleDuplicateTemplate(template.id)}
                         disabled={processingTemplateId === template.id || Boolean(registerDisabledReason)}

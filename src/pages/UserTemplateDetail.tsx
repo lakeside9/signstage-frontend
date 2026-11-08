@@ -468,7 +468,7 @@ export const UserTemplateDetail: FC = () => {
   };
 
   const handleAddSignerField = (signer: SignerSummary) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !signer.enabled) return;
     if (!docSigners.some((s) => s.id === signer.id)) {
       setDocSigners([...docSigners, signer]);
     }
@@ -584,7 +584,7 @@ export const UserTemplateDetail: FC = () => {
   };
 
   const handleAddDocSigner = (signer: SignerSummary) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !signer.enabled) return;
     if (docSigners.some((s) => s.id === signer.id)) return;
     setDocSigners([...docSigners, signer]);
   };
@@ -1069,16 +1069,16 @@ export const UserTemplateDetail: FC = () => {
                   <h3 className="font-bold text-gray-950 text-xs">협약 서명자 추가</h3>
                 </div>
                 <div className="flex-1 overflow-auto p-4 space-y-2 bg-gray-50/30">
-                  {signers.filter((s) => !docSigners.some((ds) => ds.id === s.id)).length > 0 ? (
+                  {signers.filter((s) => s.enabled && !docSigners.some((ds) => ds.id === s.id)).length > 0 ? (
                     signers
-                      .filter((s) => !docSigners.some((ds) => ds.id === s.id))
+                      .filter((s) => s.enabled && !docSigners.some((ds) => ds.id === s.id))
                       .map((signer) => (
                         <div
                           key={signer.id}
                           className="p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between hover:border-gray-300 transition-all group"
                         >
                           <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-xs text-gray-900 truncate">{signer.name}</span>
+                            <span className="font-bold text-xs text-gray-900 truncate">{signer.name}{!signer.enabled && <span className="ml-1 text-amber-600">(사용 안함)</span>}</span>
                             <span className="text-[10px] text-gray-500 truncate">
                               {signer.affiliation} {signer.position}
                             </span>

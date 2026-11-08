@@ -1509,6 +1509,7 @@ export interface UpdateSignerRequest {
  * 서명자 포털 접속에 쓰인다(4라운드 이후에 의미가 생긴다).
  */
 export interface SignerSummary {
+  enabled: boolean;
   id: number;
   ceremonyId: number;
   name: string;
@@ -1555,6 +1556,7 @@ export type TemplateStatus = 'DRAFT' | 'COMPLETED';
  * 바꿀 수 없다(읽기 전용).
  */
 export interface TemplateSummary {
+  enabled: boolean;
   id: number;
   ceremonyId: number;
   title: string;

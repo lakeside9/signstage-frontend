@@ -242,7 +242,7 @@ export const UserCeremonyEventMapping: FC = () => {
       // 설정 완료(COMPLETED) 문서만 매핑 후보로 보여준다 — 서명란 배치가 덜 끝난 DRAFT 문서를
       // 매핑하면 매핑 이후에도 서명란이 계속 바뀔 수 있어(백엔드도 같은 이유로 매핑 시점에
       // 이 상태를 검사한다, CeremonyErrorCode.TEMPLATE_NOT_COMPLETED) 미리 걸러낸다.
-      setAvailableTemplates(all.filter((t) => t.documentRole === role && t.status === 'COMPLETED'));
+      setAvailableTemplates(all.filter((t) => t.enabled && t.documentRole === role && t.status === 'COMPLETED'));
     } catch {
       showSnackbar('문서 양식 목록을 불러오지 못했습니다.', 'error');
     } finally {

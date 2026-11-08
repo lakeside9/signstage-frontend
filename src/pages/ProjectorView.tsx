@@ -1,3 +1,4 @@
+import { displaySignatureWidth } from '../utils/signatureWidth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
@@ -239,7 +240,7 @@ const ProjectorPageLayer = ({
             key={`${stroke.templateFieldId}-${stroke.strokeSeq}`}
             points={points}
             stroke="#111827"
-            strokeWidth={Math.max(2, 3 * (frame.width / DEFAULT_PAGE_SIZE.width))}
+            strokeWidth={displaySignatureWidth(frame.width)}
             tension={0.5}
             lineCap="round"
             lineJoin="round"
