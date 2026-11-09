@@ -506,6 +506,10 @@ export const UserCeremonyEventControl: FC = () => {
   const isSignerComplete = (signerId: number) => signatureStatuses.find((s) => s.signerId === signerId)?.completed ?? false;
   const completedCount = signatureStatuses.filter((s) => s.completed).length;
   const eventTypeMeta = EVENT_TYPE_CONTROL_META[event.eventType];
+  const canCheckOrResetSignatures =
+    ((event.eventType === 'TEST' || event.eventType === 'REHEARSAL')
+      && ['DRAFT', 'READY', 'STARTED'].includes(event.status))
+    || (event.eventType === 'MAIN' && ['DRAFT', 'READY'].includes(event.status));
 
   return (
     <div className="flex flex-col gap-4">
@@ -569,29 +573,30 @@ export const UserCeremonyEventControl: FC = () => {
                       강제종료
                     </button>
                   )}
-                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
-                    <button
-                      onClick={() => setIsBulkResetConfirmOpen(true)}
-                      disabled={isTransitioning}
-                      title="테스트 또는 리허설 행사의 모든 서명자 서명을 일괄 초기화합니다."
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
-                    >
-                      <Eraser size={12} />
-                      서명 초기화
-                    </button>
-                  )}
-                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
-                    <button
-                      onClick={handleSignatureMappingCheck}
-                      disabled={isTransitioning}
-                      title="테스트 또는 리허설 행사의 모든 서명란에 배정된 서명자의 소속명(5자)을 자동으로 채워, 프로젝터·서명자 화면에서 매핑이 맞는지 확인합니다. 이미 서명된 서명란은 건드리지 않습니다."
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
-                    >
-                      <ClipboardCheck size={12} />
-                      서명매핑확인
-                    </button>
-                  )}
+
                 </div>
+              )}
+              {canCheckOrResetSignatures && (
+                <button
+                  onClick={() => setIsBulkResetConfirmOpen(true)}
+                  disabled={isTransitioning}
+                  title="모든 서명자의 서명과 서명란 배정 확인용 텍스트를 일괄 초기화합니다."
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                >
+                  <Eraser size={12} />
+                  서명 초기화
+                </button>
+              )}
+              {canCheckOrResetSignatures && (
+                <button
+                  onClick={handleSignatureMappingCheck}
+                  disabled={isTransitioning}
+                  title="모든 서명란에 배정된 서명자의 소속명(5자)을 자동으로 채워, 프로젝터·서명자 화면에서 매핑이 맞는지 확인합니다. 이미 서명된 서명란은 건드리지 않습니다."
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                >
+                  <ClipboardCheck size={12} />
+                  서명매핑확인
+                </button>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">행사 실시간 제어 및 모니터링</p>
@@ -777,7 +782,7 @@ export const UserCeremonyEventControl: FC = () => {
       <ConfirmDialog
         open={isBulkResetConfirmOpen}
         title="서명 일괄 초기화"
-        message="모든 서명자의 서명을 초기화하시겠습니까? 초기화 후에는 복구할 수 없습니다."
+        message="모든 서명자의 서명을 초기화하시겠습니까? 본행사는 시작 전에만, 테스트·리허설은 진행 중까지 초기화할 수 있습니다. 초기화 후에는 복구할 수 없습니다."
         confirmLabel="초기화"
         isSubmitting={isBulkResetting}
         onConfirm={handleBulkReset}
