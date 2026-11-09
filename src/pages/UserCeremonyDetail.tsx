@@ -486,7 +486,13 @@ export const UserCeremonyDetail: FC = () => {
     });
   };
 
+  const editingEvent = events.find(event => event.id === editingEventId);
+  const isEventEditReadOnly = ceremony?.status === 'COMPLETED'
+    || !editingEvent
+    || ['STARTED', 'FINISHED', 'FORCE_FINISHED'].includes(editingEvent.status);
+
   const handleSaveEventEdit = async (eventId: number) => {
+    if (isEventEditReadOnly) return;
     if (!editEventName.trim()) {
       showSnackbar('하위 행사 이름을 입력해주세요.', 'error');
       return;
@@ -2012,7 +2018,7 @@ export const UserCeremonyDetail: FC = () => {
                         </Link>
                         <button
                           onClick={() => startEditEvent(event)}
-                          disabled={processingEventId === event.id || isEventLocked || isCompleted}
+                          disabled={processingEventId === event.id}
                           title={
                             isCompleted
                               ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
@@ -2113,13 +2119,14 @@ export const UserCeremonyDetail: FC = () => {
 
       <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-lg">
         <div className="space-y-3">
+          <fieldset disabled={isEventEditReadOnly || processingEventId === editingEventId} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
             <input
               type="text"
               value={editEventName}
               onChange={(e) => setEditEventName(e.target.value)}
-              disabled={processingEventId === editingEventId}
+              disabled={isEventEditReadOnly || processingEventId === editingEventId}
               className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
             />
           </div>
@@ -2129,7 +2136,7 @@ export const UserCeremonyDetail: FC = () => {
               type="text"
               value={editEventVenue}
               onChange={(e) => setEditEventVenue(e.target.value)}
-              disabled={processingEventId === editingEventId}
+              disabled={isEventEditReadOnly || processingEventId === editingEventId}
               placeholder="선택 입력"
               className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
             />
@@ -2140,7 +2147,7 @@ export const UserCeremonyDetail: FC = () => {
               <EventDateTimeInput
                 value={editEventScheduledStart}
                 onChange={setEditEventScheduledStart}
-                disabled={processingEventId === editingEventId}
+                disabled={isEventEditReadOnly || processingEventId === editingEventId}
                 dense
               />
             </div>
@@ -2149,7 +2156,7 @@ export const UserCeremonyDetail: FC = () => {
               <EventDateTimeInput
                 value={editEventScheduledEnd}
                 onChange={setEditEventScheduledEnd}
-                disabled={processingEventId === editingEventId}
+                disabled={isEventEditReadOnly || processingEventId === editingEventId}
                 dense
               />
             </div>
@@ -2159,7 +2166,7 @@ export const UserCeremonyDetail: FC = () => {
             <textarea
               value={editEventDescription}
               onChange={(e) => setEditEventDescription(e.target.value)}
-              disabled={processingEventId === editingEventId}
+              disabled={isEventEditReadOnly || processingEventId === editingEventId}
               rows={2}
               placeholder="선택 입력"
               className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100 resize-none"
@@ -2176,7 +2183,7 @@ export const UserCeremonyDetail: FC = () => {
                     <button
                       type="button"
                       onClick={() => toggleEditEventFeature(feature.id)}
-                      disabled={processingEventId === editingEventId}
+                      disabled={isEventEditReadOnly || processingEventId === editingEventId}
                       className="shrink-0 text-gray-950"
                     >
                       <SquareCheckBig
@@ -2199,9 +2206,10 @@ export const UserCeremonyDetail: FC = () => {
             selectedFeatureIds={editEventFeatureIds}
             value={editEventEffectSelections}
             onChange={setEditEventEffectSelections}
-            disabled={processingEventId === editingEventId}
+            disabled={isEventEditReadOnly || processingEventId === editingEventId}
             dense
           />
+          </fieldset>
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={() => setEditingEventId(null)}
@@ -2212,7 +2220,7 @@ export const UserCeremonyDetail: FC = () => {
             </button>
             <button
               onClick={() => editingEventId !== null && handleSaveEventEdit(editingEventId)}
-              disabled={processingEventId === editingEventId}
+              disabled={isEventEditReadOnly || processingEventId === editingEventId}
               className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
             >
               {processingEventId === editingEventId ? '저장 중...' : '저장'}

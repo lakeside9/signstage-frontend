@@ -120,7 +120,9 @@ export const UserSignerPortalQrWindow: FC = () => {
   };
 
   const mappedSignerIds = new Set(signatureStatuses.map((status) => status.signerId));
-  const mappedSigners = signers.filter((signer) => mappedSignerIds.has(signer.id));
+  const mappedSigners = signers
+    .filter((signer) => mappedSignerIds.has(signer.id))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.id - b.id);
 
   const eventTypeMeta = event ? EVENT_TYPE_CONTROL_META[event.eventType] : null;
 
@@ -191,7 +193,7 @@ export const UserSignerPortalQrWindow: FC = () => {
                   <div className="mb-4 rounded-lg bg-gray-50 p-3 transition-colors group-hover:bg-indigo-50">
                     <PortalQrCode value={portalUrl} />
                   </div>
-                  <div className="text-sm font-bold text-gray-900">{signer.name}</div>
+                  <div className="text-sm font-bold text-gray-900">{[signer.affiliation, signer.position, signer.name].filter(value => value?.trim()).join(' / ')}</div>
                   <div className="mt-4 flex items-center gap-2">
                     <button
                       type="button"
