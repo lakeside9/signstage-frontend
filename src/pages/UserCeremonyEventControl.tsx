@@ -117,6 +117,7 @@ export const UserCeremonyEventControl: FC = () => {
   const [event, setEvent] = useState<CeremonyEventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isStartConfirmOpen, setIsStartConfirmOpen] = useState(false);
   const [isForceFinishConfirmOpen, setIsForceFinishConfirmOpen] = useState(false);
   const [isBulkResetConfirmOpen, setIsBulkResetConfirmOpen] = useState(false);
   const [isBulkResetting, setIsBulkResetting] = useState(false);
@@ -388,6 +389,10 @@ export const UserCeremonyEventControl: FC = () => {
     try {
       const response = await api.post(`${apiBasePath}/${action}`);
       setEvent(response.data as CeremonyEventSummary);
+      if (action === 'start') {
+        setStrokes([]);
+        setSignatureStatuses(await fetchSignatureStatus());
+      }
       showSnackbar('상태를 변경했습니다.', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : '상태 변경에 실패했습니다.';
@@ -395,6 +400,7 @@ export const UserCeremonyEventControl: FC = () => {
     } finally {
       setIsTransitioning(false);
       setIsForceFinishConfirmOpen(false);
+      setIsStartConfirmOpen(false);
     }
   };
 
@@ -532,7 +538,7 @@ export const UserCeremonyEventControl: FC = () => {
 
               {event.status === 'READY' && (
                 <button
-                  onClick={() => handleTransition('start')}
+                  onClick={() => setIsStartConfirmOpen(true)}
                   disabled={isTransitioning}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
                 >
@@ -770,6 +776,15 @@ export const UserCeremonyEventControl: FC = () => {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={isStartConfirmOpen}
+        title="행사 시작"
+        message="배정 확인용 데이터를 포함한 모든 서명을 초기화한 후 행사를 시작합니다. 계속하시겠습니까?"
+        confirmLabel="시작"
+        isSubmitting={isTransitioning}
+        onConfirm={() => handleTransition('start')}
+        onCancel={() => setIsStartConfirmOpen(false)}
+      />
       <ConfirmDialog
         open={isForceFinishConfirmOpen}
         title="행사 강제종료"
