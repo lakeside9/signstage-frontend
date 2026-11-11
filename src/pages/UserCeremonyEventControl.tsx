@@ -242,7 +242,7 @@ export const UserCeremonyEventControl: FC = () => {
   };
 
   useEffect(() => {
-    if (event?.status !== 'FINISHED') return;
+    if (event?.status !== 'FINISHED' && event?.status !== 'FORCE_FINISHED') return;
 
     let cancelled = false;
     (async () => {
@@ -568,17 +568,15 @@ export const UserCeremonyEventControl: FC = () => {
                     <Square size={12} fill="currentColor" />
                     행사 종료
                   </button>
-                  {(event.eventType === 'TEST' || event.eventType === 'REHEARSAL') && (
-                    <button
-                      onClick={() => setIsForceFinishConfirmOpen(true)}
-                      disabled={isTransitioning}
-                      title="테스트 또는 리허설 행사를 서명 완료 여부와 관계없이 강제종료합니다."
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
-                    >
-                      <Square size={12} />
-                      강제종료
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setIsForceFinishConfirmOpen(true)}
+                    disabled={isTransitioning}
+                    title="서명 완료 여부와 관계없이 행사를 강제종료합니다."
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                  >
+                    <Square size={12} />
+                    강제종료
+                  </button>
 
                 </div>
               )}
@@ -709,7 +707,7 @@ export const UserCeremonyEventControl: FC = () => {
             </p>
             <button
               onClick={handleGenerateResults}
-              disabled={event.status !== 'FINISHED' || isGeneratingResults}
+              disabled={(event.status !== 'FINISHED' && event.status !== 'FORCE_FINISHED') || isGeneratingResults}
               className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-gray-50"
             >
               <FilePlus size={14} />
@@ -788,7 +786,7 @@ export const UserCeremonyEventControl: FC = () => {
       <ConfirmDialog
         open={isForceFinishConfirmOpen}
         title="행사 강제종료"
-        message="테스트와 리허설 행사에서만 가능하며, 강제종료 후에는 서명을 수정할 수 없습니다. 강제종료하시겠습니까?"
+        message="강제종료 후에는 서명을 수정할 수 없으며, 현재까지 저장된 서명으로 PDF를 생성할 수 있습니다. 강제종료하시겠습니까?"
         confirmLabel="강제종료"
         isSubmitting={isTransitioning}
         onConfirm={() => handleTransition('force-finish')}

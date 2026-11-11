@@ -1181,8 +1181,8 @@ export type CeremonyEventType = 'TEST' | 'REHEARSAL' | 'MAIN';
 
 /**
  * feature.ceremony.entity.CeremonyEventStatus 값과 맞춘다. 전이는 앞으로만 간다(역행 없음).
- * FORCE_FINISHED(2026-08-27 legacy 포팅)는 STARTED인 TEST/REHEARSAL 행사를 서명 완료 여부와
- * 무관하게 관리자가 강제로 끝냈을 때만 나온다 — MAIN에는 없다.
+ * FORCE_FINISHED(2026-08-27 legacy 포팅)는 STARTED인 TEST/REHEARSAL/MAIN 행사를 서명 완료 여부와
+ * 무관하게 관리자가 강제로 끝냈을 때 나온다.
  */
 export type CeremonyEventStatus = 'DRAFT' | 'READY' | 'STARTED' | 'FINISHED' | 'FORCE_FINISHED';
 
