@@ -280,7 +280,7 @@ export const SignerPortalView: FC = () => {
 
   // 실시간 구독 — 다른 서명자의 스트로크, 서명 지우기/재서명 요청, 행사 상태 변경까지 전부 받는다.
   useEffect(() => {
-    if (!context?.eventId || !eventAccessKey) return;
+    if (!context?.eventId || !eventAccessKey || !signerAccessKey) return;
 
     // 최초 연결인지 재연결인지 구분한다(ProjectorView.tsx와 같은 이유) — 최초 연결에서까지
     // fetchAll()로 캐치업하면 마운트 시 이미 불러온 것과 거의 동시에 또 불러오는 셈이라
@@ -336,7 +336,7 @@ export const SignerPortalView: FC = () => {
               setContext((prev) => (prev ? { ...prev, eventStatus: payload.newStatus } : prev));
             }
           },
-          { eventAccessKey },
+          { eventAccessKey, signerAccessKey },
         );
       },
       onDisconnect: () => setIsRealtimeConnected(false),
@@ -348,7 +348,7 @@ export const SignerPortalView: FC = () => {
       client.deactivate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context?.eventId, eventAccessKey]);
+  }, [context?.eventId, eventAccessKey, signerAccessKey]);
 
   useEffect(() => {
     if (!context?.eventId || isRealtimeConnected) return;

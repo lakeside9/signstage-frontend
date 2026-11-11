@@ -1252,6 +1252,7 @@ export interface CeremonyTemplateSummary {
  * 불일치가 생긴다).
  */
 export interface SignerCompletionStatus {
+  connectionCount?: number;
   signerId: number;
   completed: boolean;
 }
@@ -1308,6 +1309,7 @@ export type CeremonyEventAction =
  * 전용(BE-RUNTIME) — 대문자 "사실" 이벤트와 다르게 점(dot) 표기를 쓴다.
  */
 export type RealtimeEventType =
+  | 'SIGNER_PRESENCE_CHANGED'
   | 'EVENT_STATUS_CHANGED'
   | 'SIGNATURE_COMPLETED'
   | 'SIGNATURE_CLEARED'

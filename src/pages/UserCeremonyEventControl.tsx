@@ -280,7 +280,11 @@ export const UserCeremonyEventControl: FC = () => {
               return;
             }
 
-            if (realtimeEvent.type === 'SIGNATURE_STROKE_SUBMITTED') {
+            if (realtimeEvent.type === 'SIGNER_PRESENCE_CHANGED') {
+              const payload = realtimeEvent.payload as { signerId: number; connectionCount: number };
+              setSignatureStatuses((prev) => prev.map((status) => status.signerId === payload.signerId
+                ? { ...status, connectionCount: payload.connectionCount } : status));
+            } else if (realtimeEvent.type === 'SIGNATURE_STROKE_SUBMITTED') {
               const payload = realtimeEvent.payload as {
                 signerId: number;
                 templateFieldId: number;
@@ -358,6 +362,7 @@ export const UserCeremonyEventControl: FC = () => {
           },
           { eventAccessKey: event.accessKey },
         );
+        fetchSignatureStatus().then(setSignatureStatuses).catch(() => undefined);
       },
     });
 
@@ -656,6 +661,7 @@ export const UserCeremonyEventControl: FC = () => {
               ) : (
                 mappedSigners.map((signer) => {
                   const complete = isSignerComplete(signer.id);
+                  const connectionCount = signatureStatuses.find((status) => status.signerId === signer.id)?.connectionCount ?? 0;
                   return (
                     <div key={signer.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
                       <div className="flex items-center gap-2">
@@ -671,6 +677,14 @@ export const UserCeremonyEventControl: FC = () => {
                           <div className="text-[10px] text-gray-500">
                             {signer.affiliation ?? ''} {signer.position ?? ''}
                           </div>
+                          <span
+                            title="현재 연결된 서명 화면 수입니다. 같은 기기의 여러 창도 각각 집계됩니다."
+                            className={`inline-flex mt-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${connectionCount >= 2
+                              ? 'bg-amber-100 text-amber-800' : connectionCount > 0
+                                ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}
+                          >
+                            {connectionCount > 0 ? `접속중 · 접속 ${connectionCount}개` : '오프라인 · 접속 0개'}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
