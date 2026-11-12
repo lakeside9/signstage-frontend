@@ -1,7 +1,11 @@
 import type {
   CustomerStatus,
+  InspectionApprovalType,
+  InspectionStatus,
   PartnerBusinessType,
+  PartnerLedgerEntryType,
   PartnerOrderStatus,
+  PartnerPayoutStatus,
   SalesOrderAcceptanceChannel,
   SalesOrderStatus,
   ServiceRegion,
@@ -58,6 +62,39 @@ export const PARTNER_ORDER_STATUS_STYLE: Record<PartnerOrderStatus, string> = {
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
   EXPIRED: 'bg-gray-50 text-gray-500 border-gray-200',
   CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
+};
+
+export const INSPECTION_STATUS_LABEL: Record<InspectionStatus, string> = { PENDING: '검수 대기', APPROVED: '검수 승인' };
+
+export const INSPECTION_STATUS_STYLE: Record<InspectionStatus, string> = {
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+  APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
+
+export const INSPECTION_APPROVAL_TYPE_LABEL: Record<InspectionApprovalType, string> = {
+  MANUAL: '플랫폼 승인',
+  DEEMED: '기한 경과 승인 간주',
+};
+
+export const PAYOUT_STATUS_LABEL: Record<PartnerPayoutStatus, string> = {
+  CONFIRMED: '지급 대기',
+  PAID: '지급 완료',
+  CANCELLED: '취소',
+};
+
+export const PAYOUT_STATUS_STYLE: Record<PartnerPayoutStatus, string> = {
+  CONFIRMED: 'bg-amber-50 text-amber-700 border-amber-200',
+  PAID: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
+};
+
+export const LEDGER_ENTRY_TYPE_LABEL: Record<PartnerLedgerEntryType, string> = { PAYABLE: '지급 의무', PAYMENT: '지급' };
+
+/** 지난달(yyyy-MM, 브라우저 현지 기준) — 월 정산은 지난달까지만 된다. */
+export const previousMonth = () => {
+  const now = new Date();
+  const date = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 };
 
 export const BUSINESS_TYPE_LABEL: Record<PartnerBusinessType, string> = {

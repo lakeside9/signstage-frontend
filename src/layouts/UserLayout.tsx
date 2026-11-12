@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   User,
   Wallet,
+  Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -33,6 +34,7 @@ import { useTranslation } from 'react-i18next';
  * (signstage-docs business/menu-and-action-permission-management-review.md 7.1절).
  */
 const ICON_BY_KEY: Record<string, ReactNode> = {
+  Banknote: <Banknote size={20} />,
   Calculator: <Calculator size={20} />,
   LayoutDashboard: <LayoutDashboard size={20} />,
   FileSignature: <FileSignature size={20} />,

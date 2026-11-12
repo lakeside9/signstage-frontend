@@ -36,6 +36,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  Banknote,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuthStore } from '../store/useAuthStore';
@@ -52,6 +53,7 @@ const AXIS_TABS: Array<{ value: RoleAxis; label: string }> = [
 
 /** 관리자가 임의 문자열을 넣어 렌더링이 깨지는 걸 막는다 — AdminLayout/UserLayout이 실제로 아는 아이콘만 고른다. */
 const ICON_BY_KEY: Record<string, ReactNode> = {
+  Banknote: <Banknote size={14} />,
   LayoutDashboard: <ClipboardList size={14} />,
   FileSignature: <FileSignature size={14} />,
   Settings: <Settings size={14} />,

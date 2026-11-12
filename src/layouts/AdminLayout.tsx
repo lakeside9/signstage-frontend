@@ -41,6 +41,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -56,6 +57,7 @@ import { useTranslation } from 'react-i18next';
  * business/menu-and-action-permission-management-review.md 7.1절.
  */
 const ICON_BY_KEY: Record<string, ReactNode> = {
+  Banknote: <Banknote size={20} />,
   LayoutDashboard: <LayoutDashboard size={20} />,
   Building2: <Building2 size={20} />,
   ClipboardCheck: <ClipboardCheck size={20} />,

@@ -10,7 +10,7 @@ import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
-import { PartnerOrderAmountBreakdown, PartnerOrderStatusBadge } from './order/components';
+import { InspectionResultRows, PartnerOrderAmountBreakdown, PartnerOrderStatusBadge } from './order/components';
 import { REGION_LABEL, formatSchedule, formatWallDateTime } from './order/constants';
 import type { PartnerOrderDetail } from '../types';
 
@@ -177,6 +177,18 @@ export const UserPartnerOrderDetail: FC = () => {
           <p className="mt-2 text-xs text-gray-400">부가세 별도. 지급은 행사 후 검수 승인 기준으로 합니다.</p>
         </section>
       </div>
+
+      {order.inspection && (
+        <section className="mt-4 bg-white border border-gray-200 rounded-lg">
+          <h2 className="px-4 pt-4 text-sm font-bold text-gray-950">검수</h2>
+          <div className="divide-y divide-gray-100">
+            <InspectionResultRows inspection={order.inspection} />
+          </div>
+          <p className="px-4 pb-4 pt-2 text-xs text-gray-400">
+            검수 승인된 금액은 승인월 단위로 합산해 다음 달 말일까지 지급됩니다. 지급 현황은 "지급 내역" 메뉴에서 봅니다.
+          </p>
+        </section>
+      )}
 
       <Modal open={isAcceptOpen} onClose={() => setIsAcceptOpen(false)} title="발주 수락" widthClassName="max-w-sm">
         <p className="text-sm text-gray-700">

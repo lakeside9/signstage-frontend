@@ -76,6 +76,10 @@ import { AdminPartnerOrderList } from './pages/AdminPartnerOrderList';
 import { UserPartnerOrderEntry } from './pages/UserPartnerOrderEntry';
 import { UserPartnerOrderList } from './pages/UserPartnerOrderList';
 import { UserPartnerOrderDetail } from './pages/UserPartnerOrderDetail';
+import { AdminOrderInspectionList } from './pages/AdminOrderInspectionList';
+import { AdminPartnerPayouts } from './pages/AdminPartnerPayouts';
+import { UserPartnerPayoutEntry } from './pages/UserPartnerPayoutEntry';
+import { UserPartnerPayoutList } from './pages/UserPartnerPayoutList';
 import { SalesQuotePortalView } from './pages/SalesQuotePortalView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
@@ -144,6 +148,8 @@ function App() {
           <Route path="partner-orders" element={<UserPartnerOrderEntry />} />
           <Route path="partner-orders/:organizationId" element={<UserPartnerOrderList />} />
           <Route path="partner-orders/:organizationId/:partnerOrderId" element={<UserPartnerOrderDetail />} />
+          <Route path="partner-payouts" element={<UserPartnerPayoutEntry />} />
+          <Route path="partner-payouts/:organizationId" element={<UserPartnerPayoutList />} />
           <Route path="faqs" element={<UserFaqList />} />
           <Route path="announcements" element={<UserAnnouncementList />} />
           <Route path="verify" element={<DocumentVerificationView />} />
@@ -214,6 +220,8 @@ function App() {
           <Route path="sales-orders/:salesOrderId" element={<AdminSalesOrderDetail />} />
           <Route path="sales-orders/:salesOrderId/edit" element={<AdminSalesOrderForm />} />
           <Route path="partner-orders" element={<AdminPartnerOrderList />} />
+          <Route path="order-inspections" element={<AdminOrderInspectionList />} />
+          <Route path="partner-payouts" element={<AdminPartnerPayouts />} />
           <Route path="verify" element={<DocumentVerificationView />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>

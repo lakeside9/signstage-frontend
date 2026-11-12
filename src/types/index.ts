@@ -2459,6 +2459,87 @@ export interface PartnerOrderDetail {
   adjustmentReason: string | null;
   respondedAt: string | null;
   rejectionReason: string | null;
+  /** 행사가 완료돼 검수가 생겼으면 그 상태. 그 전에는 null. */
+  inspection: OrderInspectionSummary | null;
+}
+
+/* 검수·파트너 지급 — signstage-docs business/platform-order-partner-subcontract-review.md D11·D13. */
+export type InspectionStatus = 'PENDING' | 'APPROVED';
+export type InspectionApprovalType = 'MANUAL' | 'DEEMED';
+export type PartnerPayoutStatus = 'CONFIRMED' | 'PAID' | 'CANCELLED';
+export type PartnerLedgerEntryType = 'PAYABLE' | 'PAYMENT';
+
+export interface OrderInspectionSummary {
+  id: number;
+  partnerOrderId: number;
+  salesOrderId: number;
+  title: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  organizationId: number;
+  organizationName: string;
+  ceremonyId: number | null;
+  ceremonyCompletedAt: string;
+  /** 검수 기한(현지 날짜). 지나면 승인 간주. */
+  dueDate: string;
+  status: InspectionStatus;
+  /** 기한이 지났지만 아직 승인 간주 처리 전인 대기 건. */
+  overdue: boolean;
+  approvalType: InspectionApprovalType | null;
+  currencyCode: string;
+  orderAmount: number;
+  defectNote: string | null;
+  delayNote: string | null;
+  deductionAmount: number;
+  deductionReason: string | null;
+  payableAmount: number | null;
+  approvedDate: string | null;
+  approvedAt: string | null;
+  partnerPayoutId: number | null;
+}
+
+export interface PartnerPayoutSummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  /** 검수 승인월(yyyy-MM). */
+  settlementMonth: string;
+  currencyCode: string;
+  /** 지급 대상 공급가 합계. */
+  amount: number;
+  dueDate: string;
+  status: PartnerPayoutStatus;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  accountHolderName: string | null;
+  paidDate: string | null;
+  transferredAmount: number | null;
+  paymentMemo: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+}
+
+export interface PartnerPayoutDetail {
+  summary: PartnerPayoutSummary;
+  items: OrderInspectionSummary[];
+}
+
+export interface PartnerLedgerEntryItem {
+  id: number;
+  entryType: PartnerLedgerEntryType;
+  currencyCode: string;
+  amount: number;
+  partnerOrderId: number | null;
+  partnerPayoutId: number | null;
+  memo: string | null;
+  occurredOn: string;
+}
+
+export interface PartnerLedger {
+  /** 미지급 잔액(공급가). */
+  balance: number;
+  entries: PageResponse<PartnerLedgerEntryItem>;
 }
 
 export interface SalesQuotePortal {
