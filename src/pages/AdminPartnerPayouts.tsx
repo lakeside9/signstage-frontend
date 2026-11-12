@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Banknote, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Banknote, CheckCircle2, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { ListContainer } from '../components/ListContainer';
@@ -11,9 +11,16 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
-import { PartnerLedgerTable, PayoutItemsTable, PayoutStatusBadge } from './order/components';
+import { OffsetTable, PartnerLedgerTable, PayoutItemsTable, PayoutStatusBadge } from './order/components';
 import { PAYOUT_STATUS_LABEL, blankToNull, formatMoney, previousMonth } from './order/constants';
-import type { PageResponse, PartnerLedger, PartnerPayoutDetail, PartnerPayoutStatus, PartnerPayoutSummary } from '../types';
+import type {
+  PageResponse,
+  PartnerLedger,
+  PartnerOffsetSummary,
+  PartnerPayoutDetail,
+  PartnerPayoutStatus,
+  PartnerPayoutSummary,
+} from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -30,9 +37,13 @@ type DetailAction = 'none' | 'paid' | 'cancel';
  * D11·D12. 지난달까지의 검수 승인월을 골라 정산하면 파트너별 지급 건이 생긴다. 이체는 시스템 밖에서
  * 하고, 이체 후 지급일·이체 금액을 기록한다(부가세·원천징수는 이체 금액에 반영). 이체 전에는 취소해
  * 다시 정산할 수 있다.
+ *
+ * <p>D13·D19(2026-11-12): 정산 때 대기 중인 귀책 상계를 지급액에서 빼고, 넘는 만큼은 이월한다. 지급액이
+ * 1,000만 원 이상이면 PLATFORM_SUPER가 승인해야 지급 완료를 기록할 수 있다(정산을 만든 사람은 승인 불가).
  */
 export const AdminPartnerPayouts: FC = () => {
   const canApprove = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_PAYMENT_APPROVE'));
+  const canLargeApprove = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_PAYOUT_LARGE_APPROVE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const [monthFilter, setMonthFilter] = useState(previousMonth());
@@ -56,6 +67,10 @@ export const AdminPartnerPayouts: FC = () => {
   const [transferredAmount, setTransferredAmount] = useState('');
   const [paymentMemo, setPaymentMemo] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+
+  const [pendingOffsets, setPendingOffsets] = useState<PartnerOffsetSummary[]>([]);
+  const [offsetToCancel, setOffsetToCancel] = useState<PartnerOffsetSummary | null>(null);
+  const [offsetCancelReason, setOffsetCancelReason] = useState('');
 
   const fetchPage = useCallback(async () => {
     const query = new URLSearchParams();
@@ -84,6 +99,46 @@ export const AdminPartnerPayouts: FC = () => {
       cancelled = true;
     };
   }, [fetchPage, showSnackbar]);
+
+  const fetchPendingOffsets = useCallback(async () => {
+    const response = await api.get('/platform-admin/partner-offsets?status=PENDING&size=50&sort=occurredOn,asc');
+    return (response.data as PageResponse<PartnerOffsetSummary>).content;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const offsets = await fetchPendingOffsets();
+        if (!cancelled) setPendingOffsets(offsets);
+      } catch (err) {
+        if (!cancelled) showSnackbar(err instanceof Error ? err.message : '상계 목록을 불러오지 못했습니다.', 'error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPendingOffsets, showSnackbar]);
+
+  const handleCancelOffset = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!offsetToCancel) return;
+    if (!offsetCancelReason.trim()) {
+      showSnackbar('취소 사유를 입력해주세요.', 'error');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await api.post(`/platform-admin/partner-offsets/${offsetToCancel.id}/cancel`, { reason: offsetCancelReason.trim() });
+      showSnackbar('상계를 취소했습니다.', 'success');
+      setOffsetToCancel(null);
+      setPendingOffsets(await fetchPendingOffsets());
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '상계 취소에 실패했습니다.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -115,6 +170,7 @@ export const AdminPartnerPayouts: FC = () => {
         created.length > 0 ? 'success' : 'info',
       );
       setIsCreateOpen(false);
+      setPendingOffsets(await fetchPendingOffsets());
       setIsLoading(true);
       setMonthFilter(createMonth);
       setPage(0);
@@ -188,6 +244,19 @@ export const AdminPartnerPayouts: FC = () => {
     }
   };
 
+  const handleApprove = async () => {
+    if (!detail) return;
+    setIsSubmitting(true);
+    try {
+      const response = await api.post(`/platform-admin/partner-payouts/${detail.summary.id}/approve`);
+      await afterAction(response.data as PartnerPayoutDetail, '고액 지급을 승인했습니다.');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '승인에 실패했습니다.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCancel = async (e: FormEvent) => {
     e.preventDefault();
     if (!detail) return;
@@ -200,7 +269,8 @@ export const AdminPartnerPayouts: FC = () => {
       const response = await api.post(`/platform-admin/partner-payouts/${detail.summary.id}/cancel`, {
         reason: cancelReason.trim(),
       });
-      await afterAction(response.data as PartnerPayoutDetail, '지급을 취소했습니다. 검수 건은 다시 정산할 수 있습니다.');
+      await afterAction(response.data as PartnerPayoutDetail, '지급을 취소했습니다. 검수·상계 건은 다시 정산할 수 있습니다.');
+      setPendingOffsets(await fetchPendingOffsets());
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '취소에 실패했습니다.', 'error');
     } finally {
@@ -272,7 +342,7 @@ export const AdminPartnerPayouts: FC = () => {
             <tr>
               <th className="text-left px-4 py-3 font-medium">승인월</th>
               <th className="text-left px-4 py-3 font-medium">파트너</th>
-              <th className="text-right px-4 py-3 font-medium">지급 대상(공급가)</th>
+              <th className="text-right px-4 py-3 font-medium">지급액(공급가)</th>
               <th className="text-left px-4 py-3 font-medium">지급 기한</th>
               <th className="text-left px-4 py-3 font-medium">정산 계좌</th>
               <th className="text-left px-4 py-3 font-medium">상태</th>
@@ -287,13 +357,21 @@ export const AdminPartnerPayouts: FC = () => {
               >
                 <td className="px-4 py-3">{payout.settlementMonth}</td>
                 <td className="px-4 py-3 text-gray-950 font-medium">{payout.organizationName}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{formatMoney(payout.amount, payout.currencyCode)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatMoney(payout.amount, payout.currencyCode)}
+                  {payout.offsetAmount > 0 && (
+                    <p className="text-xs text-gray-400">상계 {formatMoney(-payout.offsetAmount, payout.currencyCode)}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-500">{payout.dueDate}</td>
                 <td className="px-4 py-3 text-gray-500">
                   {payout.bankName ? `${payout.bankName} ${payout.bankAccountNumber ?? ''}` : '미등록'}
                 </td>
                 <td className="px-4 py-3">
                   <PayoutStatusBadge status={payout.status} />
+                  {payout.awaitingApproval && payout.status === 'CONFIRMED' && (
+                    <p className="text-xs text-red-600">고액 승인 대기</p>
+                  )}
                   {payout.paidDate && <p className="text-xs text-gray-400">{payout.paidDate} 지급</p>}
                 </td>
               </tr>
@@ -301,6 +379,43 @@ export const AdminPartnerPayouts: FC = () => {
           </tbody>
         </table>
       </ListContainer>
+
+      <section className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-sm font-bold text-gray-950">정산 대기 귀책 상계</h2>
+        <p className="mt-1 mb-2 text-xs text-gray-500">
+          수주 상세의 발주에서 등록합니다. 다음 월 정산에서 해당 파트너 지급액에서 빼고, 지급액을 넘으면 이월합니다.
+        </p>
+        {pendingOffsets.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-400">대기 중인 상계가 없습니다.</p>
+        ) : (
+          <OffsetTable
+            offsets={pendingOffsets}
+            showPartner
+            onCancel={canApprove ? (offset) => { setOffsetCancelReason(''); setOffsetToCancel(offset); } : undefined}
+          />
+        )}
+      </section>
+
+      <Modal open={offsetToCancel !== null} onClose={() => setOffsetToCancel(null)} title="상계 취소" widthClassName="max-w-sm">
+        {offsetToCancel && (
+          <form onSubmit={handleCancelOffset} className="space-y-3">
+            <p className="text-sm text-gray-700">
+              {offsetToCancel.organizationName} · {offsetToCancel.title} · {formatMoney(offsetToCancel.amount, offsetToCancel.currencyCode)}
+            </p>
+            <Field label="취소 사유">
+              <input
+                value={offsetCancelReason}
+                onChange={(e) => setOffsetCancelReason(e.target.value)}
+                maxLength={500}
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </Field>
+            <p className="text-xs text-gray-400">원장에 상계 취소(+)가 남습니다.</p>
+            <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="상계 취소" onCancel={() => setOffsetToCancel(null)} />
+          </form>
+        )}
+      </Modal>
 
       <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="월 정산" widthClassName="max-w-sm">
         <form onSubmit={handleCreate} className="space-y-3">
@@ -315,7 +430,9 @@ export const AdminPartnerPayouts: FC = () => {
             />
           </Field>
           <p className="text-xs text-gray-500">
-            그 달에 검수 승인된 건 중 아직 정산되지 않은 건을 파트너별로 합산합니다. 정산 계좌는 지금 등록된 계좌로 고정됩니다.
+            그 달 말일까지 검수 승인된 건 중 아직 정산되지 않은 건을 파트너별로 합산하고, 대기 중인 귀책 상계를 뺍니다.
+            감액 후 이의 기간(7일)이 남았거나 이의 제기 중인 건은 다음 정산으로 넘깁니다. 정산 계좌는 지금 등록된
+            계좌로 고정됩니다.
           </p>
           <FormActions isSaving={isSubmitting} savingLabel="정산 중..." saveLabel="정산" onCancel={() => setIsCreateOpen(false)} />
         </form>
@@ -327,8 +444,18 @@ export const AdminPartnerPayouts: FC = () => {
             <section className="border border-gray-200 rounded-lg divide-y divide-gray-100">
               <DetailRow label="파트너" value={`${summary.organizationName} · ${summary.settlementMonth} 승인분`} />
               <DetailRow label="상태" value={<PayoutStatusBadge status={summary.status} />} />
-              <DetailRow label="지급 대상(공급가)" value={formatMoney(summary.amount, summary.currencyCode)} />
+              <DetailRow label="검수 합계(공급가)" value={formatMoney(summary.grossAmount, summary.currencyCode)} />
+              {summary.offsetAmount > 0 && (
+                <DetailRow label="귀책 상계" value={formatMoney(-summary.offsetAmount, summary.currencyCode)} />
+              )}
+              <DetailRow label="지급액(공급가)" value={formatMoney(summary.amount, summary.currencyCode)} />
               <DetailRow label="지급 기한" value={summary.dueDate} />
+              {summary.approvalRequired && (
+                <DetailRow
+                  label="고액 지급 승인"
+                  value={summary.approvedAt ? `승인됨 (${summary.approvedAt.slice(0, 10)})` : 'PLATFORM_SUPER 승인 대기'}
+                />
+              )}
               <DetailRow
                 label="정산 계좌"
                 value={summary.bankName
@@ -351,15 +478,36 @@ export const AdminPartnerPayouts: FC = () => {
               </section>
             )}
 
-            {canApprove && summary.status === 'CONFIRMED' && action === 'none' && (
-              <div className="flex justify-end gap-2">
-                <Button variant="danger-outline" size="sm" onClick={() => { setCancelReason(''); setAction('cancel'); }}>
-                  <XCircle size={12} /> 지급 취소
-                </Button>
-                <Button size="sm" onClick={startPaid}>
-                  <CheckCircle2 size={12} /> 지급 완료 기록
-                </Button>
+            {detail.offsets.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold text-gray-950 mb-1">반영된 귀책 상계</h3>
+                <OffsetTable offsets={detail.offsets} />
+              </section>
+            )}
+
+            {summary.status === 'CONFIRMED' && action === 'none' && (canApprove || canLargeApprove) && (
+              <div className="flex flex-wrap justify-end gap-2">
+                {canApprove && (
+                  <Button variant="danger-outline" size="sm" onClick={() => { setCancelReason(''); setAction('cancel'); }}>
+                    <XCircle size={12} /> 지급 취소
+                  </Button>
+                )}
+                {summary.awaitingApproval && canLargeApprove && (
+                  <Button size="sm" onClick={handleApprove} disabled={isSubmitting}>
+                    <ShieldCheck size={12} /> 고액 지급 승인
+                  </Button>
+                )}
+                {canApprove && !summary.awaitingApproval && (
+                  <Button size="sm" onClick={startPaid}>
+                    <CheckCircle2 size={12} /> 지급 완료 기록
+                  </Button>
+                )}
               </div>
+            )}
+            {summary.status === 'CONFIRMED' && summary.awaitingApproval && (
+              <p className="text-right text-xs text-gray-400">
+                고액 지급은 정산을 만든 사람이 아닌 PLATFORM_SUPER가 승인한 뒤에 지급 완료를 기록할 수 있습니다.
+              </p>
             )}
 
             {action === 'paid' && (

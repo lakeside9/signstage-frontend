@@ -49,6 +49,7 @@ export const AdminSalesOrderDetail: FC = () => {
   const { salesOrderId } = useParams<{ salesOrderId: string }>();
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_SALES_ORDER_MANAGE'));
   const canIssue = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_ORDER_ISSUE'));
+  const canManageOffset = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_PAYMENT_APPROVE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const [order, setOrder] = useState<SalesOrderDetail | null>(null);
@@ -68,6 +69,10 @@ export const AdminSalesOrderDetail: FC = () => {
   const [preview, setPreview] = useState<PartnerOrderPreview | null>(null);
   const [cancellingPartnerOrder, setCancellingPartnerOrder] = useState<AdminPartnerOrderSummary | null>(null);
   const [partnerCancelReason, setPartnerCancelReason] = useState('');
+  const [offsetTarget, setOffsetTarget] = useState<AdminPartnerOrderSummary | null>(null);
+  const [offsetAmount, setOffsetAmount] = useState('');
+  const [offsetReason, setOffsetReason] = useState('');
+  const [offsetOccurredOn, setOffsetOccurredOn] = useState('');
 
   const basePath = `/platform-admin/sales-orders/${salesOrderId}`;
 
@@ -202,6 +207,32 @@ export const AdminSalesOrderDetail: FC = () => {
       '발주를 취소했습니다.', '발주 취소에 실패했습니다.',
     );
     if (ok) setCancellingPartnerOrder(null);
+  };
+
+  const handleRegisterOffset = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!offsetTarget) return;
+    const amount = Number(offsetAmount || 0);
+    if (!(amount > 0) || amount > offsetTarget.totalAmount) {
+      showSnackbar('상계 금액은 0보다 크고 발주 금액 이하여야 합니다.', 'error');
+      return;
+    }
+    if (!offsetReason.trim()) {
+      showSnackbar('귀책 사유를 입력해주세요.', 'error');
+      return;
+    }
+    const ok = await run(
+      async () => {
+        await api.post('/platform-admin/partner-offsets', {
+          partnerOrderId: offsetTarget.id,
+          amount,
+          reason: offsetReason.trim(),
+          occurredOn: offsetOccurredOn || null,
+        });
+      },
+      '귀책 상계를 등록했습니다. 다음 월 정산에서 지급액에서 뺍니다.', '상계 등록에 실패했습니다.',
+    );
+    if (ok) setOffsetTarget(null);
   };
 
   const handleCopyLink = async () => {
@@ -402,6 +433,20 @@ export const AdminSalesOrderDetail: FC = () => {
                           <XCircle size={12} /> 발주 취소
                         </button>
                       )}
+                      {canManageOffset && po.status === 'ACCEPTED' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOffsetAmount('');
+                            setOffsetReason('');
+                            setOffsetOccurredOn('');
+                            setOffsetTarget(po);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+                        >
+                          귀책 상계
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -553,6 +598,50 @@ export const AdminSalesOrderDetail: FC = () => {
           </Field>
           <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="발주 취소" onCancel={() => setCancellingPartnerOrder(null)} />
         </form>
+      </Modal>
+
+      <Modal open={offsetTarget !== null} onClose={() => setOffsetTarget(null)} title="귀책 상계 등록" widthClassName="max-w-md">
+        {offsetTarget && (
+          <form onSubmit={handleRegisterOffset} className="space-y-3">
+            <p className="text-sm text-gray-600">
+              {offsetTarget.organizationName} · 발주 금액 {formatMoney(offsetTarget.totalAmount, offsetTarget.currencyCode)}.
+              고객 환불 중 파트너 귀책분처럼 파트너에게 돌려받을 금액(공급가)을 등록합니다.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="상계 금액(공급가)">
+                <FormattedNumberInput
+                  value={offsetAmount}
+                  onChange={setOffsetAmount}
+                  min={0}
+                  disabled={isSubmitting}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="발생일(비우면 오늘)">
+                <input
+                  type="date"
+                  value={offsetOccurredOn}
+                  onChange={(e) => setOffsetOccurredOn(e.target.value)}
+                  disabled={isSubmitting}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Field label="귀책 사유(파트너에게 보임)">
+              <input
+                value={offsetReason}
+                onChange={(e) => setOffsetReason(e.target.value)}
+                maxLength={500}
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </Field>
+            <p className="text-xs text-gray-400">
+              다음 월 정산에서 이 파트너 지급액에서 빼고, 지급액을 넘으면 이월합니다. 원장에 상계(−)가 남습니다.
+            </p>
+            <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="상계 등록" onCancel={() => setOffsetTarget(null)} />
+          </form>
+        )}
       </Modal>
     </div>
   );

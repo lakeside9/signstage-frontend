@@ -2467,7 +2467,23 @@ export interface PartnerOrderDetail {
 export type InspectionStatus = 'PENDING' | 'APPROVED';
 export type InspectionApprovalType = 'MANUAL' | 'DEEMED';
 export type PartnerPayoutStatus = 'CONFIRMED' | 'PAID' | 'CANCELLED';
-export type PartnerLedgerEntryType = 'PAYABLE' | 'PAYMENT';
+export type PartnerLedgerEntryType = 'PAYABLE' | 'PAYMENT' | 'OFFSET' | 'ADJUSTMENT';
+/** 감액 유형 — 계약 기준표(D13). */
+export type InspectionDeductionType =
+  | 'LATE_START_MINOR'
+  | 'LATE_START_MAJOR'
+  | 'PARTIAL_SIGNING_FAILURE'
+  | 'EVENT_NOT_PERFORMED'
+  | 'OTHER';
+export type InspectionDisputeStatus = 'OPEN' | 'RESOLVED';
+export type PartnerOffsetStatus = 'PENDING' | 'APPLIED' | 'CANCELLED';
+
+export interface DeductionTypeOption {
+  code: InspectionDeductionType;
+  label: string;
+  /** 기준 감액 비율(발주 금액 대비 %). 기타는 null. */
+  ratePercent: number | null;
+}
 
 export interface OrderInspectionSummary {
   id: number;
@@ -2492,12 +2508,22 @@ export interface OrderInspectionSummary {
   delayNote: string | null;
   deductionAmount: number;
   deductionReason: string | null;
+  deductionType: InspectionDeductionType | null;
   /** 수행 평점 1~5(플랫폼 내부용). 파트너 응답에는 항상 null이다. */
   performanceRating: number | null;
   payableAmount: number | null;
   approvedDate: string | null;
   approvedAt: string | null;
   partnerPayoutId: number | null;
+  disputeStatus: InspectionDisputeStatus | null;
+  disputeReason: string | null;
+  disputedAt: string | null;
+  /** 이의 제기 마감일(승인일 + 7일). 감액이 없으면 null. */
+  disputeDeadline: string | null;
+  /** 지금 파트너가 이의를 제기할 수 있는지. */
+  disputable: boolean;
+  disputeResolutionNote: string | null;
+  disputeResolvedAt: string | null;
 }
 
 export interface PartnerPayoutSummary {
@@ -2507,10 +2533,20 @@ export interface PartnerPayoutSummary {
   /** 검수 승인월(yyyy-MM). */
   settlementMonth: string;
   currencyCode: string;
-  /** 지급 대상 공급가 합계. */
+  /** 검수 지급 대상 합계(공급가). */
+  grossAmount: number;
+  /** 이번 지급에서 뺀 귀책 상계. */
+  offsetAmount: number;
+  /** 지급액 = 검수 합계 − 상계. */
   amount: number;
   dueDate: string;
   status: PartnerPayoutStatus;
+  /** 고액 지급이라 PLATFORM_SUPER 승인이 필요한지(D19). */
+  approvalRequired: boolean;
+  awaitingApproval: boolean;
+  approvedBy: number | null;
+  approvedAt: string | null;
+  createdBy: number | null;
   bankName: string | null;
   bankAccountNumber: string | null;
   accountHolderName: string | null;
@@ -2525,6 +2561,28 @@ export interface PartnerPayoutSummary {
 export interface PartnerPayoutDetail {
   summary: PartnerPayoutSummary;
   items: OrderInspectionSummary[];
+  offsets: PartnerOffsetSummary[];
+}
+
+/** 파트너 귀책 상계(D13). {@code carriedOver}면 이전 지급액을 넘어 이월된 상계다. */
+export interface PartnerOffsetSummary {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  partnerOrderId: number;
+  salesOrderId: number;
+  title: string;
+  currencyCode: string;
+  amount: number;
+  reason: string;
+  occurredOn: string;
+  status: PartnerOffsetStatus;
+  partnerPayoutId: number | null;
+  carriedOver: boolean;
+  carriedOverFromPayoutId: number | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
 }
 
 export interface PartnerLedgerEntryItem {

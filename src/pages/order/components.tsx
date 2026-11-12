@@ -4,13 +4,17 @@ import type {
   InspectionStatus,
   OrderInspectionSummary,
   PartnerLedger,
+  PartnerOffsetSummary,
   PartnerOrderStatus,
   PartnerPayoutStatus,
   SalesOrderStatus,
 } from '../../types';
 import { DetailRow } from '../billingCatalog/components';
 import {
+  DEDUCTION_TYPE_LABEL,
+  DISPUTE_STATUS_LABEL,
   INSPECTION_APPROVAL_TYPE_LABEL,
+  OFFSET_STATUS_LABEL,
   INSPECTION_STATUS_LABEL,
   INSPECTION_STATUS_STYLE,
   LEDGER_ENTRY_TYPE_LABEL,
@@ -96,6 +100,11 @@ export const PayoutStatusBadge: FC<{ status: PartnerPayoutStatus }> = ({ status 
 /** 검수 결과 — 기한·승인 방식·하자·지체·감액·지급 대상 금액(D11·D13). */
 export const InspectionResultRows: FC<{ inspection: OrderInspectionSummary }> = ({ inspection }) => {
   const currency = inspection.currencyCode;
+  const deductionTypeLabel = inspection.deductionType ? DEDUCTION_TYPE_LABEL[inspection.deductionType] : null;
+  // 사유를 유형 이름 그대로 두는 경우가 많아, 같으면 한 번만 보인다.
+  const deductionText = [deductionTypeLabel, inspection.deductionReason]
+    .filter((text, index, texts): text is string => !!text && texts.indexOf(text) === index)
+    .join(' · ');
   return (
     <>
       <DetailRow label="검수 상태" value={<InspectionStatusBadge status={inspection.status} overdue={inspection.overdue} />} />
@@ -111,7 +120,16 @@ export const InspectionResultRows: FC<{ inspection: OrderInspectionSummary }> = 
       {inspection.deductionAmount > 0 && (
         <DetailRow
           label="감액"
-          value={`${formatMoney(-inspection.deductionAmount, currency)} (${inspection.deductionReason ?? ''})`}
+          value={`${formatMoney(-inspection.deductionAmount, currency)}${deductionText ? ` · ${deductionText}` : ''}`}
+        />
+      )}
+      {inspection.disputeDeadline && !inspection.disputeStatus && (
+        <DetailRow label="이의 제기 기한" value={`${inspection.disputeDeadline}까지`} />
+      )}
+      {inspection.disputeStatus && (
+        <DetailRow
+          label={DISPUTE_STATUS_LABEL[inspection.disputeStatus]}
+          value={`${inspection.disputeReason ?? ''}${inspection.disputeResolutionNote ? ` → 조정: ${inspection.disputeResolutionNote}` : ''}`}
         />
       )}
       {inspection.performanceRating !== null && <DetailRow label="수행 평점" value={`${inspection.performanceRating}/5`} />}
@@ -189,4 +207,52 @@ export const PartnerLedgerTable: FC<{ ledger: PartnerLedger }> = ({ ledger }) =>
       </table>
     )}
   </div>
+);
+
+/** 귀책 상계 목록(D13). {@code onCancel}이 있으면 정산 대기 상계에 취소 버튼을 둔다. */
+export const OffsetTable: FC<{
+  offsets: PartnerOffsetSummary[];
+  showPartner?: boolean;
+  onCancel?: (offset: PartnerOffsetSummary) => void;
+}> = ({ offsets, showPartner, onCancel }) => (
+  <table className="w-full text-sm">
+    <thead className="text-xs text-gray-500 border-b border-gray-200">
+      <tr>
+        <th className="text-left font-medium py-2">발생일</th>
+        {showPartner && <th className="text-left font-medium py-2">파트너</th>}
+        <th className="text-left font-medium py-2">행사</th>
+        <th className="text-left font-medium py-2">사유</th>
+        <th className="text-right font-medium py-2">상계</th>
+        <th className="text-left font-medium py-2 pl-3">상태</th>
+        {onCancel && <th className="py-2" />}
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100">
+      {offsets.map((offset) => (
+        <tr key={offset.id}>
+          <td className="py-2 text-gray-500">{offset.occurredOn}</td>
+          {showPartner && <td className="py-2 text-gray-950">{offset.organizationName}</td>}
+          <td className="py-2 text-gray-950">{offset.title}</td>
+          <td className="py-2 text-gray-500">
+            {offset.reason}
+            {offset.cancellationReason && <p className="text-xs text-gray-400">취소: {offset.cancellationReason}</p>}
+          </td>
+          <td className="py-2 text-right tabular-nums">{formatMoney(-offset.amount, offset.currencyCode)}</td>
+          <td className="py-2 pl-3 text-gray-500">
+            {OFFSET_STATUS_LABEL[offset.status]}
+            {offset.carriedOver && <p className="text-xs text-gray-400">이월</p>}
+          </td>
+          {onCancel && (
+            <td className="py-2 text-right">
+              {offset.status === 'PENDING' && !offset.carriedOver && (
+                <button type="button" onClick={() => onCancel(offset)} className="text-xs text-red-600 hover:underline">
+                  취소
+                </button>
+              )}
+            </td>
+          )}
+        </tr>
+      ))}
+    </tbody>
+  </table>
 );

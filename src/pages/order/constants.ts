@@ -3,9 +3,12 @@ import type {
   CustomerInvoiceType,
   CustomerStatus,
   InspectionApprovalType,
+  InspectionDeductionType,
+  InspectionDisputeStatus,
   InspectionStatus,
   PartnerBusinessType,
   PartnerLedgerEntryType,
+  PartnerOffsetStatus,
   PartnerOrderStatus,
   PartnerPayoutStatus,
   SalesOrderAcceptanceChannel,
@@ -90,7 +93,28 @@ export const PAYOUT_STATUS_STYLE: Record<PartnerPayoutStatus, string> = {
   CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
 };
 
-export const LEDGER_ENTRY_TYPE_LABEL: Record<PartnerLedgerEntryType, string> = { PAYABLE: '지급 의무', PAYMENT: '지급' };
+export const LEDGER_ENTRY_TYPE_LABEL: Record<PartnerLedgerEntryType, string> = {
+  PAYABLE: '지급 의무',
+  PAYMENT: '지급',
+  OFFSET: '귀책 상계',
+  ADJUSTMENT: '이의 조정',
+};
+
+/** 감액 유형(계약 기준표, D13) — 서버 InspectionDeductionType과 같다. 기준 비율은 서버에서 받는다. */
+export const DEDUCTION_TYPE_LABEL: Record<InspectionDeductionType, string> = {
+  LATE_START_MINOR: '시작 지연 30분 미만',
+  LATE_START_MAJOR: '시작 지연 30분 이상',
+  PARTIAL_SIGNING_FAILURE: '장비 하자로 일부 서명 불가',
+  EVENT_NOT_PERFORMED: '행사 진행 불가',
+  OTHER: '기타(건별 판단)',
+};
+
+/** 발주 금액의 이 비율을 넘는 감액은 PLATFORM_SUPER만 승인한다(서버 기본값 0.3). */
+export const LARGE_DEDUCTION_RATE = 0.3;
+
+export const DISPUTE_STATUS_LABEL: Record<InspectionDisputeStatus, string> = { OPEN: '이의 제기 중', RESOLVED: '이의 조정 완료' };
+
+export const OFFSET_STATUS_LABEL: Record<PartnerOffsetStatus, string> = { PENDING: '정산 대기', APPLIED: '지급에 반영', CANCELLED: '취소' };
 
 export const INVOICE_TYPE_LABEL: Record<CustomerInvoiceType, string> = { ADVANCE: '선금', BALANCE: '잔금' };
 

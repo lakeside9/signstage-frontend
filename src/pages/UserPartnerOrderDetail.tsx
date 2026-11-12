@@ -32,6 +32,8 @@ export const UserPartnerOrderDetail: FC = () => {
   const [isAcceptOpen, setIsAcceptOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
 
   const basePath = `/organizations/${organizationId}/partner-orders/${partnerOrderId}`;
 
@@ -90,6 +92,25 @@ export const UserPartnerOrderDetail: FC = () => {
       showSnackbar('발주를 거절했습니다.', 'success');
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '거절에 실패했습니다.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDispute = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!disputeReason.trim()) {
+      showSnackbar('이의 사유를 입력해주세요.', 'error');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await api.post(`${basePath}/inspection/dispute`, { reason: disputeReason.trim() });
+      setOrder(response.data as PartnerOrderDetail);
+      setIsDisputeOpen(false);
+      showSnackbar('이의를 제기했습니다. 플랫폼이 확인해 감액을 조정합니다.', 'success');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '이의 제기에 실패했습니다.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -184,9 +205,24 @@ export const UserPartnerOrderDetail: FC = () => {
           <div className="divide-y divide-gray-100">
             <InspectionResultRows inspection={order.inspection} />
           </div>
-          <p className="px-4 pb-4 pt-2 text-xs text-gray-400">
-            검수 승인된 금액은 승인월 단위로 합산해 다음 달 말일까지 지급됩니다. 지급 현황은 "지급 내역" 메뉴에서 봅니다.
-          </p>
+          <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-gray-400">
+              검수 승인된 금액은 승인월 단위로 합산해 다음 달 말일까지 지급됩니다. 감액된 건은 이의 기간이 지나거나 이의가
+              조정된 뒤 정산됩니다. 지급 현황은 "지급 내역" 메뉴에서 봅니다.
+            </p>
+            {canRespond && order.inspection.disputable && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setDisputeReason('');
+                  setIsDisputeOpen(true);
+                }}
+              >
+                감액 이의 제기
+              </Button>
+            )}
+          </div>
         </section>
       )}
 
@@ -201,6 +237,25 @@ export const UserPartnerOrderDetail: FC = () => {
             수락
           </Button>
         </div>
+      </Modal>
+
+      <Modal open={isDisputeOpen} onClose={() => setIsDisputeOpen(false)} title="감액 이의 제기" widthClassName="max-w-sm">
+        <form onSubmit={handleDispute} className="space-y-3">
+          <p className="text-sm text-gray-700">
+            {order.inspection?.disputeDeadline}까지 한 번 제기할 수 있습니다. 이의가 조정될 때까지 이 건은 지급에서 보류됩니다.
+          </p>
+          <Field label="이의 사유">
+            <textarea
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              disabled={isSubmitting}
+              className={inputClass}
+            />
+          </Field>
+          <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="이의 제기" onCancel={() => setIsDisputeOpen(false)} />
+        </form>
       </Modal>
 
       <Modal open={isRejectOpen} onClose={() => setIsRejectOpen(false)} title="발주 거절" widthClassName="max-w-sm">
