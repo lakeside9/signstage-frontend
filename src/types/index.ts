@@ -2253,7 +2253,14 @@ export type ServiceRegion = 'CAPITAL' | 'CHUNGCHEONG_GANGWON' | 'YEONGNAM_HONAM'
 export type CustomerStatus = 'ACTIVE' | 'INACTIVE';
 export type SalesOrderStatus = 'QUOTED' | 'ACCEPTED' | 'CANCELLED';
 export type SalesOrderAcceptanceChannel = 'CUSTOMER_LINK' | 'PLATFORM_RECORDED';
-export type SalesOrderLineType = 'BILLING_PLAN' | 'UNIT_PRODUCT' | 'REGION_SURCHARGE' | 'REHEARSAL_STAFF' | 'LODGING' | 'DISCOUNT';
+export type SalesOrderLineType =
+  | 'BILLING_PLAN'
+  | 'UNIT_PRODUCT'
+  | 'CUSTOM_ITEM'
+  | 'REGION_SURCHARGE'
+  | 'REHEARSAL_STAFF'
+  | 'LODGING'
+  | 'DISCOUNT';
 
 /** 플랜·옵션 밖의 수행 범위 — 예비 태블릿(D23, 고객 미청구), 리허설 별도일 인력(D24), 숙박(D26). */
 export interface OrderScopeExtras {
@@ -2343,6 +2350,14 @@ export interface SalesQuoteOptionRequest {
   quantity: number;
 }
 
+/** 견적 직접 입력 항목 — 카탈로그에 없는 품목. 발주 단가를 비우면 0이다. */
+export interface SalesQuoteCustomItemRequest {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  partnerUnitPrice: number | null;
+}
+
 export interface SaveSalesQuoteRequest {
   title: string;
   billingPlanId: number;
@@ -2351,6 +2366,7 @@ export interface SaveSalesQuoteRequest {
   startsAt: string | null;
   endsAt: string | null;
   options: SalesQuoteOptionRequest[];
+  customItems: SalesQuoteCustomItemRequest[];
   discountAmount: number | null;
   discountReason: string | null;
   spareTabletCount: number | null;
@@ -2388,6 +2404,8 @@ export interface SalesQuoteLine {
   amount: number;
   taxRatePercent: number;
   taxAmount: number;
+  /** 직접 입력 줄의 발주 단가. 다른 줄은 null이다. */
+  partnerUnitPrice: number | null;
 }
 
 export interface AdminPartnerOrderSummary extends OrderScopeExtras {
@@ -2417,6 +2435,8 @@ export interface AdminPartnerOrderSummary extends OrderScopeExtras {
   cancellationReason: string | null;
   ceremonyId: number | null;
   lodgingNightRate: number;
+  /** 직접 입력 항목의 발주 금액 합계. */
+  customItemAmount: number;
 }
 
 export interface AdminSalesOrderDetail extends OrderScopeExtras {
@@ -2435,6 +2455,8 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   tabletCount: number;
   wifiCount: number;
   onsiteStaffPersonDays: number;
+  /** 직접 입력 항목의 발주 금액 합계(예상 발주 금액에 포함). */
+  customItemPartnerAmount: number;
   supplyAmount: number;
   vatAmount: number;
   totalAmount: number;
@@ -2471,6 +2493,8 @@ export interface PartnerOrderPreview {
   rehearsalStaffPersonDays: number;
   lodgingPersonNights: number;
   lodgingNightRate: number;
+  /** 직접 입력 항목의 발주 금액 합계. */
+  customItemAmount: number;
   marginAmount: number;
   marginSufficient: boolean;
 }
@@ -2494,7 +2518,8 @@ export interface PartnerOrderSummary {
 export interface PartnerOrderDetail extends OrderScopeExtras {
   summary: PartnerOrderSummary;
   billingPlanName: string;
-  options: Array<{ unitProductId: number; name: string; quantity: number }>;
+  /** 옵션과 직접 입력 항목 — 직접 입력 항목은 unitProductId가 null이고 발주 단가가 있다. */
+  options: Array<{ unitProductId: number | null; name: string; quantity: number; partnerUnitPrice: number | null }>;
   customerName: string;
   customerContactName: string | null;
   customerContactPhone: string | null;
@@ -2508,6 +2533,8 @@ export interface PartnerOrderDetail extends OrderScopeExtras {
   onsiteStaffDayRate: number;
   regionSurcharge: number;
   lodgingNightRate: number;
+  /** 직접 입력 항목의 발주 금액 합계. */
+  customItemAmount: number;
   adjustmentAmount: number;
   adjustmentReason: string | null;
   respondedAt: string | null;
@@ -2758,6 +2785,7 @@ export interface MarginSimulationRequest {
   billingPlanId: number;
   region: ServiceRegion;
   options: { unitProductId: number; quantity: number }[];
+  customItems: SalesQuoteCustomItemRequest[];
   discountAmount: number | null;
   adjustmentAmount: number | null;
   spareTabletCount: number | null;

@@ -15,6 +15,8 @@ import type {
   PartnerPayoutStatus,
   SalesOrderAcceptanceChannel,
   SalesOrderStatus,
+  SalesQuoteCustomItemRequest,
+  SalesQuoteLine,
   ServiceRegion,
 } from '../../types';
 import { formatCurrency } from '../../utils/internationalization';
@@ -238,3 +240,39 @@ export const toScopeExtras = (draft: ScopeExtrasDraft): OrderScopeExtras => ({
 /** 숙박은 박수·인원을 함께 넣거나 함께 비운다. */
 export const isLodgingDraftValid = (draft: ScopeExtrasDraft) =>
   (Number(draft.lodgingNights) > 0) === (Number(draft.lodgingPersons) > 0);
+
+/** 입력 중인 직접 입력 항목 — 카탈로그에 없는 품목. 발주 단가를 비우면 0(플랫폼이 처리)이다. */
+export interface CustomItemDraft {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+  partnerUnitPrice: string;
+}
+
+export const EMPTY_CUSTOM_ITEM_DRAFT: CustomItemDraft = { name: '', quantity: '1', unitPrice: '', partnerUnitPrice: '' };
+
+/** 저장된 견적 줄에서 직접 입력 항목을 다시 불러온다. */
+export const toCustomItemDrafts = (lines: SalesQuoteLine[]): CustomItemDraft[] =>
+  lines
+    .filter((line) => line.lineType === 'CUSTOM_ITEM')
+    .map((line) => ({
+      name: line.name,
+      quantity: String(line.quantity),
+      unitPrice: String(line.unitPrice),
+      partnerUnitPrice: line.partnerUnitPrice ? String(line.partnerUnitPrice) : '',
+    }));
+
+/** 이름이 빈 줄은 보내지 않는다. */
+export const toCustomItems = (drafts: CustomItemDraft[]): SalesQuoteCustomItemRequest[] =>
+  drafts
+    .filter((item) => item.name.trim())
+    .map((item) => ({
+      name: item.name.trim(),
+      quantity: Number(item.quantity) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      partnerUnitPrice: item.partnerUnitPrice === '' ? null : Number(item.partnerUnitPrice),
+    }));
+
+/** 이름을 넣은 줄은 수량 1 이상, 고객 단가를 넣어야 한다. */
+export const isCustomItemDraftValid = (drafts: CustomItemDraft[]) =>
+  drafts.every((item) => !item.name.trim() || (Number(item.quantity) > 0 && item.unitPrice !== ''));

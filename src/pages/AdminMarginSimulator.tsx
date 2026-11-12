@@ -7,10 +7,18 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
-import { ScopeExtrasFields } from './order/components';
+import { CustomItemsField, ScopeExtrasFields } from './order/components';
 import { AcceptanceRate, AverageRating } from './order/evaluationComponents';
-import { EMPTY_SCOPE_EXTRAS_DRAFT, REGION_OPTIONS, formatMoney, isLodgingDraftValid, toScopeExtras } from './order/constants';
-import type { ScopeExtrasDraft } from './order/constants';
+import {
+  EMPTY_SCOPE_EXTRAS_DRAFT,
+  REGION_OPTIONS,
+  formatMoney,
+  isCustomItemDraftValid,
+  isLodgingDraftValid,
+  toCustomItems,
+  toScopeExtras,
+} from './order/constants';
+import type { CustomItemDraft, ScopeExtrasDraft } from './order/constants';
 import type {
   BillingPlanSummary,
   MarginPartnerQuote,
@@ -29,13 +37,14 @@ interface SimulationDraft {
   billingPlanId: string;
   region: ServiceRegion;
   options: OptionDraft[];
+  customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
   discountAmount: string;
   adjustmentAmount: string;
 }
 
 const EMPTY_DRAFT: SimulationDraft = {
-  billingPlanId: '', region: 'CAPITAL', options: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', adjustmentAmount: '',
+  billingPlanId: '', region: 'CAPITAL', options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', adjustmentAmount: '',
 };
 
 const MarginCell: FC<{ quote: MarginPartnerQuote; currency: string }> = ({ quote, currency }) => {
@@ -99,12 +108,17 @@ export const AdminMarginSimulator: FC = () => {
       showSnackbar('숙박은 박수와 인원을 함께 입력해주세요.', 'error');
       return;
     }
+    if (!isCustomItemDraftValid(draft.customItems)) {
+      showSnackbar('직접 입력 항목은 수량과 고객 단가를 입력해주세요.', 'error');
+      return;
+    }
     const request: MarginSimulationRequest = {
       billingPlanId: Number(draft.billingPlanId),
       region: draft.region,
       options: draft.options
         .filter((option) => option.unitProductId && Number(option.quantity) > 0)
         .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
+      customItems: toCustomItems(draft.customItems),
       discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
       adjustmentAmount: draft.adjustmentAmount === '' ? null : Number(draft.adjustmentAmount),
       ...toScopeExtras(draft.extras),
@@ -224,6 +238,7 @@ export const AdminMarginSimulator: FC = () => {
               ))}
             </ul>
           </div>
+          <CustomItemsField value={draft.customItems} onChange={(next) => update('customItems', next)} disabled={isCalculating} />
           <ScopeExtrasFields value={draft.extras} onChange={(next) => update('extras', next)} disabled={isCalculating} />
           <Field label="영업 할인(공급가)">
             <FormattedNumberInput

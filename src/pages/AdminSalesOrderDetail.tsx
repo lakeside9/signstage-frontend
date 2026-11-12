@@ -354,7 +354,14 @@ export const AdminSalesOrderDetail: FC = () => {
             <tbody className="divide-y divide-gray-100">
               {order.lines.map((line, index) => (
                 <tr key={index}>
-                  <td className="py-1.5 text-gray-950">{line.name}</td>
+                  <td className="py-1.5 text-gray-950">
+                    {line.name}
+                    {line.lineType === 'CUSTOM_ITEM' && (
+                      <span className="ml-1 text-xs text-gray-400">
+                        직접 입력 · 발주 단가 {formatMoney(line.partnerUnitPrice ?? 0, currency)}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-1.5 text-right text-gray-500 tabular-nums">{line.quantity}</td>
                   <td className="py-1.5 text-right tabular-nums">{formatMoney(line.amount, currency)}</td>
                 </tr>

@@ -9,16 +9,19 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
-import { ScopeExtrasFields } from './order/components';
+import { CustomItemsField, ScopeExtrasFields } from './order/components';
 import {
   EMPTY_SCOPE_EXTRAS_DRAFT,
   REGION_OPTIONS,
   blankToNull,
+  isCustomItemDraftValid,
   isLodgingDraftValid,
+  toCustomItemDrafts,
+  toCustomItems,
   toScopeExtras,
   toScopeExtrasDraft,
 } from './order/constants';
-import type { ScopeExtrasDraft } from './order/constants';
+import type { CustomItemDraft, ScopeExtrasDraft } from './order/constants';
 import type {
   AdminCustomer,
   AdminSalesOrderDetail,
@@ -43,6 +46,7 @@ interface QuoteDraft {
   startsAt: string;
   endsAt: string;
   options: OptionDraft[];
+  customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
   discountAmount: string;
   discountReason: string;
@@ -52,7 +56,7 @@ interface QuoteDraft {
 
 const EMPTY_DRAFT: QuoteDraft = {
   customerId: '', title: '', billingPlanId: '', region: 'CAPITAL', location: '', startsAt: '', endsAt: '',
-  options: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', discountReason: '', quoteValidUntil: '', memo: '',
+  options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', discountReason: '', quoteValidUntil: '', memo: '',
 };
 
 const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => {
@@ -68,6 +72,7 @@ const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => {
     options: order.lines
       .filter((line) => line.lineType === 'UNIT_PRODUCT' && line.unitProductId !== null)
       .map((line) => ({ unitProductId: String(line.unitProductId), quantity: String(line.quantity) })),
+    customItems: toCustomItemDrafts(order.lines),
     extras: toScopeExtrasDraft(order),
     discountAmount: discountLine ? String(Math.abs(discountLine.amount)) : '',
     discountReason: order.discountReason ?? '',
@@ -136,6 +141,7 @@ export const AdminSalesOrderForm: FC = () => {
     options: draft.options
       .filter((option) => option.unitProductId && Number(option.quantity) > 0)
       .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
+    customItems: toCustomItems(draft.customItems),
     discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
     discountReason: blankToNull(draft.discountReason),
     ...toScopeExtras(draft.extras),
@@ -155,6 +161,10 @@ export const AdminSalesOrderForm: FC = () => {
     }
     if (!isLodgingDraftValid(draft.extras)) {
       showSnackbar('숙박은 박수와 인원을 함께 입력해주세요.', 'error');
+      return;
+    }
+    if (!isCustomItemDraftValid(draft.customItems)) {
+      showSnackbar('직접 입력 항목은 수량과 고객 단가를 입력해주세요.', 'error');
       return;
     }
     if (Number(draft.discountAmount) > 0 && !draft.discountReason.trim()) {
@@ -331,6 +341,7 @@ export const AdminSalesOrderForm: FC = () => {
               </ul>
             )}
           </div>
+          <CustomItemsField value={draft.customItems} onChange={(next) => update('customItems', next)} disabled={isSaving} />
           <div className="border-t border-gray-100 pt-3">
             <span className="mb-2 block text-xs font-medium text-gray-500">추가 범위</span>
             <ScopeExtrasFields value={draft.extras} onChange={(next) => update('extras', next)} disabled={isSaving} />

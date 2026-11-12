@@ -12,7 +12,7 @@ import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
 import { InspectionResultRows, PartnerOrderAmountBreakdown, PartnerOrderStatusBadge } from './order/components';
 import { PartnerScopeChangeSection } from './order/PartnerScopeChangeSection';
-import { REGION_LABEL, formatSchedule, formatScopeExtras, formatWallDateTime } from './order/constants';
+import { REGION_LABEL, formatMoney, formatSchedule, formatScopeExtras, formatWallDateTime } from './order/constants';
 import type { PartnerOrderDetail } from '../types';
 
 /**
@@ -172,7 +172,15 @@ export const UserPartnerOrderDetail: FC = () => {
           <DetailRow label="패키지" value={order.billingPlanName} />
           <DetailRow
             label="추가 범위"
-            value={order.options.length === 0 ? '없음' : order.options.map((option) => `${option.name} ${option.quantity}`).join(', ')}
+            value={
+              order.options.length === 0
+                ? '없음'
+                : order.options
+                    .map((option) => (option.partnerUnitPrice !== null
+                      ? `${option.name} ${option.quantity} (발주 단가 ${formatMoney(option.partnerUnitPrice, summary.currencyCode)})`
+                      : `${option.name} ${option.quantity}`))
+                    .join(', ')
+            }
           />
           {formatScopeExtras(order) && <DetailRow label="리허설·숙박·예비" value={formatScopeExtras(order)} />}
           <DetailRow label="고객" value={order.customerName} />
@@ -202,6 +210,7 @@ export const UserPartnerOrderDetail: FC = () => {
             rehearsalStaffPersonDays={order.rehearsalStaffPersonDays}
             lodgingPersonNights={order.lodgingNights * order.lodgingPersons}
             lodgingNightRate={order.lodgingNightRate}
+            customItemAmount={order.customItemAmount}
           />
           <p className="mt-2 text-xs text-gray-400">부가세 별도. 지급은 행사 후 검수 승인 기준으로 합니다.</p>
         </section>

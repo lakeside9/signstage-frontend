@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus, Trash2 } from 'lucide-react';
+import { Button } from '../../components/Button';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import type {
   InspectionStatus,
@@ -13,8 +15,9 @@ import type {
 } from '../../types';
 import { DetailRow, Field } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
-import type { ScopeExtrasDraft } from './constants';
+import type { CustomItemDraft, ScopeExtrasDraft } from './constants';
 import {
+  EMPTY_CUSTOM_ITEM_DRAFT,
   DEDUCTION_TYPE_LABEL,
   DISPUTE_STATUS_LABEL,
   INSPECTION_APPROVAL_TYPE_LABEL,
@@ -63,11 +66,12 @@ interface PartnerOrderAmountBreakdownProps {
   rehearsalStaffPersonDays?: number;
   lodgingPersonNights?: number;
   lodgingNightRate?: number;
+  customItemAmount?: number;
 }
 
 /**
  * 발주 금액 = 기본 수행비 + (태블릿 + 예비) × 대당 단가 + 와이파이 × 대당 단가 + (현장 인력 + 리허설 별도일) × 일당 + 지역 할증
- * + 숙박 인·박 × 1박 단가 ± 조정(D05·D23·D24·D26).
+ * + 숙박 인·박 × 1박 단가 + 직접 입력 항목(수량 × 발주 단가) ± 조정(D05·D23·D24·D26).
  */
 export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> = (amount) => {
   const spare = amount.spareTabletCount ?? 0;
@@ -96,6 +100,9 @@ export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> =
       `숙박 ${lodging}인·박 × ${formatMoney(amount.lodgingNightRate ?? 0, amount.currencyCode)}`,
       formatMoney(lodging * (amount.lodgingNightRate ?? 0), amount.currencyCode),
     ]);
+  }
+  if ((amount.customItemAmount ?? 0) > 0) {
+    rows.push(['직접 입력 항목', formatMoney(amount.customItemAmount ?? 0, amount.currencyCode)]);
   }
   if (amount.adjustmentAmount !== 0) {
     rows.push([
@@ -319,6 +326,94 @@ export const ScopeExtrasFields: FC<{
       {field('rehearsalStaffPersonDays', '리허설 현장 인력(인·일)', '본행사와 다른 날 방문할 때만. 같은 날 리허설은 넣지 않습니다.')}
       {field('lodgingNights', '숙박(박)', '숙박이 필요할 때 박수와 인원을 함께 넣습니다.')}
       {field('lodgingPersons', '숙박 인원(명)', '권역 할증표의 1박 금액 × 박수 × 인원입니다.')}
+    </div>
+  );
+};
+
+/**
+ * 직접 입력 항목 — 카탈로그에 없는 품목을 이름·수량·고객 단가로 견적에 넣는다(파트너 고객 견적의 "기타(직접 입력)"와
+ * 같은 방식). 발주 단가를 넣으면 수량을 곱해 발주 금액에 더하고, 비우면 0(플랫폼이 처리)이다.
+ */
+export const CustomItemsField: FC<{
+  value: CustomItemDraft[];
+  onChange: (next: CustomItemDraft[]) => void;
+  disabled?: boolean;
+}> = ({ value, onChange, disabled }) => {
+  const updateItem = (index: number, patch: Partial<CustomItemDraft>) =>
+    onChange(value.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-500">직접 입력 항목</span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => onChange([...value, EMPTY_CUSTOM_ITEM_DRAFT])}
+          disabled={disabled}
+        >
+          <Plus size={12} /> 항목 추가
+        </Button>
+      </div>
+      {value.length === 0 ? (
+        <p className="text-xs text-gray-400">카탈로그에 없는 품목을 이름과 단가로 직접 넣을 수 있습니다.</p>
+      ) : (
+        <ul className="space-y-2">
+          <li className="hidden sm:grid grid-cols-[1fr_5rem_7rem_7rem_2rem] gap-2 text-[11px] text-gray-400">
+            <span>품목명</span>
+            <span>수량</span>
+            <span>고객 단가</span>
+            <span>발주 단가</span>
+            <span />
+          </li>
+          {value.map((item, index) => (
+            <li key={index} className="grid grid-cols-2 sm:grid-cols-[1fr_5rem_7rem_7rem_2rem] gap-2 items-center">
+              <input
+                type="text"
+                value={item.name}
+                onChange={(e) => updateItem(index, { name: e.target.value })}
+                maxLength={200}
+                placeholder="품목명"
+                disabled={disabled}
+                className={`${inputClass} col-span-2 sm:col-span-1`}
+              />
+              <FormattedNumberInput
+                value={item.quantity}
+                onChange={(next) => updateItem(index, { quantity: next })}
+                min={1}
+                disabled={disabled}
+                placeholder="수량"
+                className={inputClass}
+              />
+              <FormattedNumberInput
+                value={item.unitPrice}
+                onChange={(next) => updateItem(index, { unitPrice: next })}
+                min={0}
+                disabled={disabled}
+                placeholder="고객 단가"
+                className={inputClass}
+              />
+              <FormattedNumberInput
+                value={item.partnerUnitPrice}
+                onChange={(next) => updateItem(index, { partnerUnitPrice: next })}
+                min={0}
+                disabled={disabled}
+                placeholder="발주 단가(없으면 0)"
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_, i) => i !== index))}
+                disabled={disabled}
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 justify-self-end"
+                aria-label="직접 입력 항목 삭제"
+              >
+                <Trash2 size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

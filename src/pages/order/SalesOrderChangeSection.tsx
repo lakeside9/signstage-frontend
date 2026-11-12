@@ -10,9 +10,19 @@ import { api } from '../../utils/api';
 import { formatDateTime } from '../../utils/internationalization';
 import { Field, FormActions } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
-import { SalesOrderChangeStatusBadge, ScopeExtrasFields } from './components';
-import { formatMoney, formatSchedule, formatScopeExtras, isLodgingDraftValid, toScopeExtras, toScopeExtrasDraft } from './constants';
-import type { ScopeExtrasDraft } from './constants';
+import { CustomItemsField, SalesOrderChangeStatusBadge, ScopeExtrasFields } from './components';
+import {
+  formatMoney,
+  formatSchedule,
+  formatScopeExtras,
+  isCustomItemDraftValid,
+  isLodgingDraftValid,
+  toCustomItemDrafts,
+  toCustomItems,
+  toScopeExtras,
+  toScopeExtrasDraft,
+} from './constants';
+import type { CustomItemDraft, ScopeExtrasDraft } from './constants';
 import type {
   AdminSalesOrderChange,
   AdminSalesOrderChangeOverview,
@@ -29,6 +39,7 @@ interface OptionDraft {
 interface ChangeDraft {
   reason: string;
   options: OptionDraft[];
+  customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
   discountAmount: string;
   discountReason: string;
@@ -44,6 +55,7 @@ const toDraft = (order: AdminSalesOrderDetail): ChangeDraft => {
     options: order.lines
       .filter((line) => line.lineType === 'UNIT_PRODUCT' && line.unitProductId !== null)
       .map((line) => ({ unitProductId: String(line.unitProductId), quantity: String(line.quantity) })),
+    customItems: toCustomItemDrafts(order.lines),
     extras: toScopeExtrasDraft(order),
     discountAmount: discountLine ? String(Math.abs(discountLine.amount)) : '',
     discountReason: order.discountReason ?? '',
@@ -148,6 +160,10 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
       showSnackbar('숙박은 박수와 인원을 함께 입력해주세요.', 'error');
       return;
     }
+    if (!isCustomItemDraftValid(draft.customItems)) {
+      showSnackbar('직접 입력 항목은 수량과 고객 단가를 입력해주세요.', 'error');
+      return;
+    }
     const ok = await run(
       async () => {
         await api.post(`${basePath}/changes`, {
@@ -155,6 +171,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
           options: draft.options
             .filter((option) => option.unitProductId && Number(option.quantity) > 0)
             .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
+          customItems: toCustomItems(draft.customItems),
           discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
           discountReason: blankToNull(draft.discountReason),
           location: blankToNull(draft.location),
@@ -366,6 +383,11 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
                   </dd>
                 </div>
               </dl>
+              {change.lines.some((line) => line.lineType === 'CUSTOM_ITEM') && (
+                <p className="text-xs text-gray-500">
+                  직접 입력: {change.lines.filter((line) => line.lineType === 'CUSTOM_ITEM').map((line) => `${line.name} ${line.quantity}`).join(', ')}
+                </p>
+              )}
               {change.lines.some((line) => line.lineType === 'UNIT_PRODUCT') && (
                 <p className="mt-2 text-xs text-gray-500">
                   옵션: {change.lines.filter((line) => line.lineType === 'UNIT_PRODUCT').map((line) => `${line.name} ${line.quantity}`).join(', ')}
@@ -461,6 +483,11 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
                 </ul>
               )}
             </div>
+            <CustomItemsField
+              value={draft.customItems}
+              onChange={(next) => setDraft({ ...draft, customItems: next })}
+              disabled={isSubmitting}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="영업 할인(공급가)">
                 <FormattedNumberInput
