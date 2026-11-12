@@ -10,8 +10,9 @@ import { api } from '../../utils/api';
 import { formatDateTime } from '../../utils/internationalization';
 import { Field, FormActions } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
-import { SalesOrderChangeStatusBadge } from './components';
-import { formatMoney, formatSchedule } from './constants';
+import { SalesOrderChangeStatusBadge, ScopeExtrasFields } from './components';
+import { formatMoney, formatSchedule, formatScopeExtras, isLodgingDraftValid, toScopeExtras, toScopeExtrasDraft } from './constants';
+import type { ScopeExtrasDraft } from './constants';
 import type {
   AdminSalesOrderChange,
   AdminSalesOrderChangeOverview,
@@ -28,6 +29,7 @@ interface OptionDraft {
 interface ChangeDraft {
   reason: string;
   options: OptionDraft[];
+  extras: ScopeExtrasDraft;
   discountAmount: string;
   discountReason: string;
   location: string;
@@ -42,6 +44,7 @@ const toDraft = (order: AdminSalesOrderDetail): ChangeDraft => {
     options: order.lines
       .filter((line) => line.lineType === 'UNIT_PRODUCT' && line.unitProductId !== null)
       .map((line) => ({ unitProductId: String(line.unitProductId), quantity: String(line.quantity) })),
+    extras: toScopeExtrasDraft(order),
     discountAmount: discountLine ? String(Math.abs(discountLine.amount)) : '',
     discountReason: order.discountReason ?? '',
     location: order.location ?? '',
@@ -141,6 +144,10 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
       showSnackbar('종료 일시는 시작 일시보다 빠를 수 없습니다.', 'error');
       return;
     }
+    if (!isLodgingDraftValid(draft.extras)) {
+      showSnackbar('숙박은 박수와 인원을 함께 입력해주세요.', 'error');
+      return;
+    }
     const ok = await run(
       async () => {
         await api.post(`${basePath}/changes`, {
@@ -153,6 +160,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
           location: blankToNull(draft.location),
           startsAt: draft.startsAt || null,
           endsAt: draft.endsAt || null,
+          ...toScopeExtras(draft.extras),
         });
         return false;
       },
@@ -328,6 +336,14 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
                     {change.beforeTabletCount}대·{change.beforeOnsiteStaffPersonDays}인일 → {change.tabletCount}대·{change.onsiteStaffPersonDays}인일
                   </dd>
                 </div>
+                {(formatScopeExtras(change.beforeExtras) || formatScopeExtras(change.extras)) && (
+                  <div className="flex justify-between gap-2 sm:col-span-2">
+                    <dt className="text-gray-500">예비·리허설·숙박</dt>
+                    <dd className="text-right">
+                      {formatScopeExtras(change.beforeExtras) ?? '없음'} → {formatScopeExtras(change.extras) ?? '없음'}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex justify-between gap-2">
                   <dt className="text-gray-500">일정·장소</dt>
                   <dd className="text-right">{formatSchedule(change.startsAt, change.endsAt)} · {change.location ?? '장소 미정'}</dd>
@@ -480,6 +496,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
                 className={inputClass}
               />
             </Field>
+            <ScopeExtrasFields value={draft.extras} onChange={(next) => setDraft({ ...draft, extras: next })} disabled={isSubmitting} />
             <FormActions isSaving={isSubmitting} savingLabel="계산 중..." saveLabel="변경 제안" onCancel={() => setDraft(null)} />
           </form>
         )}

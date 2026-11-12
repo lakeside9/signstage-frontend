@@ -52,12 +52,13 @@ interface PriceDraft {
   amount1: string;
   amount2: string;
   amount3: string;
+  amount4: string;
   effectiveFrom: string;
   effectiveTo: string;
 }
 
 const emptyDraft = (): PriceDraft => ({
-  target: '', amount1: '', amount2: '', amount3: '', effectiveFrom: todayIsoDate(), effectiveTo: '',
+  target: '', amount1: '', amount2: '', amount3: '', amount4: '', effectiveFrom: todayIsoDate(), effectiveTo: '',
 });
 
 const toNumber = (value: string) => (value === '' ? null : Number(value));
@@ -148,6 +149,8 @@ export const AdminOrderPrices: FC = () => {
         region: draft.target as ServiceRegion,
         customerAmount: toNumber(draft.amount1),
         partnerAmount: toNumber(draft.amount2),
+        lodgingCustomerAmount: toNumber(draft.amount3),
+        lodgingPartnerAmount: toNumber(draft.amount4),
         ...period,
       };
     }
@@ -213,7 +216,7 @@ export const AdminOrderPrices: FC = () => {
       </button>
     ) : null;
 
-  const amountInput = (field: 'amount1' | 'amount2' | 'amount3', label: string) => (
+  const amountInput = (field: 'amount1' | 'amount2' | 'amount3' | 'amount4', label: string) => (
     <Field label={label}>
       <FormattedNumberInput
         value={draft[field]}
@@ -299,6 +302,7 @@ export const AdminOrderPrices: FC = () => {
                     <th className={thClass}>권역</th>
                     <th className={`${thClass} text-right`}>고객 할증</th>
                     <th className={`${thClass} text-right`}>파트너 할증</th>
+                    <th className={`${thClass} text-right`}>숙박 1박(고객/파트너)</th>
                     <th className={thClass}>적용 기간</th>
                     <th className={`${thClass} text-right`}>처리</th>
                   </tr>
@@ -309,6 +313,9 @@ export const AdminOrderPrices: FC = () => {
                       <td className={`${tdClass} text-gray-950 font-medium`}>{REGION_LABEL[surcharge.region]}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(surcharge.customerAmount, surcharge.currencyCode)}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(surcharge.partnerAmount, surcharge.currencyCode)}</td>
+                      <td className={`${tdClass} text-right tabular-nums`}>
+                        {formatMoney(surcharge.lodgingCustomerAmount, surcharge.currencyCode)} / {formatMoney(surcharge.lodgingPartnerAmount, surcharge.currencyCode)}
+                      </td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(surcharge.effectiveFrom, surcharge.effectiveTo)}</td>
                       <td className={`${tdClass} text-right`}>{closeButton(surcharge.id, surcharge.effectiveTo)}</td>
                     </tr>
@@ -397,7 +404,10 @@ export const AdminOrderPrices: FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 {amountInput('amount1', '고객 할증')}
                 {amountInput('amount2', '파트너 할증')}
+                {amountInput('amount3', '숙박 1박·1인 고객 금액')}
+                {amountInput('amount4', '숙박 1박·1인 파트너 금액')}
               </div>
+              <p className="text-xs text-gray-400">숙박은 견적에서 관리자가 박수·인원을 넣을 때만 더합니다. 비우면 0원입니다.</p>
             </>
           )}
           {activeTab === 'partnerRateCards' && (

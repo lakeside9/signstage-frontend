@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { Link } from 'react-router-dom';
+import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import type {
   InspectionStatus,
   OrderInspectionSummary,
@@ -10,7 +11,9 @@ import type {
   SalesOrderChangeStatus,
   SalesOrderStatus,
 } from '../../types';
-import { DetailRow } from '../billingCatalog/components';
+import { DetailRow, Field } from '../billingCatalog/components';
+import { inputClass } from '../billingCatalog/constants';
+import type { ScopeExtrasDraft } from './constants';
 import {
   DEDUCTION_TYPE_LABEL,
   DISPUTE_STATUS_LABEL,
@@ -54,22 +57,38 @@ interface PartnerOrderAmountBreakdownProps {
   adjustmentAmount: number;
   adjustmentReason?: string | null;
   totalAmount: number;
+  spareTabletCount?: number;
+  rehearsalStaffPersonDays?: number;
+  lodgingPersonNights?: number;
+  lodgingNightRate?: number;
 }
 
-/** 발주 금액 = 기본 수행비 + 태블릿 대수 × 대당 단가 + 현장 인력 인·일 × 일당 + 지역 할증 ± 조정(D05). */
+/**
+ * 발주 금액 = 기본 수행비 + (태블릿 + 예비) × 대당 단가 + (현장 인력 + 리허설 별도일) × 일당 + 지역 할증
+ * + 숙박 인·박 × 1박 단가 ± 조정(D05·D23·D24·D26).
+ */
 export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> = (amount) => {
+  const spare = amount.spareTabletCount ?? 0;
+  const rehearsal = amount.rehearsalStaffPersonDays ?? 0;
+  const lodging = amount.lodgingPersonNights ?? 0;
   const rows: Array<[string, string]> = [
     ['기본 수행비', formatMoney(amount.baseFee, amount.currencyCode)],
     [
-      `태블릿 ${amount.tabletCount}대 × ${formatMoney(amount.tabletUnitRate, amount.currencyCode)}`,
-      formatMoney(amount.tabletCount * amount.tabletUnitRate, amount.currencyCode),
+      `태블릿 ${amount.tabletCount}대${spare > 0 ? ` + 예비 ${spare}대` : ''} × ${formatMoney(amount.tabletUnitRate, amount.currencyCode)}`,
+      formatMoney((amount.tabletCount + spare) * amount.tabletUnitRate, amount.currencyCode),
     ],
     [
-      `현장 인력 ${amount.onsiteStaffPersonDays}인·일 × ${formatMoney(amount.onsiteStaffDayRate, amount.currencyCode)}`,
-      formatMoney(amount.onsiteStaffPersonDays * amount.onsiteStaffDayRate, amount.currencyCode),
+      `현장 인력 ${amount.onsiteStaffPersonDays}인·일${rehearsal > 0 ? ` + 리허설 ${rehearsal}인·일` : ''} × ${formatMoney(amount.onsiteStaffDayRate, amount.currencyCode)}`,
+      formatMoney((amount.onsiteStaffPersonDays + rehearsal) * amount.onsiteStaffDayRate, amount.currencyCode),
     ],
     ['지역 할증', formatMoney(amount.regionSurcharge, amount.currencyCode)],
   ];
+  if (lodging > 0) {
+    rows.push([
+      `숙박 ${lodging}인·박 × ${formatMoney(amount.lodgingNightRate ?? 0, amount.currencyCode)}`,
+      formatMoney(lodging * (amount.lodgingNightRate ?? 0), amount.currencyCode),
+    ]);
+  }
   if (amount.adjustmentAmount !== 0) {
     rows.push([
       `조정${amount.adjustmentReason ? ` (${amount.adjustmentReason})` : ''}`,
@@ -263,3 +282,35 @@ export const OffsetTable: FC<{
     </tbody>
   </table>
 );
+
+/**
+ * 추가 범위 입력 — 예비 태블릿(발주에만, 고객 미청구, D23), 본행사와 다른 날 리허설의 현장 인력(D24),
+ * 관리자가 정한 숙박 박수·인원(권역 1박 금액, D26).
+ */
+export const ScopeExtrasFields: FC<{
+  value: ScopeExtrasDraft;
+  onChange: (next: ScopeExtrasDraft) => void;
+  disabled?: boolean;
+}> = ({ value, onChange, disabled }) => {
+  const field = (key: keyof ScopeExtrasDraft, label: string, hint: string) => (
+    <Field label={label}>
+      <FormattedNumberInput
+        value={value[key]}
+        onChange={(next) => onChange({ ...value, [key]: next })}
+        min={0}
+        disabled={disabled}
+        placeholder="0"
+        className={inputClass}
+      />
+      <p className="mt-1 text-[11px] text-gray-400">{hint}</p>
+    </Field>
+  );
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {field('spareTabletCount', '예비 태블릿(대)', '발주에만 넣고 고객에게는 청구하지 않습니다.')}
+      {field('rehearsalStaffPersonDays', '리허설 현장 인력(인·일)', '본행사와 다른 날 방문할 때만. 같은 날 리허설은 넣지 않습니다.')}
+      {field('lodgingNights', '숙박(박)', '숙박이 필요할 때 박수와 인원을 함께 넣습니다.')}
+      {field('lodgingPersons', '숙박 인원(명)', '권역 할증표의 1박 금액 × 박수 × 인원입니다.')}
+    </div>
+  );
+};

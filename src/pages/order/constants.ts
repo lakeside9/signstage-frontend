@@ -1,4 +1,5 @@
 import type {
+  OrderScopeExtras,
   CustomerInvoiceStatus,
   CustomerInvoiceType,
   CustomerStatus,
@@ -196,3 +197,44 @@ export const formatPeriod = (effectiveFrom: string, effectiveTo: string | null) 
 export const isPeriodOpen = (effectiveTo: string | null) => !effectiveTo || effectiveTo === OPEN_END_DATE;
 
 export const statusBadgeClass = 'inline-block px-2 py-0.5 rounded-full text-xs font-medium border';
+
+/** 추가 범위(예비 태블릿·리허설 별도일 인력·숙박)를 한 줄로 — 없으면 null(D23·D24·D26). */
+export const formatScopeExtras = (extras: OrderScopeExtras): string | null => {
+  const parts: string[] = [];
+  if (extras.spareTabletCount > 0) parts.push(`예비 태블릿 ${extras.spareTabletCount}대`);
+  if (extras.rehearsalStaffPersonDays > 0) parts.push(`리허설 별도일 ${extras.rehearsalStaffPersonDays}인·일`);
+  if (extras.lodgingNights > 0) parts.push(`숙박 ${extras.lodgingNights}박 × ${extras.lodgingPersons}명`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
+
+/** 입력 중인 추가 범위(문자열). 비우면 0이다. */
+export interface ScopeExtrasDraft {
+  spareTabletCount: string;
+  rehearsalStaffPersonDays: string;
+  lodgingNights: string;
+  lodgingPersons: string;
+}
+
+export const EMPTY_SCOPE_EXTRAS_DRAFT: ScopeExtrasDraft = {
+  spareTabletCount: '', rehearsalStaffPersonDays: '', lodgingNights: '', lodgingPersons: '',
+};
+
+const draftNumber = (value: number) => (value > 0 ? String(value) : '');
+
+export const toScopeExtrasDraft = (extras: OrderScopeExtras): ScopeExtrasDraft => ({
+  spareTabletCount: draftNumber(extras.spareTabletCount),
+  rehearsalStaffPersonDays: draftNumber(extras.rehearsalStaffPersonDays),
+  lodgingNights: draftNumber(extras.lodgingNights),
+  lodgingPersons: draftNumber(extras.lodgingPersons),
+});
+
+export const toScopeExtras = (draft: ScopeExtrasDraft): OrderScopeExtras => ({
+  spareTabletCount: Number(draft.spareTabletCount) || 0,
+  rehearsalStaffPersonDays: Number(draft.rehearsalStaffPersonDays) || 0,
+  lodgingNights: Number(draft.lodgingNights) || 0,
+  lodgingPersons: Number(draft.lodgingPersons) || 0,
+});
+
+/** 숙박은 박수·인원을 함께 넣거나 함께 비운다. */
+export const isLodgingDraftValid = (draft: ScopeExtrasDraft) =>
+  (Number(draft.lodgingNights) > 0) === (Number(draft.lodgingPersons) > 0);

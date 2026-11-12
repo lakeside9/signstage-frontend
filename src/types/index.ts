@@ -2237,7 +2237,15 @@ export type ServiceRegion = 'CAPITAL' | 'CHUNGCHEONG_GANGWON' | 'YEONGNAM_HONAM'
 export type CustomerStatus = 'ACTIVE' | 'INACTIVE';
 export type SalesOrderStatus = 'QUOTED' | 'ACCEPTED' | 'CANCELLED';
 export type SalesOrderAcceptanceChannel = 'CUSTOMER_LINK' | 'PLATFORM_RECORDED';
-export type SalesOrderLineType = 'BILLING_PLAN' | 'UNIT_PRODUCT' | 'REGION_SURCHARGE' | 'DISCOUNT';
+export type SalesOrderLineType = 'BILLING_PLAN' | 'UNIT_PRODUCT' | 'REGION_SURCHARGE' | 'REHEARSAL_STAFF' | 'LODGING' | 'DISCOUNT';
+
+/** 플랜·옵션 밖의 수행 범위 — 예비 태블릿(D23, 고객 미청구), 리허설 별도일 인력(D24), 숙박(D26). */
+export interface OrderScopeExtras {
+  spareTabletCount: number;
+  rehearsalStaffPersonDays: number;
+  lodgingNights: number;
+  lodgingPersons: number;
+}
 export type PartnerOrderStatus = 'ISSUED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
 export type PartnerBusinessType = 'GENERAL' | 'SIMPLIFIED' | 'INDIVIDUAL';
 
@@ -2287,6 +2295,9 @@ export interface AdminRegionSurcharge {
   currencyCode: string;
   customerAmount: number;
   partnerAmount: number;
+  /** 숙박 1박·1인 금액(D26). */
+  lodgingCustomerAmount: number;
+  lodgingPartnerAmount: number;
   taxCode: string;
   effectiveFrom: string;
   effectiveTo: string | null;
@@ -2319,6 +2330,10 @@ export interface SaveSalesQuoteRequest {
   options: SalesQuoteOptionRequest[];
   discountAmount: number | null;
   discountReason: string | null;
+  spareTabletCount: number | null;
+  rehearsalStaffPersonDays: number | null;
+  lodgingNights: number | null;
+  lodgingPersons: number | null;
   quoteValidUntil: string | null;
   memo: string | null;
 }
@@ -2352,7 +2367,7 @@ export interface SalesQuoteLine {
   taxAmount: number;
 }
 
-export interface AdminPartnerOrderSummary {
+export interface AdminPartnerOrderSummary extends OrderScopeExtras {
   id: number;
   salesOrderId: number;
   salesOrderTitle: string;
@@ -2376,9 +2391,10 @@ export interface AdminPartnerOrderSummary {
   cancelledAt: string | null;
   cancellationReason: string | null;
   ceremonyId: number | null;
+  lodgingNightRate: number;
 }
 
-export interface AdminSalesOrderDetail {
+export interface AdminSalesOrderDetail extends OrderScopeExtras {
   id: number;
   customerId: number;
   customerName: string;
@@ -2423,6 +2439,10 @@ export interface PartnerOrderPreview {
   adjustmentAmount: number;
   totalAmount: number;
   customerSupplyAmount: number;
+  spareTabletCount: number;
+  rehearsalStaffPersonDays: number;
+  lodgingPersonNights: number;
+  lodgingNightRate: number;
   marginAmount: number;
   marginSufficient: boolean;
 }
@@ -2443,7 +2463,7 @@ export interface PartnerOrderSummary {
   ceremonyId: number | null;
 }
 
-export interface PartnerOrderDetail {
+export interface PartnerOrderDetail extends OrderScopeExtras {
   summary: PartnerOrderSummary;
   billingPlanName: string;
   options: Array<{ unitProductId: number; name: string; quantity: number }>;
@@ -2457,6 +2477,7 @@ export interface PartnerOrderDetail {
   onsiteStaffPersonDays: number;
   onsiteStaffDayRate: number;
   regionSurcharge: number;
+  lodgingNightRate: number;
   adjustmentAmount: number;
   adjustmentReason: string | null;
   respondedAt: string | null;
@@ -2709,6 +2730,10 @@ export interface MarginSimulationRequest {
   options: { unitProductId: number; quantity: number }[];
   discountAmount: number | null;
   adjustmentAmount: number | null;
+  spareTabletCount: number | null;
+  rehearsalStaffPersonDays: number | null;
+  lodgingNights: number | null;
+  lodgingPersons: number | null;
 }
 
 /** 한 파트너(또는 기본 단가표)의 발주 금액과 마진. 단가표가 없으면 금액·마진이 null이다. */
@@ -2784,6 +2809,8 @@ export interface AdminSalesOrderChange {
   cancelledAt: string | null;
   cancellationReason: string | null;
   lines: SalesQuoteLine[];
+  beforeExtras: OrderScopeExtras;
+  extras: OrderScopeExtras;
 }
 
 export interface AdminSalesOrderChangeOverview {
@@ -2816,6 +2843,8 @@ export interface PartnerScopeChange {
   cancelledAt: string | null;
   cancellationReason: string | null;
   options: Array<{ name: string; quantity: number }>;
+  beforeExtras: OrderScopeExtras;
+  extras: OrderScopeExtras;
 }
 
 export interface PartnerScopeChangeOverview {

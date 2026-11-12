@@ -302,7 +302,10 @@ export const UserCeremonyEdit: FC = () => {
     return response.data as EstimatedTotal;
   };
 
+  // 플랫폼 수주 행사는 플랫폼 이용료를 쓰지 않아 API가 거부한다 — 행사를 불러온 뒤 직접 수주 행사만 조회한다.
+  const ceremonyOrderRoute = ceremony?.orderRoute;
   useEffect(() => {
+    if (!ceremonyOrderRoute || ceremonyOrderRoute === 'PLATFORM_ORDER') return undefined;
     let cancelled = false;
 
     (async () => {
@@ -327,7 +330,7 @@ export const UserCeremonyEdit: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, ceremonyId]);
+  }, [organizationId, ceremonyId, ceremonyOrderRoute]);
 
   useEffect(() => {
     let cancelled = false;

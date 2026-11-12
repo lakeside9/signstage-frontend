@@ -9,7 +9,7 @@ import { formatDateTime } from '../../utils/internationalization';
 import { Field, FormActions } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
 import { SalesOrderChangeStatusBadge } from './components';
-import { formatMoney, formatSchedule } from './constants';
+import { formatMoney, formatSchedule, formatScopeExtras } from './constants';
 import type { PartnerScopeChange, PartnerScopeChangeOverview } from '../../types';
 
 interface Props {
@@ -182,6 +182,14 @@ export const PartnerScopeChangeSection: FC<Props> = ({ basePath, canRespond, can
                     {change.beforeTabletCount}대·{change.beforeOnsiteStaffPersonDays}인일 → {change.tabletCount}대·{change.onsiteStaffPersonDays}인일
                   </dd>
                 </div>
+                {(formatScopeExtras(change.beforeExtras) || formatScopeExtras(change.extras)) && (
+                  <div className="flex justify-between gap-2 sm:col-span-2">
+                    <dt className="text-gray-500">예비·리허설·숙박</dt>
+                    <dd className="text-right">
+                      {formatScopeExtras(change.beforeExtras) ?? '없음'} → {formatScopeExtras(change.extras) ?? '없음'}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex justify-between gap-2 sm:col-span-2">
                   <dt className="text-gray-500">일정·장소</dt>
                   <dd className="text-right">{formatSchedule(change.startsAt, change.endsAt)} · {change.location ?? '장소 미정'}</dd>
