@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { CalendarX, Loader2, Plus, Receipt } from 'lucide-react';
+import { CalendarX, Loader2, Plus, Receipt, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -88,6 +89,8 @@ export const AdminOrderPrices: FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [closingId, setClosingId] = useState<number | null>(null);
   const [closeDate, setCloseDate] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const reload = async () => {
     const [prices, surcharges, cards] = await Promise.all([
@@ -205,15 +208,44 @@ export const AdminOrderPrices: FC = () => {
     }
   };
 
-  const closeButton = (id: number, effectiveTo: string | null) =>
-    canManage && isPeriodOpen(effectiveTo) ? (
-      <button
-        type="button"
-        onClick={() => openClose(id)}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
-      >
-        <CalendarX size={12} /> 기간 종료
-      </button>
+  const handleDelete = async () => {
+    if (deletingId === null) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`${ENDPOINT[activeTab]}/${deletingId}`);
+      showSnackbar('가격을 삭제했습니다.', 'success');
+      setDeletingId(null);
+      await reload();
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '삭제에 실패했습니다.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  /** 기간 종료(열린 기간만)와 삭제(견적·수주·발주에 쓰이지 않은 가격만). */
+  const rowActions = (id: number, effectiveTo: string | null, used: boolean) =>
+    canManage ? (
+      <div className="inline-flex items-center gap-1">
+        {isPeriodOpen(effectiveTo) && (
+          <button
+            type="button"
+            onClick={() => openClose(id)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+          >
+            <CalendarX size={12} /> 기간 종료
+          </button>
+        )}
+        {!used && (
+          <button
+            type="button"
+            onClick={() => setDeletingId(id)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 size={12} /> 삭제
+          </button>
+        )}
+      </div>
     ) : null;
 
   const amountInput = (field: 'amount1' | 'amount2' | 'amount3' | 'amount4', label: string) => (
@@ -289,7 +321,7 @@ export const AdminOrderPrices: FC = () => {
                       <td className={`${tdClass} text-gray-950 font-medium`}>{price.billingPlanName ?? price.unitProductName}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(price.unitPrice, price.currencyCode)}</td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(price.effectiveFrom, price.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{closeButton(price.id, price.effectiveTo)}</td>
+                      <td className={`${tdClass} text-right`}>{rowActions(price.id, price.effectiveTo, price.used)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -317,7 +349,7 @@ export const AdminOrderPrices: FC = () => {
                         {formatMoney(surcharge.lodgingCustomerAmount, surcharge.currencyCode)} / {formatMoney(surcharge.lodgingPartnerAmount, surcharge.currencyCode)}
                       </td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(surcharge.effectiveFrom, surcharge.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{closeButton(surcharge.id, surcharge.effectiveTo)}</td>
+                      <td className={`${tdClass} text-right`}>{rowActions(surcharge.id, surcharge.effectiveTo, surcharge.used)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -343,7 +375,7 @@ export const AdminOrderPrices: FC = () => {
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.tabletUnitRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.onsiteStaffDayRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(card.effectiveFrom, card.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{closeButton(card.id, card.effectiveTo)}</td>
+                      <td className={`${tdClass} text-right`}>{rowActions(card.id, card.effectiveTo, card.used)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -472,6 +504,15 @@ export const AdminOrderPrices: FC = () => {
           <FormActions isSaving={isSaving} savingLabel="처리 중..." saveLabel="기간 종료" onCancel={() => setClosingId(null)} />
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="가격 삭제"
+        message="이 가격을 삭제할까요? 견적·수주·발주에 쓰이지 않은 가격만 지울 수 있고, 삭제하면 되돌릴 수 없습니다."
+        isSubmitting={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   );
 };

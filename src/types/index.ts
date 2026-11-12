@@ -2287,6 +2287,8 @@ export interface AdminCustomerPrice {
   taxCode: string;
   effectiveFrom: string;
   effectiveTo: string | null;
+  /** 견적·수주·발주 계산에 쓰였는지 — 쓰이지 않은 가격만 삭제할 수 있다. */
+  used: boolean;
 }
 
 export interface AdminRegionSurcharge {
@@ -2301,6 +2303,8 @@ export interface AdminRegionSurcharge {
   taxCode: string;
   effectiveFrom: string;
   effectiveTo: string | null;
+  /** 견적·수주·발주 계산에 쓰였는지 — 쓰이지 않은 가격만 삭제할 수 있다. */
+  used: boolean;
 }
 
 export interface AdminPartnerRateCard {
@@ -2313,6 +2317,8 @@ export interface AdminPartnerRateCard {
   onsiteStaffDayRate: number;
   effectiveFrom: string;
   effectiveTo: string | null;
+  /** 견적·수주·발주 계산에 쓰였는지 — 쓰이지 않은 가격만 삭제할 수 있다. */
+  used: boolean;
 }
 
 export interface SalesQuoteOptionRequest {
