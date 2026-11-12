@@ -29,7 +29,7 @@ const resources = {
         ceremonyInquiries: '행사 문의 관리', onsiteSupportRequests: '플랫폼 운영사 현장지원 요청 관리',
         groupOrder: '수주·발주 관리', salesOrders: '수주 관리', partnerOrders: '발주 현황',
         customers: '고객 관리', orderPrices: '수주 가격표', receivedPartnerOrders: '발주함',
-        orderInspections: '검수', partnerPayouts: '파트너 지급', receivedPartnerPayouts: '지급 내역',
+        orderInspections: '검수', customerInvoices: '청구·수납', partnerPayouts: '파트너 지급', receivedPartnerPayouts: '지급 내역',
       },
       permission: {
         management: '권한 관리',
@@ -53,7 +53,7 @@ const resources = {
           salesOrderManage: '수주 견적 작성/수락 기록/취소', partnerOrderIssue: '파트너 발주/발주 취소',
           partnerProfileVerify: '파트너 정산 계좌 예금주 확인', partnerOrderRespond: '발주 수락/거절',
           partnerProfileEdit: '외주 정보(사업자·계좌·약관) 수정',
-          orderInspection: '검수 승인', partnerPaymentApprove: '파트너 지급 처리', partnerPayoutView: '지급 내역 조회',
+          orderInspection: '검수 승인', customerInvoiceManage: '고객 청구·입금·세금계산서 기록', partnerPaymentApprove: '파트너 지급 처리', partnerPayoutView: '지급 내역 조회',
         },
       },
       auth: {
@@ -133,7 +133,7 @@ const resources = {
         ceremonyInquiries: 'Ceremony inquiries', onsiteSupportRequests: 'Platform onsite support requests',
         groupOrder: 'Sales and subcontracting', salesOrders: 'Sales orders', partnerOrders: 'Partner orders',
         customers: 'Customers', orderPrices: 'Order price lists', receivedPartnerOrders: 'Order inbox',
-        orderInspections: 'Inspections', partnerPayouts: 'Partner payouts', receivedPartnerPayouts: 'Payouts',
+        orderInspections: 'Inspections', customerInvoices: 'Customer invoices', partnerPayouts: 'Partner payouts', receivedPartnerPayouts: 'Payouts',
       },
       permission: {
         management: 'Permission management',
@@ -158,7 +158,7 @@ const resources = {
           salesOrderManage: 'Create quotes / record acceptance / cancel sales orders', partnerOrderIssue: 'Issue/cancel partner orders',
           partnerProfileVerify: 'Verify partner settlement account holder', partnerOrderRespond: 'Accept/reject partner orders',
           partnerProfileEdit: 'Edit subcontract info (business, account, terms)',
-          orderInspection: 'Approve inspections', partnerPaymentApprove: 'Process partner payouts', partnerPayoutView: 'View payouts',
+          orderInspection: 'Approve inspections', customerInvoiceManage: 'Issue customer invoices / record payments and tax invoices', partnerPaymentApprove: 'Process partner payouts', partnerPayoutView: 'View payouts',
         },
       },
       auth: {

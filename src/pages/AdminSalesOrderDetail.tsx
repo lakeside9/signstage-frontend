@@ -12,6 +12,7 @@ import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
 import { PartnerOrderAmountBreakdown, PartnerOrderStatusBadge, SalesOrderStatusBadge } from './order/components';
+import { SalesOrderBillingSection } from './order/invoiceComponents';
 import {
   ACCEPTANCE_CHANNEL_LABEL,
   REGION_LABEL,
@@ -506,6 +507,8 @@ export const AdminSalesOrderDetail: FC = () => {
           </div>
         )}
       </section>
+
+      {order.status !== 'QUOTED' && <SalesOrderBillingSection salesOrderId={order.id} refreshKey={order} />}
 
       <Modal open={isAcceptOpen} onClose={() => setIsAcceptOpen(false)} title="고객 수락 기록" widthClassName="max-w-sm">
         <form onSubmit={handleRecordAcceptance} className="space-y-3">

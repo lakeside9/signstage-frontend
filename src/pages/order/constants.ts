@@ -1,4 +1,6 @@
 import type {
+  CustomerInvoiceStatus,
+  CustomerInvoiceType,
   CustomerStatus,
   InspectionApprovalType,
   InspectionStatus,
@@ -89,6 +91,27 @@ export const PAYOUT_STATUS_STYLE: Record<PartnerPayoutStatus, string> = {
 };
 
 export const LEDGER_ENTRY_TYPE_LABEL: Record<PartnerLedgerEntryType, string> = { PAYABLE: '지급 의무', PAYMENT: '지급' };
+
+export const INVOICE_TYPE_LABEL: Record<CustomerInvoiceType, string> = { ADVANCE: '선금', BALANCE: '잔금' };
+
+export const INVOICE_STATUS_LABEL: Record<CustomerInvoiceStatus, string> = {
+  ISSUED: '입금 대기',
+  PAID: '입금 완료',
+  CANCELLED: '취소',
+};
+
+export const INVOICE_STATUS_STYLE: Record<CustomerInvoiceStatus, string> = {
+  ISSUED: 'bg-amber-50 text-amber-700 border-amber-200',
+  PAID: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
+};
+
+/** 브라우저 현지 날짜(YYYY-MM-DD). `days`일 뒤를 줄 수 있다. */
+export const localIsoDate = (days = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 /** 지난달(yyyy-MM, 브라우저 현지 기준) — 월 정산은 지난달까지만 된다. */
 export const previousMonth = () => {

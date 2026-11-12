@@ -2542,6 +2542,50 @@ export interface PartnerLedger {
   entries: PageResponse<PartnerLedgerEntryItem>;
 }
 
+/* 고객 청구·수납 — signstage-docs business/platform-order-partner-subcontract-review.md D12·D16. */
+export type CustomerInvoiceType = 'ADVANCE' | 'BALANCE';
+export type CustomerInvoiceStatus = 'ISSUED' | 'PAID' | 'CANCELLED';
+
+export interface CustomerInvoiceSummary {
+  id: number;
+  salesOrderId: number;
+  salesOrderTitle: string;
+  customerId: number;
+  customerName: string;
+  invoiceType: CustomerInvoiceType;
+  currencyCode: string;
+  supplyAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  issueDate: string;
+  dueDate: string;
+  status: CustomerInvoiceStatus;
+  /** 입금 기한이 지났는데 입금 기록이 없는 청구(미수). */
+  overdue: boolean;
+  paidDate: string | null;
+  paidAmount: number | null;
+  paymentMemo: string | null;
+  taxInvoiceIssuedDate: string | null;
+  taxInvoiceApprovalNumber: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+}
+
+/** 수주의 청구 현황. 금액은 부가세 포함 합계. */
+export interface SalesOrderBilling {
+  salesOrderId: number;
+  currencyCode: string;
+  advancePaymentRate: number;
+  contractAmount: number;
+  billedAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  eventCompleted: boolean;
+  advanceIssuable: boolean;
+  balanceIssuable: boolean;
+  invoices: CustomerInvoiceSummary[];
+}
+
 export interface SalesQuotePortal {
   customerName: string;
   title: string;

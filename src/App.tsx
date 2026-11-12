@@ -78,6 +78,7 @@ import { UserPartnerOrderList } from './pages/UserPartnerOrderList';
 import { UserPartnerOrderDetail } from './pages/UserPartnerOrderDetail';
 import { AdminOrderInspectionList } from './pages/AdminOrderInspectionList';
 import { AdminPartnerPayouts } from './pages/AdminPartnerPayouts';
+import { AdminCustomerInvoiceList } from './pages/AdminCustomerInvoiceList';
 import { UserPartnerPayoutEntry } from './pages/UserPartnerPayoutEntry';
 import { UserPartnerPayoutList } from './pages/UserPartnerPayoutList';
 import { SalesQuotePortalView } from './pages/SalesQuotePortalView';
@@ -222,6 +223,7 @@ function App() {
           <Route path="partner-orders" element={<AdminPartnerOrderList />} />
           <Route path="order-inspections" element={<AdminOrderInspectionList />} />
           <Route path="partner-payouts" element={<AdminPartnerPayouts />} />
+          <Route path="customer-invoices" element={<AdminCustomerInvoiceList />} />
           <Route path="verify" element={<DocumentVerificationView />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>
