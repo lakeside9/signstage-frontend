@@ -21,6 +21,7 @@ import type {
   PlatformAdminOrganizationSummary,
   PlatformAdminUserSummary,
 } from '../types';
+import { AdminPartnerProfileSection } from './organization/AdminPartnerProfileSection';
 
 const STATUS_BADGE_CLASS: Record<OrganizationStatus, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -456,6 +457,8 @@ export const AdminOrganizationDetail: FC = () => {
           </div>
         )}
       </div>
+
+      <AdminPartnerProfileSection organizationId={organizationId!} />
 
       {/* 가벼운 행사 목록 — 행별 "이력 보기"가 신규 "행사 이력" 화면(플랜 선택 이력 + 구매
           이력을 함께 보여준다, signstage-docs

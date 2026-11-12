@@ -10,7 +10,10 @@ import {
   ChevronLeft,
   ClipboardCheck,
   ClipboardList,
+  Contact,
+  FileText,
   FlaskConical,
+  Handshake,
   HelpCircle,
   Key,
   KeyRound,
@@ -27,6 +30,8 @@ import {
   Package,
   Percent,
   PlayCircle,
+  Receipt,
+  Send,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -81,6 +86,11 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Megaphone: <Megaphone size={20} />,
   MessageCircleQuestion: <MessageCircleQuestion size={20} />,
   MapPin: <MapPin size={20} />,
+  Handshake: <Handshake size={20} />,
+  FileText: <FileText size={20} />,
+  Send: <Send size={20} />,
+  Contact: <Contact size={20} />,
+  Receipt: <Receipt size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;

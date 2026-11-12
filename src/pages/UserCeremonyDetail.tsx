@@ -32,6 +32,7 @@ import { ListContainer } from '../components/ListContainer';
 import { Modal } from '../components/Modal';
 import { CeremonyEventEffectSelectionFields } from '../components/effects/settings/CeremonyEventEffectSelectionFields';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
@@ -201,6 +202,7 @@ export const UserCeremonyDetail: FC = () => {
   // business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정) — UserCeremonyEdit
   // 참고.
   const canViewCustomerQuote = usePermissionStore((state) => state.hasPermission('ACTION_CUSTOMER_QUOTE_MANAGE'));
+  const partnerDirectOrderEnabled = useConsoleFeatureStore((state) => state.partnerDirectOrderEnabled);
 
   const [ceremony, setCeremony] = useState<CeremonySummary | null>(null);
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
@@ -1000,6 +1002,9 @@ export const UserCeremonyDetail: FC = () => {
 
   const isCompleted = ceremony.status === 'COMPLETED';
   const isDraft = ceremony.status === 'DRAFT';
+  // 플랫폼 수주 행사이거나 직접 수주를 보류 중이면 플랫폼 이용료·고객 견적·현장지원 요청을 숨긴다
+  // (signstage-docs business/platform-order-partner-subcontract-review.md D07·D10·D29).
+  const showDirectOrderTools = partnerDirectOrderEnabled && ceremony.orderRoute !== 'PLATFORM_ORDER';
   const registerDisabledReason = isCompleted
     ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
     : isDraft
@@ -1033,6 +1038,7 @@ export const UserCeremonyDetail: FC = () => {
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             플랜: {plan?.name ?? (ceremony.billingPlanId === null ? '미선택' : `#${ceremony.billingPlanId}`)}
+            {ceremony.orderRoute === 'PLATFORM_ORDER' && ' · 플랫폼 발주 행사'}
           </p>
           {isCompleted && (
             <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
@@ -1046,6 +1052,7 @@ export const UserCeremonyDetail: FC = () => {
             <Settings size={16} />
             행사 수정
           </Link>
+          {showDirectOrderTools && (
           <Link
             to={`${detailPath}/edit?tab=billing`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
@@ -1053,7 +1060,8 @@ export const UserCeremonyDetail: FC = () => {
             <CreditCard size={16} />
             플랫폼 이용료
           </Link>
-          {canViewCustomerQuote && (
+          )}
+          {showDirectOrderTools && canViewCustomerQuote && (
             <Link
               to={`${detailPath}/edit?tab=customerQuote`}
               className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
@@ -1062,6 +1070,7 @@ export const UserCeremonyDetail: FC = () => {
               고객 견적
             </Link>
           )}
+          {showDirectOrderTools && (
           <Link
             to={`${detailPath}/edit?tab=onsiteSupportRequests`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
@@ -1069,6 +1078,7 @@ export const UserCeremonyDetail: FC = () => {
             <MapPin size={16} />
             플랫폼 운영사 현장지원 요청
           </Link>
+          )}
           <Link
             to={`${detailPath}/edit?tab=inquiries`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"

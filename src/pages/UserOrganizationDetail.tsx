@@ -8,6 +8,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import type { MemberRole, MemberSummary, OrganizationHistorySummary, OrganizationSummary } from '../types';
+import { PartnerSubcontractProfileSection } from './organization/PartnerSubcontractProfileSection';
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: '활성',
@@ -388,6 +389,8 @@ export const UserOrganizationDetail: FC = () => {
           )}
         </div>
       )}
+
+      <PartnerSubcontractProfileSection organizationId={organizationId!} />
 
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">

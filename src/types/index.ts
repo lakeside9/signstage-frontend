@@ -952,6 +952,8 @@ export interface CeremonySummary {
   finalDiscountValue: number;
   createdBy: number;
   createdAt: string;
+  /** 플랫폼 수주 행사는 플랜·구매·견적·현장지원과 계약 조건(제목·장소·일정)을 바꿀 수 없다(D07·D14). */
+  orderRoute: CeremonyOrderRoute;
 }
 
 /**
@@ -2220,4 +2222,274 @@ export interface PlatformAdminOnsiteSupportRequestSummary {
 export interface QuoteOnsiteSupportRequestRequest {
   quotedAmount: number;
   quotedNote?: string;
+}
+
+/*
+ * 플랫폼 수주·파트너 발주 — signstage-backend feature.order DTO와 맞춘다(signstage-docs
+ * business/platform-order-partner-subcontract-review.md 12장). 금액은 BigDecimal이라 숫자로 온다.
+ * 일정(startsAt/endsAt)과 발주 응답 기한(responseDueAt)은 현지(Asia/Seoul) 벽시계 시각이고,
+ * 나머지 *At(issuedAt 등)은 UTC LocalDateTime이다.
+ */
+export type CeremonyOrderRoute = 'PARTNER_DIRECT' | 'PLATFORM_ORDER';
+export type ServiceRegion = 'CAPITAL' | 'CHUNGCHEONG_GANGWON' | 'YEONGNAM_HONAM' | 'JEJU_ISLAND';
+export type CustomerStatus = 'ACTIVE' | 'INACTIVE';
+export type SalesOrderStatus = 'QUOTED' | 'ACCEPTED' | 'CANCELLED';
+export type SalesOrderAcceptanceChannel = 'CUSTOMER_LINK' | 'PLATFORM_RECORDED';
+export type SalesOrderLineType = 'BILLING_PLAN' | 'UNIT_PRODUCT' | 'REGION_SURCHARGE' | 'DISCOUNT';
+export type PartnerOrderStatus = 'ISSUED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+export type PartnerBusinessType = 'GENERAL' | 'SIMPLIFIED' | 'INDIVIDUAL';
+
+export interface AdminCustomer {
+  id: number;
+  name: string;
+  businessRegistrationNumber: string | null;
+  representativeName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  taxInvoiceEmail: string | null;
+  address: string | null;
+  memo: string | null;
+  status: CustomerStatus;
+  createdAt: string;
+}
+
+export interface SaveCustomerRequest {
+  name: string;
+  businessRegistrationNumber: string | null;
+  representativeName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  taxInvoiceEmail: string | null;
+  address: string | null;
+  memo: string | null;
+}
+
+export interface AdminCustomerPrice {
+  id: number;
+  billingPlanId: number | null;
+  billingPlanName: string | null;
+  unitProductId: number | null;
+  unitProductName: string | null;
+  currencyCode: string;
+  unitPrice: number;
+  taxCode: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface AdminRegionSurcharge {
+  id: number;
+  region: ServiceRegion;
+  currencyCode: string;
+  customerAmount: number;
+  partnerAmount: number;
+  taxCode: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface AdminPartnerRateCard {
+  id: number;
+  organizationId: number | null;
+  organizationName: string | null;
+  currencyCode: string;
+  baseFee: number;
+  tabletUnitRate: number;
+  onsiteStaffDayRate: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface SalesQuoteOptionRequest {
+  unitProductId: number;
+  quantity: number;
+}
+
+export interface SaveSalesQuoteRequest {
+  title: string;
+  billingPlanId: number;
+  region: ServiceRegion;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  options: SalesQuoteOptionRequest[];
+  discountAmount: number | null;
+  discountReason: string | null;
+  quoteValidUntil: string | null;
+  memo: string | null;
+}
+
+export interface AdminSalesOrderSummary {
+  id: number;
+  customerId: number;
+  customerName: string;
+  title: string;
+  billingPlanId: number;
+  region: ServiceRegion;
+  startsAt: string | null;
+  currencyCode: string;
+  supplyAmount: number;
+  totalAmount: number;
+  estimatedPartnerAmount: number;
+  status: SalesOrderStatus;
+  quoteValidUntil: string;
+  acceptedAt: string | null;
+  createdAt: string;
+}
+
+export interface SalesQuoteLine {
+  lineType: SalesOrderLineType;
+  unitProductId: number | null;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  taxRatePercent: number;
+  taxAmount: number;
+}
+
+export interface AdminPartnerOrderSummary {
+  id: number;
+  salesOrderId: number;
+  salesOrderTitle: string;
+  organizationId: number;
+  organizationName: string;
+  currencyCode: string;
+  baseFee: number;
+  tabletCount: number;
+  tabletUnitRate: number;
+  onsiteStaffPersonDays: number;
+  onsiteStaffDayRate: number;
+  regionSurcharge: number;
+  adjustmentAmount: number;
+  adjustmentReason: string | null;
+  totalAmount: number;
+  status: PartnerOrderStatus;
+  responseDueAt: string;
+  issuedAt: string;
+  respondedAt: string | null;
+  rejectionReason: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  ceremonyId: number | null;
+}
+
+export interface AdminSalesOrderDetail {
+  id: number;
+  customerId: number;
+  customerName: string;
+  title: string;
+  billingPlanId: number;
+  billingPlanName: string;
+  region: ServiceRegion;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  currencyCode: string;
+  currencyFractionDigits: number | null;
+  tabletCount: number;
+  onsiteStaffPersonDays: number;
+  supplyAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  discountReason: string | null;
+  estimatedPartnerAmount: number;
+  status: SalesOrderStatus;
+  quoteValidUntil: string;
+  quoteAccessToken: string;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
+  acceptanceChannel: SalesOrderAcceptanceChannel | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  memo: string | null;
+  lines: SalesQuoteLine[];
+  partnerOrders: AdminPartnerOrderSummary[];
+}
+
+export interface PartnerOrderPreview {
+  organizationId: number;
+  partnerEligible: boolean;
+  baseFee: number;
+  tabletCount: number;
+  tabletUnitRate: number;
+  onsiteStaffPersonDays: number;
+  onsiteStaffDayRate: number;
+  regionSurcharge: number;
+  adjustmentAmount: number;
+  totalAmount: number;
+  customerSupplyAmount: number;
+  marginAmount: number;
+  marginSufficient: boolean;
+}
+
+/** 파트너가 보는 발주 — 고객 계약금액은 없다(D14). */
+export interface PartnerOrderSummary {
+  id: number;
+  title: string;
+  region: ServiceRegion;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  currencyCode: string;
+  totalAmount: number;
+  status: PartnerOrderStatus;
+  responseDueAt: string;
+  issuedAt: string;
+  ceremonyId: number | null;
+}
+
+export interface PartnerOrderDetail {
+  summary: PartnerOrderSummary;
+  billingPlanName: string;
+  options: Array<{ unitProductId: number; name: string; quantity: number }>;
+  customerName: string;
+  customerContactName: string | null;
+  customerContactPhone: string | null;
+  customerContactEmail: string | null;
+  baseFee: number;
+  tabletCount: number;
+  tabletUnitRate: number;
+  onsiteStaffPersonDays: number;
+  onsiteStaffDayRate: number;
+  regionSurcharge: number;
+  adjustmentAmount: number;
+  adjustmentReason: string | null;
+  respondedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface SalesQuotePortal {
+  customerName: string;
+  title: string;
+  billingPlanName: string;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  currencyCode: string;
+  currencyFractionDigits: number | null;
+  lines: Array<{ lineType: SalesOrderLineType; name: string; quantity: number; unitPrice: number; amount: number }>;
+  supplyAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  quoteValidUntil: string;
+  status: SalesOrderStatus;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
+}
+
+export interface PartnerSubcontractProfile {
+  organizationId: number;
+  businessType: PartnerBusinessType | null;
+  businessRegistrationNumber: string | null;
+  representativeName: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  accountHolderName: string | null;
+  accountVerifiedAt: string | null;
+  subcontractTermsAgreedAt: string | null;
+  privacyConsignmentAgreedAt: string | null;
+  orderEligible: boolean;
 }

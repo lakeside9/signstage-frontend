@@ -67,6 +67,16 @@ import { SignerPortalView } from './pages/SignerPortalView';
 import { DocumentVerificationView } from './pages/DocumentVerificationView';
 import { ProjectorView } from './pages/ProjectorView';
 import { DemoView } from './pages/DemoView';
+import { AdminCustomerList } from './pages/AdminCustomerList';
+import { AdminOrderPrices } from './pages/AdminOrderPrices';
+import { AdminSalesOrderList } from './pages/AdminSalesOrderList';
+import { AdminSalesOrderForm } from './pages/AdminSalesOrderForm';
+import { AdminSalesOrderDetail } from './pages/AdminSalesOrderDetail';
+import { AdminPartnerOrderList } from './pages/AdminPartnerOrderList';
+import { UserPartnerOrderEntry } from './pages/UserPartnerOrderEntry';
+import { UserPartnerOrderList } from './pages/UserPartnerOrderList';
+import { UserPartnerOrderDetail } from './pages/UserPartnerOrderDetail';
+import { SalesQuotePortalView } from './pages/SalesQuotePortalView';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -80,6 +90,7 @@ function App() {
         <Route path="/signup" element={<SignupView />} />
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
+        <Route path="/sales-quotes/:accessToken" element={<SalesQuotePortalView />} />
         <Route
           path="/demo"
           element={
@@ -130,6 +141,9 @@ function App() {
             path="ceremonies/:organizationId/:ceremonyId/templates/:templateId"
             element={<UserTemplateDetail />}
           />
+          <Route path="partner-orders" element={<UserPartnerOrderEntry />} />
+          <Route path="partner-orders/:organizationId" element={<UserPartnerOrderList />} />
+          <Route path="partner-orders/:organizationId/:partnerOrderId" element={<UserPartnerOrderDetail />} />
           <Route path="faqs" element={<UserFaqList />} />
           <Route path="announcements" element={<UserAnnouncementList />} />
           <Route path="verify" element={<DocumentVerificationView />} />
@@ -193,6 +207,13 @@ function App() {
           <Route path="announcements/:announcementId/edit" element={<AdminAnnouncementEdit />} />
           <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
           <Route path="onsite-support-requests" element={<AdminOnsiteSupportRequests />} />
+          <Route path="customers" element={<AdminCustomerList />} />
+          <Route path="order-prices" element={<AdminOrderPrices />} />
+          <Route path="sales-orders" element={<AdminSalesOrderList />} />
+          <Route path="sales-orders/new" element={<AdminSalesOrderForm />} />
+          <Route path="sales-orders/:salesOrderId" element={<AdminSalesOrderDetail />} />
+          <Route path="sales-orders/:salesOrderId/edit" element={<AdminSalesOrderForm />} />
+          <Route path="partner-orders" element={<AdminPartnerOrderList />} />
           <Route path="verify" element={<DocumentVerificationView />} />
           <Route path="profile" element={<ProfileView />} />
         </Route>

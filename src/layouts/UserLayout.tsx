@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   FileSignature,
   HelpCircle,
+  Inbox,
   Key,
   LayoutDashboard,
   LogOut,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
 import type { MenuNode, UserProfile } from '../types';
@@ -41,6 +43,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   HelpCircle: <HelpCircle size={20} />,
   Megaphone: <Megaphone size={20} />,
   Wallet: <Wallet size={20} />,
+  Inbox: <Inbox size={20} />,
 };
 
 const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
@@ -68,6 +71,8 @@ export const UserLayout: FC = () => {
   const logout = useAuthStore((state) => state.logout);
   const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const loadMyPermissions = usePermissionStore((state) => state.loadMyPermissions);
+  const loadConsoleFeatures = useConsoleFeatureStore((state) => state.loadConsoleFeatures);
+  const enableForPlatformAdmin = useConsoleFeatureStore((state) => state.enableForPlatformAdmin);
   // 행사(ceremonies/:organizationId/...) 하위 라우트의 organizationId — 부모 레이아웃인 여기서도
   // 자식 라우트가 매칭한 params를 그대로 읽을 수 있다(React Router v6). 플랫폼 관리자는 어떤
   // 조직의 실제 멤버도 될 수 없으므로, 이 값이 있고 platformAdmin이 있으면 항상 "데모 조직을
@@ -109,13 +114,15 @@ export const UserLayout: FC = () => {
       // 이미 빈 배열로 시작한다) — 재사용하는 화면들이 자체 네비게이션(뒤로가기 링크 등)을
       // 이미 갖고 있어 사이드바가 필요 없다.
       loadMyPermissions(`/platform-admin/organizations/${organizationId}/demo-permissions`);
+      enableForPlatformAdmin();
       return;
     }
     api.get('/organizations/me/menus').then((response) => {
       setMenuNodes(response.data as MenuNode[]);
     }).catch(() => undefined);
     loadMyPermissions('/organizations/me/permissions');
-  }, [loadMyPermissions, isDemoManagement, organizationId]);
+    loadConsoleFeatures();
+  }, [loadMyPermissions, loadConsoleFeatures, enableForPlatformAdmin, isDemoManagement, organizationId]);
 
   const handleLogout = () => {
     logout();

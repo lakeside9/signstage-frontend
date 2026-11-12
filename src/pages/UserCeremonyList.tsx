@@ -5,6 +5,7 @@ import { FileSignature, Plus } from 'lucide-react';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDate } from '../utils/internationalization';
@@ -59,7 +60,10 @@ export const UserCeremonyList: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
 
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
-  const canCreate = usePermissionStore((state) => state.hasPermission('ACTION_CEREMONY_CREATE'));
+  // 파트너 직접 수주를 보류하는 동안 행사는 발주 수락으로만 만들어진다(D29).
+  const hasCreatePermission = usePermissionStore((state) => state.hasPermission('ACTION_CEREMONY_CREATE'));
+  const partnerDirectOrderEnabled = useConsoleFeatureStore((state) => state.partnerDirectOrderEnabled);
+  const canCreate = hasCreatePermission && partnerDirectOrderEnabled;
 
   useEffect(() => {
     let cancelled = false;

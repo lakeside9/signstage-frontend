@@ -27,6 +27,8 @@ const resources = {
         subscriptionPlans: '구독 플랜 카탈로그', subscriptionRequests: '구독 요청 관리',
         groupSupport: '고객지원 관리', faqs: 'FAQ', announcements: '공지사항',
         ceremonyInquiries: '행사 문의 관리', onsiteSupportRequests: '플랫폼 운영사 현장지원 요청 관리',
+        groupOrder: '수주·발주 관리', salesOrders: '수주 관리', partnerOrders: '발주 현황',
+        customers: '고객 관리', orderPrices: '수주 가격표', receivedPartnerOrders: '발주함',
       },
       permission: {
         management: '권한 관리',
@@ -46,6 +48,10 @@ const resources = {
           faqManage: 'FAQ 등록/수정/삭제', announcementManage: '공지사항 등록/수정/삭제',
           ceremonyInquiryManage: '행사 문의 답변/종료',
           onsiteSupportRequestManage: '플랫폼 운영사 현장지원 요청 견적 입력',
+          customerManage: '고객 등록/수정', orderPriceManage: '수주 가격표 관리',
+          salesOrderManage: '수주 견적 작성/수락 기록/취소', partnerOrderIssue: '파트너 발주/발주 취소',
+          partnerProfileVerify: '파트너 정산 계좌 예금주 확인', partnerOrderRespond: '발주 수락/거절',
+          partnerProfileEdit: '외주 정보(사업자·계좌·약관) 수정',
         },
       },
       auth: {
@@ -123,6 +129,8 @@ const resources = {
         subscriptionPlans: 'Subscription plan catalog', subscriptionRequests: 'Subscription requests',
         groupSupport: 'Support', faqs: 'FAQ', announcements: 'Announcements',
         ceremonyInquiries: 'Ceremony inquiries', onsiteSupportRequests: 'Platform onsite support requests',
+        groupOrder: 'Sales and subcontracting', salesOrders: 'Sales orders', partnerOrders: 'Partner orders',
+        customers: 'Customers', orderPrices: 'Order price lists', receivedPartnerOrders: 'Order inbox',
       },
       permission: {
         management: 'Permission management',
@@ -143,6 +151,10 @@ const resources = {
           faqManage: 'Create/edit/delete FAQs', announcementManage: 'Create/edit/delete announcements',
           ceremonyInquiryManage: 'Reply to/close ceremony inquiries',
           onsiteSupportRequestManage: 'Quote platform onsite support requests',
+          customerManage: 'Create/edit customers', orderPriceManage: 'Manage order price lists',
+          salesOrderManage: 'Create quotes / record acceptance / cancel sales orders', partnerOrderIssue: 'Issue/cancel partner orders',
+          partnerProfileVerify: 'Verify partner settlement account holder', partnerOrderRespond: 'Accept/reject partner orders',
+          partnerProfileEdit: 'Edit subcontract info (business, account, terms)',
         },
       },
       auth: {

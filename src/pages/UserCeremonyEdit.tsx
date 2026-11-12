@@ -23,6 +23,7 @@ import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { CeremonyScheduleFields } from '../components/CeremonyScheduleFields';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatCurrency, formatDateTime } from '../utils/internationalization';
@@ -142,6 +143,7 @@ export const UserCeremonyEdit: FC = () => {
   // business/platform-admin-partner-ux-confusion-review.md 2.3절/6장 결정) — 예전엔 탭은 항상
   // 보이고 `CustomerQuoteSection`만 내용을 숨겨(`return null`) 클릭하면 빈 화면처럼 보였다.
   const canViewCustomerQuote = usePermissionStore((state) => state.hasPermission('ACTION_CUSTOMER_QUOTE_MANAGE'));
+  const partnerDirectOrderEnabled = useConsoleFeatureStore((state) => state.partnerDirectOrderEnabled);
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<EditTab>(
@@ -636,6 +638,12 @@ export const UserCeremonyEdit: FC = () => {
 
   const isCompleted = ceremony.status === 'COMPLETED';
   const isDraft = ceremony.status === 'DRAFT';
+  // 플랫폼 수주 행사는 계약 조건(행사명·장소·일정)을 플랫폼만 바꾸고, 플랫폼 이용료·고객 견적·
+  // 현장지원 요청 탭이 없다. 직접 수주를 보류 중이면 직접 수주 행사도 그 탭을 숨긴다
+  // (signstage-docs business/platform-order-partner-subcontract-review.md D07·D14·D29).
+  const isPlatformOrder = ceremony.orderRoute === 'PLATFORM_ORDER';
+  const showDirectOrderTabs = partnerDirectOrderEnabled && !isPlatformOrder;
+  const visibleTab: EditTab = showDirectOrderTabs || activeTab === 'info' || activeTab === 'inquiries' ? activeTab : 'info';
   // 추가구매 후보를 장비/인력/애플리케이션(+필수) 카테고리별로 묶어 보여준다 — AdminBillingSimulator.tsx의
   // groupedPurchasable과 같은 패턴이다(billing-catalog-unit-product-model-redesign-review.md §9,
   // 원래도 범위 밖으로 명시했던 "구매 화면 카테고리별 재구성" 후속 작업).
@@ -697,13 +705,17 @@ export const UserCeremonyEdit: FC = () => {
         {(
           [
             { value: 'info', label: '행사 수정', icon: FileSignature },
-            { value: 'billing', label: '플랫폼 이용료', icon: CreditCard },
-            ...(canViewCustomerQuote ? [{ value: 'customerQuote', label: '고객 견적', icon: Banknote }] as const : []),
-            { value: 'onsiteSupportRequests', label: '플랫폼 운영사 현장지원 요청', icon: MapPin },
+            ...(showDirectOrderTabs ? [{ value: 'billing', label: '플랫폼 이용료', icon: CreditCard }] as const : []),
+            ...(showDirectOrderTabs && canViewCustomerQuote
+              ? [{ value: 'customerQuote', label: '고객 견적', icon: Banknote }] as const
+              : []),
+            ...(showDirectOrderTabs
+              ? [{ value: 'onsiteSupportRequests', label: '플랫폼 운영사 현장지원 요청', icon: MapPin }] as const
+              : []),
             { value: 'inquiries', label: '문의', icon: MessageCircleQuestion },
           ] as const
         ).map((tab) => {
-          const isActive = activeTab === tab.value;
+          const isActive = visibleTab === tab.value;
           return (
             <button
               key={tab.value}
@@ -724,7 +736,7 @@ export const UserCeremonyEdit: FC = () => {
       </div>
 
       {/* 행사 정보 수정 */}
-      <section hidden={activeTab !== 'info'} className="bg-white border border-gray-200 rounded-lg p-4">
+      <section hidden={visibleTab !== 'info'} className="bg-white border border-gray-200 rounded-lg p-4">
         <h2 className="text-sm font-bold text-gray-950 flex items-center gap-1.5 mb-3">
           <FileSignature size={14} />
           행사 정보
@@ -739,7 +751,7 @@ export const UserCeremonyEdit: FC = () => {
                 type="text"
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
-                disabled={isSavingInfo}
+                disabled={isSavingInfo || isPlatformOrder}
                 className={infoInputClass}
               />
             </div>
@@ -756,8 +768,13 @@ export const UserCeremonyEdit: FC = () => {
             <CeremonyScheduleFields
               location={locationDraft} startsAt={startsAtDraft} endsAt={endsAtDraft}
               onLocationChange={setLocationDraft} onStartsAtChange={setStartsAtDraft} onEndsAtChange={setEndsAtDraft}
-              disabled={isSavingInfo} timeZoneId={ceremony.timeZoneId}
+              disabled={isSavingInfo || isPlatformOrder} timeZoneId={ceremony.timeZoneId}
             />
+            {isPlatformOrder && (
+              <p className="text-xs text-gray-400">
+                플랫폼 발주 행사입니다. 행사명·장소·일정은 고객 계약 조건이라 플랫폼에 변경을 요청해주세요.
+              </p>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -857,7 +874,7 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </section>
 
-      <div hidden={activeTab !== 'billing'}>
+      <div hidden={visibleTab !== 'billing'}>
       {/* 선택한 플랜 — 확정 전(DRAFT)에만 바꿀 수 있고, 확정 후엔 읽기 전용이다 */}
       <section className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
@@ -1325,19 +1342,19 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </Modal>
 
-      <div hidden={activeTab !== 'customerQuote'}>
+      <div hidden={visibleTab !== 'customerQuote'}>
         {organizationId && ceremonyId && (
           <CustomerQuoteSection organizationId={organizationId} ceremonyId={ceremonyId} isDraft={isDraft} />
         )}
       </div>
 
-      <div hidden={activeTab !== 'onsiteSupportRequests'}>
+      <div hidden={visibleTab !== 'onsiteSupportRequests'}>
         {organizationId && ceremonyId && (
           <OnsiteSupportRequestSection organizationId={organizationId} ceremonyId={ceremonyId} />
         )}
       </div>
 
-      <div hidden={activeTab !== 'inquiries'}>
+      <div hidden={visibleTab !== 'inquiries'}>
         {organizationId && ceremonyId && (
           <CeremonyInquirySection organizationId={organizationId} ceremonyId={ceremonyId} />
         )}
