@@ -26,7 +26,7 @@ import type {
   UnitProductSummary,
 } from '../types';
 
-const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PARTNER_DIRECT'): CreateBillingPlanRequest => ({
+const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateBillingPlanRequest => ({
   name: '',
   discountType: 'PERCENT',
   discountValue: 0,

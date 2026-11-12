@@ -112,7 +112,7 @@ export const AdminBillingPlanList: FC = () => {
   const handleChannelChange = (next: SalesChannel) => {
     setPage(0);
     setTypeFilter('ALL');
-    setSearchParams(next === 'PARTNER_DIRECT' ? {} : { channel: next }, { replace: true });
+    setSearchParams(next === 'PLATFORM_ORDER' ? {} : { channel: next }, { replace: true });
   };
 
   const filtered = plans.filter((plan) => {
@@ -144,7 +144,7 @@ export const AdminBillingPlanList: FC = () => {
           </p>
         </div>
         {canManage && (
-          <Button to={`/admin/billing-catalog/plans/new${isPlatformOrder ? '?channel=PLATFORM_ORDER' : ''}`}>
+          <Button to={`/admin/billing-catalog/plans/new${isPlatformOrder ? '' : '?channel=PARTNER_DIRECT'}`}>
             <Plus size={16} />
             새로 만들기
           </Button>

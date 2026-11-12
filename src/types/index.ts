@@ -428,6 +428,7 @@ export type UnitProductType =
   | 'REHEARSAL_EVENTS'
   | 'MAIN_EVENTS'
   | 'TABLETS'
+  | 'WIFI_EQUIPMENT'
   | 'ONSITE_SUPPORT'
   | 'ONLINE_SUPPORT'
   | 'EVENT_EFFECT_BUNDLE'
@@ -2329,6 +2330,7 @@ export interface AdminPartnerRateCard {
   currencyCode: string;
   baseFee: number;
   tabletUnitRate: number;
+  wifiUnitRate: number;
   onsiteStaffDayRate: number;
   effectiveFrom: string;
   effectiveTo: string | null;
@@ -2398,6 +2400,8 @@ export interface AdminPartnerOrderSummary extends OrderScopeExtras {
   baseFee: number;
   tabletCount: number;
   tabletUnitRate: number;
+  wifiCount: number;
+  wifiUnitRate: number;
   onsiteStaffPersonDays: number;
   onsiteStaffDayRate: number;
   regionSurcharge: number;
@@ -2429,6 +2433,7 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   currencyCode: string;
   currencyFractionDigits: number | null;
   tabletCount: number;
+  wifiCount: number;
   onsiteStaffPersonDays: number;
   supplyAmount: number;
   vatAmount: number;
@@ -2454,6 +2459,8 @@ export interface PartnerOrderPreview {
   baseFee: number;
   tabletCount: number;
   tabletUnitRate: number;
+  wifiCount: number;
+  wifiUnitRate: number;
   onsiteStaffPersonDays: number;
   onsiteStaffDayRate: number;
   regionSurcharge: number;
@@ -2495,6 +2502,8 @@ export interface PartnerOrderDetail extends OrderScopeExtras {
   baseFee: number;
   tabletCount: number;
   tabletUnitRate: number;
+  wifiCount: number;
+  wifiUnitRate: number;
   onsiteStaffPersonDays: number;
   onsiteStaffDayRate: number;
   regionSurcharge: number;
@@ -2777,6 +2786,7 @@ export interface MarginSimulation {
   totalAmount: number;
   tabletCount: number;
   onsiteStaffPersonDays: number;
+  wifiCount: number;
   minimumMarginRatePercent: number;
   defaultQuote: MarginPartnerQuote;
   partnerQuotes: MarginPartnerQuote[];
@@ -2804,11 +2814,13 @@ export interface AdminSalesOrderChange {
   partnerOrganizationName: string | null;
   currencyCode: string;
   beforeTabletCount: number;
+  beforeWifiCount: number;
   beforeOnsiteStaffPersonDays: number;
   beforeSupplyAmount: number;
   beforeTotalAmount: number;
   beforePartnerAmount: number | null;
   tabletCount: number;
+  wifiCount: number;
   onsiteStaffPersonDays: number;
   supplyAmount: number;
   vatAmount: number;
@@ -2846,9 +2858,11 @@ export interface PartnerScopeChange {
   reason: string;
   currencyCode: string;
   beforeTabletCount: number;
+  beforeWifiCount: number;
   beforeOnsiteStaffPersonDays: number;
   beforePartnerAmount: number | null;
   tabletCount: number;
+  wifiCount: number;
   onsiteStaffPersonDays: number;
   partnerAmount: number | null;
   location: string | null;

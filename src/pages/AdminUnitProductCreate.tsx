@@ -29,7 +29,7 @@ import type {
   UnitProductType,
 } from '../types';
 
-const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PARTNER_DIRECT'): CreateUnitProductRequest => {
+const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateUnitProductRequest => {
   const type = UNIT_PRODUCT_TYPE_OPTIONS[0].value;
   const category = DEFAULT_CATEGORY_BY_TYPE[type];
   return {

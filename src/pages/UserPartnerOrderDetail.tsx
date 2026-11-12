@@ -190,6 +190,8 @@ export const UserPartnerOrderDetail: FC = () => {
             baseFee={order.baseFee}
             tabletCount={order.tabletCount}
             tabletUnitRate={order.tabletUnitRate}
+            wifiCount={order.wifiCount}
+            wifiUnitRate={order.wifiUnitRate}
             onsiteStaffPersonDays={order.onsiteStaffPersonDays}
             onsiteStaffDayRate={order.onsiteStaffDayRate}
             regionSurcharge={order.regionSurcharge}

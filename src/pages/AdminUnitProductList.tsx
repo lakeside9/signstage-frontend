@@ -95,7 +95,7 @@ export const AdminUnitProductList: FC = () => {
 
   const handleChannelChange = (next: SalesChannel) => {
     setPage(0);
-    setSearchParams(next === 'PARTNER_DIRECT' ? {} : { channel: next }, { replace: true });
+    setSearchParams(next === 'PLATFORM_ORDER' ? {} : { channel: next }, { replace: true });
   };
 
   const filtered = products.filter(
@@ -150,7 +150,7 @@ export const AdminUnitProductList: FC = () => {
           </p>
         </div>
         {canManage && (
-          <Button to={`/admin/billing-catalog/unit-products/new${isPlatformOrder ? '?channel=PLATFORM_ORDER' : ''}`}>
+          <Button to={`/admin/billing-catalog/unit-products/new${isPlatformOrder ? '' : '?channel=PARTNER_DIRECT'}`}>
             <Plus size={16} />
             새로 만들기
           </Button>

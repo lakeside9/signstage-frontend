@@ -270,7 +270,7 @@ export const AdminMarginSimulator: FC = () => {
                 <div className="flex justify-between font-bold"><dt>합계</dt><dd className="tabular-nums">{formatMoney(result.totalAmount, currency)}</dd></div>
               </dl>
               <p className="mt-2 text-xs text-gray-400">
-                태블릿 {result.tabletCount}대 · 현장 인력 {result.onsiteStaffPersonDays}인·일 · 최소 마진율 {result.minimumMarginRatePercent}%
+                태블릿 {result.tabletCount}대{result.wifiCount > 0 ? ` · 와이파이 ${result.wifiCount}대` : ''} · 현장 인력 {result.onsiteStaffPersonDays}인·일 · 최소 마진율 {result.minimumMarginRatePercent}%
               </p>
             </section>
 

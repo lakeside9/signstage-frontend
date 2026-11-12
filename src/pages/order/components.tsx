@@ -51,6 +51,8 @@ interface PartnerOrderAmountBreakdownProps {
   baseFee: number;
   tabletCount: number;
   tabletUnitRate: number;
+  wifiCount: number;
+  wifiUnitRate: number;
   onsiteStaffPersonDays: number;
   onsiteStaffDayRate: number;
   regionSurcharge: number;
@@ -64,7 +66,7 @@ interface PartnerOrderAmountBreakdownProps {
 }
 
 /**
- * 발주 금액 = 기본 수행비 + (태블릿 + 예비) × 대당 단가 + (현장 인력 + 리허설 별도일) × 일당 + 지역 할증
+ * 발주 금액 = 기본 수행비 + (태블릿 + 예비) × 대당 단가 + 와이파이 × 대당 단가 + (현장 인력 + 리허설 별도일) × 일당 + 지역 할증
  * + 숙박 인·박 × 1박 단가 ± 조정(D05·D23·D24·D26).
  */
 export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> = (amount) => {
@@ -83,6 +85,12 @@ export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> =
     ],
     ['지역 할증', formatMoney(amount.regionSurcharge, amount.currencyCode)],
   ];
+  if (amount.wifiCount > 0) {
+    rows.splice(2, 0, [
+      `와이파이 장비 ${amount.wifiCount}대 × ${formatMoney(amount.wifiUnitRate, amount.currencyCode)}`,
+      formatMoney(amount.wifiCount * amount.wifiUnitRate, amount.currencyCode),
+    ]);
+  }
   if (lodging > 0) {
     rows.push([
       `숙박 ${lodging}인·박 × ${formatMoney(amount.lodgingNightRate ?? 0, amount.currencyCode)}`,

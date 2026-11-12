@@ -30,11 +30,12 @@ export const inputClass =
 
 /**
  * 판매 경로 탭 — signstage-docs business/platform-order-unit-product-composition-review.md U03.
- * 목록·등록 화면은 `?channel=` 쿼리로 탭을 기억한다.
+ * 목록·등록 화면은 `?channel=` 쿼리로 탭을 기억한다. 운영의 중심인 플랫폼 수주를 첫 탭·기본값으로
+ * 둔다(2026-11-12 사용자 요청).
  */
 export const SALES_CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
-  { value: 'PARTNER_DIRECT', label: '파트너 직접 수주' },
   { value: 'PLATFORM_ORDER', label: '플랫폼 수주·파트너 발주' },
+  { value: 'PARTNER_DIRECT', label: '파트너 직접 수주' },
 ];
 
 export const SALES_CHANNEL_LABEL: Record<SalesChannel, string> = Object.fromEntries(
@@ -42,7 +43,7 @@ export const SALES_CHANNEL_LABEL: Record<SalesChannel, string> = Object.fromEntr
 ) as Record<SalesChannel, string>;
 
 export const parseSalesChannel = (value: string | null): SalesChannel =>
-  value === 'PLATFORM_ORDER' ? 'PLATFORM_ORDER' : 'PARTNER_DIRECT';
+  value === 'PARTNER_DIRECT' ? 'PARTNER_DIRECT' : 'PLATFORM_ORDER';
 
 export const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
   { value: 'PERCENT', label: '퍼센트' },
@@ -61,6 +62,7 @@ export const UNIT_PRODUCT_TYPE_OPTIONS: Array<{ value: UnitProductType; label: s
   { value: 'REHEARSAL_EVENTS', label: '리허설 행사' },
   { value: 'MAIN_EVENTS', label: '본행사' },
   { value: 'TABLETS', label: '태블릿' },
+  { value: 'WIFI_EQUIPMENT', label: '와이파이 장비 대여' },
   { value: 'ONSITE_SUPPORT', label: '현장지원' },
   { value: 'ONLINE_SUPPORT', label: '온라인지원' },
   { value: 'EVENT_EFFECT_BUNDLE', label: '이벤트 효과 묶음' },
@@ -92,6 +94,7 @@ export const DEFAULT_CATEGORY_BY_TYPE: Record<UnitProductType, UnitProductCatego
   REHEARSAL_EVENTS: 'ESSENTIAL',
   MAIN_EVENTS: 'ESSENTIAL',
   TABLETS: 'EQUIPMENT',
+  WIFI_EQUIPMENT: 'EQUIPMENT',
   ONSITE_SUPPORT: 'PERSONNEL',
   ONLINE_SUPPORT: 'PERSONNEL',
   EVENT_EFFECT_BUNDLE: 'APPLICATION',

@@ -162,6 +162,7 @@ export const AdminOrderPrices: FC = () => {
       organizationId: draft.target ? Number(draft.target) : null,
       baseFee: toNumber(draft.amount1),
       tabletUnitRate: toNumber(draft.amount2),
+      wifiUnitRate: toNumber(draft.amount4),
       onsiteStaffDayRate: toNumber(draft.amount3),
       ...period,
     };
@@ -362,6 +363,7 @@ export const AdminOrderPrices: FC = () => {
                     <th className={thClass}>파트너</th>
                     <th className={`${thClass} text-right`}>기본 수행비</th>
                     <th className={`${thClass} text-right`}>태블릿 대당</th>
+                    <th className={`${thClass} text-right`}>와이파이 대당</th>
                     <th className={`${thClass} text-right`}>현장 인력 인·일</th>
                     <th className={thClass}>적용 기간</th>
                     <th className={`${thClass} text-right`}>처리</th>
@@ -373,6 +375,7 @@ export const AdminOrderPrices: FC = () => {
                       <td className={`${tdClass} text-gray-950 font-medium`}>{card.organizationName ?? '기본 단가표'}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.baseFee, card.currencyCode)}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.tabletUnitRate, card.currencyCode)}</td>
+                      <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.wifiUnitRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.onsiteStaffDayRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(card.effectiveFrom, card.effectiveTo)}</td>
                       <td className={`${tdClass} text-right`}>{rowActions(card.id, card.effectiveTo, card.used)}</td>
@@ -457,9 +460,10 @@ export const AdminOrderPrices: FC = () => {
                   ))}
                 </select>
               </Field>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {amountInput('amount1', '기본 수행비')}
                 {amountInput('amount2', '태블릿 대당')}
+                {amountInput('amount4', '와이파이 대당(없으면 0)')}
                 {amountInput('amount3', '현장 인력 인·일')}
               </div>
             </>

@@ -334,6 +334,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
                   <dt className="text-gray-500">태블릿·현장 인력</dt>
                   <dd>
                     {change.beforeTabletCount}대·{change.beforeOnsiteStaffPersonDays}인일 → {change.tabletCount}대·{change.onsiteStaffPersonDays}인일
+                    {(change.beforeWifiCount > 0 || change.wifiCount > 0) && ` · 와이파이 ${change.beforeWifiCount}대 → ${change.wifiCount}대`}
                   </dd>
                 </div>
                 {(formatScopeExtras(change.beforeExtras) || formatScopeExtras(change.extras)) && (

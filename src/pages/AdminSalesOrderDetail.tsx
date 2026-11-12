@@ -324,7 +324,7 @@ export const AdminSalesOrderDetail: FC = () => {
           <DetailRow label="일정" value={formatSchedule(order.startsAt, order.endsAt)} />
           <DetailRow label="권역·장소" value={`${REGION_LABEL[order.region]} · ${order.location ?? '장소 미정'}`} />
           <DetailRow label="패키지" value={order.billingPlanName} />
-          <DetailRow label="수행 규모" value={`태블릿 ${order.tabletCount}대 · 현장 인력 ${order.onsiteStaffPersonDays}인·일`} />
+          <DetailRow label="수행 규모" value={`태블릿 ${order.tabletCount}대${order.wifiCount > 0 ? ` · 와이파이 ${order.wifiCount}대` : ''} · 현장 인력 ${order.onsiteStaffPersonDays}인·일`} />
           {formatScopeExtras(order) && <DetailRow label="추가 범위" value={formatScopeExtras(order)} />}
           <DetailRow label="견적 유효기간" value={order.quoteValidUntil} />
           {order.acceptedAt && (
