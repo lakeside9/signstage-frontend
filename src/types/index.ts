@@ -985,6 +985,8 @@ export interface EstimatedTotal {
   taxAmount: number;
   grossAmount: number;
   finalTotal: number;
+  /** 구독으로 확정한 행사 — 플랜 금액은 구독으로 냈으므로 0이다(D21). */
+  planCoveredBySubscription: boolean;
 }
 
 /**

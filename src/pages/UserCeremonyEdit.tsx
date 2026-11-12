@@ -1145,7 +1145,9 @@ export const UserCeremonyEdit: FC = () => {
           <div className="divide-y divide-gray-100 text-sm">
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">플랜</span>
-              <span className="text-gray-950">{formatPrice(estimatedTotal.planAppliedPrice, estimatedTotal.currencyCode)}</span>
+              <span className="text-gray-950">
+                {estimatedTotal.planCoveredBySubscription ? '구독 포함' : formatPrice(estimatedTotal.planAppliedPrice, estimatedTotal.currencyCode)}
+              </span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">추가구매(승인분)</span>
