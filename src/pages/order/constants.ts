@@ -10,6 +10,7 @@ import type {
   PartnerLedgerEntryType,
   PartnerOffsetStatus,
   PartnerOrderStatus,
+  SalesOrderChangeStatus,
   PartnerPayoutStatus,
   SalesOrderAcceptanceChannel,
   SalesOrderStatus,
@@ -113,6 +114,20 @@ export const DEDUCTION_TYPE_LABEL: Record<InspectionDeductionType, string> = {
 export const LARGE_DEDUCTION_RATE = 0.3;
 
 export const DISPUTE_STATUS_LABEL: Record<InspectionDisputeStatus, string> = { OPEN: '이의 제기 중', RESOLVED: '이의 조정 완료' };
+
+export const SALES_ORDER_CHANGE_STATUS_LABEL: Record<SalesOrderChangeStatus, string> = {
+  PROPOSED: '진행 중',
+  APPLIED: '반영',
+  REJECTED: '파트너 거절',
+  CANCELLED: '취소',
+};
+
+export const SALES_ORDER_CHANGE_STATUS_STYLE: Record<SalesOrderChangeStatus, string> = {
+  PROPOSED: 'bg-amber-50 text-amber-700 border-amber-200',
+  APPLIED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  REJECTED: 'bg-red-50 text-red-700 border-red-200',
+  CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
+};
 
 export const OFFSET_STATUS_LABEL: Record<PartnerOffsetStatus, string> = { PENDING: '정산 대기', APPLIED: '지급에 반영', CANCELLED: '취소' };
 

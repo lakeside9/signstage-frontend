@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { NotificationBell } from '../components/NotificationBell';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
 import { setInternationalizationPreferences } from '../utils/internationalization';
@@ -152,6 +153,7 @@ export const AdminLayout: FC = () => {
         </Link>
 
         <div className="flex items-center gap-4">
+          <NotificationBell />
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{platformAdmin?.name ?? t('common.admin')}</span>

@@ -23,6 +23,7 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
+import { NotificationBell } from '../components/NotificationBell';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
 import type { MenuNode, UserProfile } from '../types';
@@ -163,6 +164,7 @@ export const UserLayout: FC = () => {
               <span className="hidden sm:block">관리자 콘솔로</span>
             </Link>
           )}
+          {!isDemoManagement && <NotificationBell />}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
             <User size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{displayName ?? t('common.user')}</span>

@@ -11,6 +11,7 @@ import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
 import { InspectionResultRows, PartnerOrderAmountBreakdown, PartnerOrderStatusBadge } from './order/components';
+import { PartnerScopeChangeSection } from './order/PartnerScopeChangeSection';
 import { REGION_LABEL, formatSchedule, formatWallDateTime } from './order/constants';
 import type { PartnerOrderDetail } from '../types';
 
@@ -199,6 +200,15 @@ export const UserPartnerOrderDetail: FC = () => {
         </section>
       </div>
 
+      {summary.status !== 'ISSUED' && (
+        <PartnerScopeChangeSection
+          basePath={basePath}
+          canRespond={canRespond}
+          canRequest={summary.status === 'ACCEPTED' && !order.inspection}
+          onApplied={load}
+        />
+      )}
+
       {order.inspection && (
         <section className="mt-4 bg-white border border-gray-200 rounded-lg">
           <h2 className="px-4 pt-4 text-sm font-bold text-gray-950">검수</h2>
@@ -228,7 +238,8 @@ export const UserPartnerOrderDetail: FC = () => {
 
       <Modal open={isAcceptOpen} onClose={() => setIsAcceptOpen(false)} title="발주 수락" widthClassName="max-w-sm">
         <p className="text-sm text-gray-700">
-          수락하면 이 행사를 수행할 의무가 생기고, 행사가 바로 만들어집니다. 일정·장소·범위는 플랫폼만 바꿀 수 있습니다.
+          수락하면 이 행사를 수행할 의무가 생기고, 행사가 바로 만들어집니다(이전 파트너에게서 넘어온 행사면 그 행사를 넘겨받습니다).
+          일정·장소·범위는 플랫폼만 바꿀 수 있고, 바꿔야 하면 "범위 변경 요청"을 보냅니다.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={() => setIsAcceptOpen(false)} disabled={isSubmitting}>취소</Button>

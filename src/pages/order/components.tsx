@@ -7,6 +7,7 @@ import type {
   PartnerOffsetSummary,
   PartnerOrderStatus,
   PartnerPayoutStatus,
+  SalesOrderChangeStatus,
   SalesOrderStatus,
 } from '../../types';
 import { DetailRow } from '../billingCatalog/components';
@@ -20,6 +21,8 @@ import {
   LEDGER_ENTRY_TYPE_LABEL,
   PARTNER_ORDER_STATUS_LABEL,
   PARTNER_ORDER_STATUS_STYLE,
+  SALES_ORDER_CHANGE_STATUS_LABEL,
+  SALES_ORDER_CHANGE_STATUS_STYLE,
   SALES_ORDER_STATUS_LABEL,
   PAYOUT_STATUS_LABEL,
   PAYOUT_STATUS_STYLE,
@@ -30,6 +33,10 @@ import {
 
 export const SalesOrderStatusBadge: FC<{ status: SalesOrderStatus }> = ({ status }) => (
   <span className={`${statusBadgeClass} ${SALES_ORDER_STATUS_STYLE[status]}`}>{SALES_ORDER_STATUS_LABEL[status]}</span>
+);
+
+export const SalesOrderChangeStatusBadge: FC<{ status: SalesOrderChangeStatus }> = ({ status }) => (
+  <span className={`${statusBadgeClass} ${SALES_ORDER_CHANGE_STATUS_STYLE[status]}`}>{SALES_ORDER_CHANGE_STATUS_LABEL[status]}</span>
 );
 
 export const PartnerOrderStatusBadge: FC<{ status: PartnerOrderStatus }> = ({ status }) => (

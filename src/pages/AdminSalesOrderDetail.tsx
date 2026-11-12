@@ -13,6 +13,7 @@ import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
 import { PartnerOrderAmountBreakdown, PartnerOrderStatusBadge, SalesOrderStatusBadge } from './order/components';
 import { SalesOrderBillingSection } from './order/invoiceComponents';
+import { SalesOrderChangeSection } from './order/SalesOrderChangeSection';
 import {
   ACCEPTANCE_CHANNEL_LABEL,
   REGION_LABEL,
@@ -50,6 +51,7 @@ export const AdminSalesOrderDetail: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_SALES_ORDER_MANAGE'));
   const canIssue = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_ORDER_ISSUE'));
   const canManageOffset = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_PAYMENT_APPROVE'));
+  const canReplacePartner = usePermissionStore((state) => state.hasPermission('ACTION_PARTNER_ORDER_REPLACE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const [order, setOrder] = useState<SalesOrderDetail | null>(null);
@@ -259,6 +261,10 @@ export const AdminSalesOrderDetail: FC = () => {
   const currency = order.currencyCode;
   const hasLivePartnerOrder = order.partnerOrders.some((po) => po.status === 'ISSUED' || po.status === 'ACCEPTED');
   const canIssueNow = canIssue && order.status === 'ACCEPTED' && !hasLivePartnerOrder;
+  // 수락 후 취소(파트너 교체)된 발주의 행사 — 다음에 수락하는 파트너가 넘겨받는다.
+  const carriedCeremonyId = hasLivePartnerOrder
+    ? null
+    : order.partnerOrders.find((po) => po.status === 'CANCELLED' && po.ceremonyId !== null)?.ceremonyId ?? null;
   const estimatedMargin = order.supplyAmount - order.estimatedPartnerAmount;
 
   return (
@@ -433,6 +439,18 @@ export const AdminSalesOrderDetail: FC = () => {
                           <XCircle size={12} /> 발주 취소
                         </button>
                       )}
+                      {canReplacePartner && po.status === 'ACCEPTED' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPartnerCancelReason('');
+                            setCancellingPartnerOrder(po);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50"
+                        >
+                          <XCircle size={12} /> 파트너 교체
+                        </button>
+                      )}
                       {canManageOffset && po.status === 'ACCEPTED' && (
                         <button
                           type="button"
@@ -455,6 +473,11 @@ export const AdminSalesOrderDetail: FC = () => {
           </div>
         )}
 
+        {canIssueNow && carriedCeremonyId !== null && (
+          <p className="mb-3 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+            파트너 교체 중입니다. 새 파트너가 발주를 수락하면 기존 행사 #{carriedCeremonyId}를 넘겨받습니다.
+          </p>
+        )}
         {canIssueNow && (
           <div className="border-t border-gray-100 pt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-3">
@@ -553,6 +576,8 @@ export const AdminSalesOrderDetail: FC = () => {
         )}
       </section>
 
+      <SalesOrderChangeSection order={order} canManage={canManage} onApplied={reload} />
+
       {order.status !== 'QUOTED' && <SalesOrderBillingSection salesOrderId={order.id} refreshKey={order} />}
 
       <Modal open={isAcceptOpen} onClose={() => setIsAcceptOpen(false)} title="고객 수락 기록" widthClassName="max-w-sm">
@@ -583,11 +608,19 @@ export const AdminSalesOrderDetail: FC = () => {
       <Modal
         open={cancellingPartnerOrder !== null}
         onClose={() => setCancellingPartnerOrder(null)}
-        title="발주 취소"
+        title={cancellingPartnerOrder?.status === 'ACCEPTED' ? '파트너 교체(수락한 발주 취소)' : '발주 취소'}
         widthClassName="max-w-sm"
       >
         <form onSubmit={handleCancelPartnerOrder} className="space-y-3">
-          <p className="text-sm text-gray-600">{cancellingPartnerOrder?.organizationName}에 보낸 응답 대기 발주를 취소합니다.</p>
+          {cancellingPartnerOrder?.status === 'ACCEPTED' ? (
+            <p className="text-sm text-gray-600">
+              수락된 {cancellingPartnerOrder.organizationName} 발주를 취소합니다. 행사는 그대로 남고, 다음에 발주를 수락하는 파트너가
+              넘겨받습니다(서명자·문서 포함). 이전 파트너 담당자 배정과 진행 중인 범위 변경은 정리됩니다. 행사가 완료된 발주는 취소할 수
+              없습니다.
+            </p>
+          ) : (
+            <p className="text-sm text-gray-600">{cancellingPartnerOrder?.organizationName}에 보낸 응답 대기 발주를 취소합니다.</p>
+          )}
           <Field label="취소 사유">
             <input
               value={partnerCancelReason}

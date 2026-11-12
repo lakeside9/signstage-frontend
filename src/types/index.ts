@@ -2733,3 +2733,101 @@ export interface MarginSimulation {
   defaultQuote: MarginPartnerQuote;
   partnerQuotes: MarginPartnerQuote[];
 }
+
+/** 수주 범위 변경(D08) — signstage-docs business/platform-order-partner-subcontract-review.md D08. */
+export type SalesOrderChangeStatus = 'PROPOSED' | 'APPLIED' | 'REJECTED' | 'CANCELLED';
+
+export interface ScopeChangeRequestSummary {
+  id: number;
+  partnerOrderId: number;
+  organizationName: string;
+  content: string;
+  requestedAt: string;
+  closedAt: string | null;
+  closingNote: string | null;
+  salesOrderChangeId: number | null;
+}
+
+export interface AdminSalesOrderChange {
+  id: number;
+  status: SalesOrderChangeStatus;
+  reason: string;
+  partnerOrderId: number | null;
+  partnerOrganizationName: string | null;
+  currencyCode: string;
+  beforeTabletCount: number;
+  beforeOnsiteStaffPersonDays: number;
+  beforeSupplyAmount: number;
+  beforeTotalAmount: number;
+  beforePartnerAmount: number | null;
+  tabletCount: number;
+  onsiteStaffPersonDays: number;
+  supplyAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  discountReason: string | null;
+  estimatedPartnerAmount: number;
+  partnerAmount: number | null;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  proposedAt: string;
+  customerAcceptedByName: string | null;
+  customerAcceptedAt: string | null;
+  needsPartnerConsent: boolean;
+  partnerAccepted: boolean;
+  partnerRespondedAt: string | null;
+  partnerRejectionReason: string | null;
+  appliedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  lines: SalesQuoteLine[];
+}
+
+export interface AdminSalesOrderChangeOverview {
+  changes: AdminSalesOrderChange[];
+  requests: ScopeChangeRequestSummary[];
+}
+
+/** 파트너에게 보이는 범위 변경 — 고객 금액 없이 수량·일정·발주 금액만(D14). */
+export interface PartnerScopeChange {
+  id: number;
+  status: SalesOrderChangeStatus;
+  reason: string;
+  currencyCode: string;
+  beforeTabletCount: number;
+  beforeOnsiteStaffPersonDays: number;
+  beforePartnerAmount: number | null;
+  tabletCount: number;
+  onsiteStaffPersonDays: number;
+  partnerAmount: number | null;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  proposedAt: string;
+  customerAccepted: boolean;
+  partnerAccepted: boolean;
+  partnerRespondedAt: string | null;
+  partnerRejectionReason: string | null;
+  respondable: boolean;
+  appliedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  options: Array<{ name: string; quantity: number }>;
+}
+
+export interface PartnerScopeChangeOverview {
+  changes: PartnerScopeChange[];
+  requests: ScopeChangeRequestSummary[];
+}
+
+/** 앱 안 알림. */
+export interface NotificationSummary {
+  id: number;
+  type: string;
+  title: string;
+  message: string | null;
+  linkPath: string | null;
+  read: boolean;
+  createdAt: string;
+}
