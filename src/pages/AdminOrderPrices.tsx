@@ -109,8 +109,8 @@ export const AdminOrderPrices: FC = () => {
       try {
         await reload();
         const [planRes, productRes, organizationRes] = await Promise.all([
-          api.get('/billing-plans'),
-          api.get('/unit-products'),
+          api.get('/billing-plans?salesChannel=PLATFORM_ORDER'),
+          api.get('/unit-products?salesChannel=PLATFORM_ORDER'),
           api.get('/platform-admin/organizations?status=ACTIVE&size=200'),
         ]);
         if (cancelled) return;

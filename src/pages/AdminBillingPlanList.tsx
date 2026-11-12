@@ -8,9 +8,17 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { PeriodStatusBadge } from './billingCatalog/components';
-import { CATALOG_PAGE_SIZE, ESSENTIAL_UNIT_PRODUCT_TYPES, calculateFinalPrice, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
-import type { BillingPlanSummary } from '../types';
+import { PeriodStatusBadge, SalesChannelTabs } from './billingCatalog/components';
+import {
+  CATALOG_PAGE_SIZE,
+  ESSENTIAL_UNIT_PRODUCT_TYPES,
+  calculateFinalPrice,
+  formatDiscount,
+  formatPrice,
+  parseSalesChannel,
+  planSubtotal,
+} from './billingCatalog/constants';
+import type { BillingPlanSummary, SalesChannel } from '../types';
 
 type TypeFilter = 'ALL' | 'GENERAL' | 'SUBSCRIPTION';
 
@@ -43,6 +51,10 @@ const TYPE_BADGE_CLASS: Record<'GENERAL' | 'SUBSCRIPTION', string> = {
  * 자체는 비활성화했다(마이그레이션 `V202609141200`, 삭제 아님 — 이 프로젝트 관례). "구독 요청
  * 관리"(`AdminSubscriptionRequestList.tsx`)는 카탈로그 열람이 아니라 신청 승인/반려
  * 워크플로라 통합 대상이 아니다 — 그대로 둔다.
+ *
+ * <p>판매 경로 탭(`?channel=`, signstage-docs business/platform-order-unit-product-composition-review.md
+ * U03)으로 직접 수주·플랫폼 수주 플랜을 나눈다. 플랫폼 수주 플랜은 할인·구독 조건이 없어 제공 범위
+ * (한도)만 보여준다 — 고객 패키지 가격은 수주 가격표에 있다.
  */
 export const AdminBillingPlanList: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
@@ -50,7 +62,9 @@ export const AdminBillingPlanList: FC = () => {
   const [nameDraft, setNameDraft] = useState('');
   const [nameQuery, setNameQuery] = useState('');
   const [page, setPage] = useState(0);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channel = parseSalesChannel(searchParams.get('channel'));
+  const isPlatformOrder = channel === 'PLATFORM_ORDER';
   const initialType = searchParams.get('type');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(
     initialType === 'SUBSCRIPTION' || initialType === 'GENERAL' ? initialType : 'ALL',
@@ -95,7 +109,14 @@ export const AdminBillingPlanList: FC = () => {
     setTypeFilter(value);
   };
 
+  const handleChannelChange = (next: SalesChannel) => {
+    setPage(0);
+    setTypeFilter('ALL');
+    setSearchParams(next === 'PARTNER_DIRECT' ? {} : { channel: next }, { replace: true });
+  };
+
   const filtered = plans.filter((plan) => {
+    if (plan.salesChannel !== channel) return false;
     if (typeFilter === 'GENERAL' && plan.subscription) return false;
     if (typeFilter === 'SUBSCRIPTION' && !plan.subscription) return false;
     return !nameQuery || plan.name.toLowerCase().includes(nameQuery.toLowerCase());
@@ -103,8 +124,8 @@ export const AdminBillingPlanList: FC = () => {
   const totalElements = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalElements / CATALOG_PAGE_SIZE));
   const pageItems = filtered.slice(page * CATALOG_PAGE_SIZE, (page + 1) * CATALOG_PAGE_SIZE);
-  const showSubscriptionColumns = typeFilter === 'SUBSCRIPTION';
-  const showTypeBadge = typeFilter === 'ALL';
+  const showSubscriptionColumns = !isPlatformOrder && typeFilter === 'SUBSCRIPTION';
+  const showTypeBadge = !isPlatformOrder && typeFilter === 'ALL';
 
   return (
     <div>
@@ -115,31 +136,37 @@ export const AdminBillingPlanList: FC = () => {
             과금 플랜
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            {typeFilter === 'SUBSCRIPTION'
-              ? '조직이 신청 → 승인받아야 쓸 수 있는 구독형(N회 이용권) 플랜입니다. 신청 승인/반려는 "구독 요청 관리"에서 합니다.'
-              : '행사 과금 플랜 카탈로그입니다. 등록/수정은 PLATFORM_OPS 이상만 할 수 있습니다.'}
+            {isPlatformOrder
+              ? '플랫폼 수주에 쓰는 제공 범위 플랜입니다. 고객 패키지 가격은 수주 가격표에서 정합니다.'
+              : typeFilter === 'SUBSCRIPTION'
+                ? '조직이 신청 → 승인받아야 쓸 수 있는 구독형(N회 이용권) 플랜입니다. 신청 승인/반려는 "구독 요청 관리"에서 합니다.'
+                : '행사 과금 플랜 카탈로그입니다. 등록/수정은 PLATFORM_OPS 이상만 할 수 있습니다.'}
           </p>
         </div>
         {canManage && (
-          <Button to="/admin/billing-catalog/plans/new">
+          <Button to={`/admin/billing-catalog/plans/new${isPlatformOrder ? '?channel=PLATFORM_ORDER' : ''}`}>
             <Plus size={16} />
             새로 만들기
           </Button>
         )}
       </div>
 
+      <SalesChannelTabs value={channel} onChange={handleChannelChange} />
+
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
-        <SearchField label="유형">
-          <select
-            value={typeFilter}
-            onChange={(e) => handleTypeChange(e.target.value as TypeFilter)}
-            className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
-          >
-            <option value="ALL">전체</option>
-            <option value="GENERAL">일반</option>
-            <option value="SUBSCRIPTION">구독형</option>
-          </select>
-        </SearchField>
+        {!isPlatformOrder && (
+          <SearchField label="유형">
+            <select
+              value={typeFilter}
+              onChange={(e) => handleTypeChange(e.target.value as TypeFilter)}
+              className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
+            >
+              <option value="ALL">전체</option>
+              <option value="GENERAL">일반</option>
+              <option value="SUBSCRIPTION">구독형</option>
+            </select>
+          </SearchField>
+        )}
         <SearchField label="이름" className="w-56">
           <input
             type="text"
@@ -168,6 +195,11 @@ export const AdminBillingPlanList: FC = () => {
                   <th className="text-left px-4 py-3 font-medium">기간</th>
                   <th className="text-left px-4 py-3 font-medium">허용 횟수</th>
                 </>
+              ) : isPlatformOrder ? (
+                <>
+                  <th className="text-left px-4 py-3 font-medium">포함 단위 상품</th>
+                  <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
+                </>
               ) : (
                 <>
                   <th className="text-left px-4 py-3 font-medium">단위 상품 소계</th>
@@ -176,7 +208,7 @@ export const AdminBillingPlanList: FC = () => {
                   <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
                 </>
               )}
-              <th className="text-left px-4 py-3 font-medium">상태</th>
+              {!isPlatformOrder && <th className="text-left px-4 py-3 font-medium">상태</th>}
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
             </tr>
           </thead>
@@ -212,6 +244,15 @@ export const AdminBillingPlanList: FC = () => {
                       </td>
                       <td className="px-4 py-3 text-gray-600">{plan.subscriptionAllowedCount}회</td>
                     </>
+                  ) : isPlatformOrder ? (
+                    <>
+                      <td className="px-4 py-3 text-gray-600">{plan.unitProducts.length}개</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {ESSENTIAL_UNIT_PRODUCT_TYPES.map(
+                          (type) => plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+                        ).join('/')}
+                      </td>
+                    </>
                   ) : (
                     <>
                       <td className="px-4 py-3 text-gray-600">{formatPrice(subtotal, currencyCode)}</td>
@@ -230,9 +271,11 @@ export const AdminBillingPlanList: FC = () => {
                       </td>
                     </>
                   )}
-                  <td className="px-4 py-3">
-                    <PeriodStatusBadge status={plan.periodStatus} />
-                  </td>
+                  {!isPlatformOrder && (
+                    <td className="px-4 py-3">
+                      <PeriodStatusBadge status={plan.periodStatus} />
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right text-gray-500">{plan.usageCount}건</td>
                 </tr>
               );

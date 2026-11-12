@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Boxes, Plus } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
@@ -8,16 +8,17 @@ import { SearchBar, SearchField } from '../components/SearchBar';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { PeriodStatusBadge } from './billingCatalog/components';
+import { ChargeTargetBadge, PeriodStatusBadge, SalesChannelTabs } from './billingCatalog/components';
 import {
   CATALOG_PAGE_SIZE,
+  parseSalesChannel,
   UNIT_PRODUCT_CATEGORY_LABEL,
   UNIT_PRODUCT_TYPE_LABEL,
   UNIT_PRODUCT_TYPE_OPTIONS,
   formatPrice,
   formatSupplyPrice,
 } from './billingCatalog/constants';
-import type { UnitProductSummary, UnitProductType, UpdateDisplayOrdersRequest } from '../types';
+import type { SalesChannel, UnitProductSummary, UnitProductType, UpdateDisplayOrdersRequest } from '../types';
 
 const TYPE_OPTIONS: Array<{ value: UnitProductType | 'ALL'; label: string }> = [
   { value: 'ALL', label: '전체' },
@@ -39,6 +40,10 @@ const toDisplayOrderItems = (items: Array<{ id: number }>): UpdateDisplayOrdersR
  * <p>위/아래 순서 이동(2026-09-10, 사용자 요청)은 전체 목록이 한 화면에 그대로 보일 때만
  * 켠다(검색/종류 필터가 없고 페이지가 1개뿐일 때) — 필터·페이지로 잘린 부분집합 안에서만
  * 인덱스를 다시 매기면 화면에 없는 나머지 상품들과의 순서가 어긋나기 때문이다.
+ *
+ * <p>판매 경로 탭(signstage-docs business/platform-order-unit-product-composition-review.md
+ * U03)으로 직접 수주·플랫폼 수주 상품을 나눠 보여준다. 순서 이동은 같은 경로 안의 이웃과 자리를
+ * 바꾸고 전체 목록을 보낸다.
  */
 export const AdminUnitProductList: FC = () => {
   const [products, setProducts] = useState<UnitProductSummary[]>([]);
@@ -49,6 +54,8 @@ export const AdminUnitProductList: FC = () => {
   const [typeQuery, setTypeQuery] = useState<UnitProductType | 'ALL'>('ALL');
   const [page, setPage] = useState(0);
   const [isReordering, setIsReordering] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channel = parseSalesChannel(searchParams.get('channel'));
 
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_BILLING_CATALOG_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
@@ -86,9 +93,18 @@ export const AdminUnitProductList: FC = () => {
     setTypeQuery('ALL');
   };
 
+  const handleChannelChange = (next: SalesChannel) => {
+    setPage(0);
+    setSearchParams(next === 'PARTNER_DIRECT' ? {} : { channel: next }, { replace: true });
+  };
+
   const filtered = products.filter(
-    (p) => (!nameQuery || p.name.toLowerCase().includes(nameQuery.toLowerCase())) && (typeQuery === 'ALL' || p.type === typeQuery),
+    (p) =>
+      p.salesChannel === channel &&
+      (!nameQuery || p.name.toLowerCase().includes(nameQuery.toLowerCase())) &&
+      (typeQuery === 'ALL' || p.type === typeQuery),
   );
+  const isPlatformOrder = channel === 'PLATFORM_ORDER';
   const totalElements = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalElements / CATALOG_PAGE_SIZE));
   const pageItems = filtered.slice(page * CATALOG_PAGE_SIZE, (page + 1) * CATALOG_PAGE_SIZE);
@@ -99,7 +115,10 @@ export const AdminUnitProductList: FC = () => {
   const moveProduct = async (productId: number, direction: -1 | 1) => {
     if (isReordering) return;
     const index = products.findIndex((p) => p.id === productId);
-    const targetIndex = index + direction;
+    let targetIndex = index + direction;
+    while (targetIndex >= 0 && targetIndex < products.length && products[targetIndex].salesChannel !== channel) {
+      targetIndex += direction;
+    }
     if (index < 0 || targetIndex < 0 || targetIndex >= products.length) return;
 
     const previous = products;
@@ -131,12 +150,14 @@ export const AdminUnitProductList: FC = () => {
           </p>
         </div>
         {canManage && (
-          <Button to="/admin/billing-catalog/unit-products/new">
+          <Button to={`/admin/billing-catalog/unit-products/new${isPlatformOrder ? '?channel=PLATFORM_ORDER' : ''}`}>
             <Plus size={16} />
             새로 만들기
           </Button>
         )}
       </div>
+
+      <SalesChannelTabs value={channel} onChange={handleChannelChange} />
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
         <SearchField label="이름" className="w-56">
@@ -176,12 +197,12 @@ export const AdminUnitProductList: FC = () => {
               <th className="text-left px-4 py-3 font-medium">종류</th>
               <th className="text-left px-4 py-3 font-medium">이름</th>
               <th className="text-left px-4 py-3 font-medium">분류</th>
-              <th className="text-left px-4 py-3 font-medium">과금 대상</th>
+              <th className="text-left px-4 py-3 font-medium">{isPlatformOrder ? '수행 주체' : '과금 대상'}</th>
               <th className="text-left px-4 py-3 font-medium">배타 그룹</th>
               <th className="text-left px-4 py-3 font-medium">최대 구매 수량</th>
               <th className="text-left px-4 py-3 font-medium">판매 단위</th>
-              <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>
-              <th className="text-left px-4 py-3 font-medium">상태</th>
+              {!isPlatformOrder && <th className="text-left px-4 py-3 font-medium">공급가/판매가</th>}
+              {!isPlatformOrder && <th className="text-left px-4 py-3 font-medium">상태</th>}
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
             </tr>
           </thead>
@@ -220,15 +241,7 @@ export const AdminUnitProductList: FC = () => {
                 </td>
                 <td className="px-4 py-3 text-gray-600">{UNIT_PRODUCT_CATEGORY_LABEL[product.category] ?? product.category}</td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
-                      product.platformUsageFee
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-gray-50 text-gray-500 border-gray-200'
-                    }`}
-                  >
-                    {product.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가'}
-                  </span>
+                  <ChargeTargetBadge salesChannel={product.salesChannel} platformUsageFee={product.platformUsageFee} />
                 </td>
                 <td className="px-4 py-3 text-gray-500">{product.exclusivityGroup ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-500">
@@ -241,24 +254,28 @@ export const AdminUnitProductList: FC = () => {
                 <td className="px-4 py-3 text-gray-500">
                   {product.saleUnitQuantity > 1 ? `${product.saleUnitQuantity}개 단위` : '낱개(1개)'}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {product.salePrice === null ? (
-                    '-'
-                  ) : (
-                    <>
-                      {formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} /{' '}
-                      {formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
-                      {product.saleUnitQuantity > 1 && (
-                        <span className="block text-xs text-gray-400">
-                          1묶음 {formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <PeriodStatusBadge status={product.periodStatus} />
-                </td>
+                {!isPlatformOrder && (
+                  <td className="px-4 py-3 text-gray-600">
+                    {product.salePrice === null ? (
+                      '-'
+                    ) : (
+                      <>
+                        {formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} /{' '}
+                        {formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}
+                        {product.saleUnitQuantity > 1 && (
+                          <span className="block text-xs text-gray-400">
+                            1묶음 {formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </td>
+                )}
+                {!isPlatformOrder && (
+                  <td className="px-4 py-3">
+                    <PeriodStatusBadge status={product.periodStatus} />
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right text-gray-500">{product.usageCount}건</td>
               </tr>
             ))}

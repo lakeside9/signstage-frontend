@@ -155,7 +155,7 @@ export const AdminOrganizationDiscountOverrides: FC = () => {
     setNewOverrideEffectiveFrom(today());
     setNewOverrideEffectiveTo('');
     try {
-      const plansResponse = await api.get('/billing-plans');
+      const plansResponse = await api.get('/billing-plans?salesChannel=PARTNER_DIRECT');
       setPlans(plansResponse.data as BillingPlanSummary[]);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '플랜 목록을 불러오지 못했습니다.', 'error');

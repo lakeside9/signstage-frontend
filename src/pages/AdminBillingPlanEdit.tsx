@@ -52,7 +52,8 @@ export const AdminBillingPlanEdit: FC = () => {
             return;
           }
           setPlan(found);
-          setProducts(allProducts);
+          // 플랜과 같은 판매 경로의 단위 상품만 구성에 올릴 수 있다(서버도 다시 확인한다).
+          setProducts(allProducts.filter((p) => p.salesChannel === found.salesChannel));
           setName(found.name);
           const drafts: Record<number, LineDraft> = Object.fromEntries(
             allProducts.map((p) => [p.id, { includedQuantity: null }]),
@@ -113,7 +114,11 @@ export const AdminBillingPlanEdit: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">과금 플랜 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">할인/할인기간/사용여부는 상세 화면의 "할인 기간 관리"에서 다룹니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {plan?.salesChannel === 'PLATFORM_ORDER'
+            ? '플랫폼 수주 플랜입니다. 같은 경로의 단위 상품만 구성에 올릴 수 있고, 고객 패키지 가격은 수주 가격표에서 정합니다.'
+            : '할인/할인기간/사용여부는 상세 화면의 "할인 기간 관리"에서 다룹니다.'}
+        </p>
       </div>
 
       {isLoading || !plan ? (

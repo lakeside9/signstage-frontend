@@ -997,7 +997,11 @@ export const UserCeremonyEdit: FC = () => {
               >
                 <option value="">선택</option>
                 {plans
-                  .filter((candidate) => candidate.id === ceremony.billingPlanId || candidate.active)
+                  .filter(
+                    (candidate) =>
+                      candidate.id === ceremony.billingPlanId ||
+                      (candidate.salesChannel === 'PARTNER_DIRECT' && candidate.active),
+                  )
                   .map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
@@ -9,6 +9,7 @@ import { api } from '../utils/api';
 import { ActiveField, EffectDefinitionPicker, ExclusivityGroupField, Field, PlatformUsageFeeField } from './billingCatalog/components';
 import {
   DEFAULT_CATEGORY_BY_TYPE,
+  SALES_CHANNEL_OPTIONS,
   UNIT_PRODUCT_CATEGORY_OPTIONS,
   UNIT_PRODUCT_TYPE_LABEL,
   UNIT_PRODUCT_TYPE_OPTIONS,
@@ -16,11 +17,19 @@ import {
   inputClass,
   normalizeDescription,
   normalizeExclusivityGroup,
+  parseSalesChannel,
   todayIsoDate,
 } from './billingCatalog/constants';
-import type { CeremonyEffectDefinition, CreateUnitProductRequest, UnitProductCategory, UnitProductSummary, UnitProductType } from '../types';
+import type {
+  CeremonyEffectDefinition,
+  CreateUnitProductRequest,
+  SalesChannel,
+  UnitProductCategory,
+  UnitProductSummary,
+  UnitProductType,
+} from '../types';
 
-const EMPTY_DRAFT = (): CreateUnitProductRequest => {
+const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PARTNER_DIRECT'): CreateUnitProductRequest => {
   const type = UNIT_PRODUCT_TYPE_OPTIONS[0].value;
   const category = DEFAULT_CATEGORY_BY_TYPE[type];
   return {
@@ -40,17 +49,40 @@ const EMPTY_DRAFT = (): CreateUnitProductRequest => {
     effectiveFrom: todayIsoDate(),
     effectiveTo: null,
     effectDefinitionIds: [],
+    salesChannel,
   };
 };
+
+/** 플랫폼 수주 경로에는 판매 가격 기간이 없다 — 고객 가격은 수주 가격표(고객 가격표)에서 정한다. */
+const toRequestBody = (draft: CreateUnitProductRequest): CreateUnitProductRequest =>
+  draft.salesChannel !== 'PLATFORM_ORDER'
+    ? draft
+    : {
+        type: draft.type,
+        name: draft.name,
+        description: draft.description,
+        category: draft.category,
+        exclusivityGroup: draft.exclusivityGroup,
+        maxPurchaseQuantity: draft.maxPurchaseQuantity,
+        saleUnitQuantity: draft.saleUnitQuantity,
+        platformUsageFee: draft.platformUsageFee,
+        effectDefinitionIds: draft.effectDefinitionIds,
+        salesChannel: draft.salesChannel,
+      };
 
 /**
  * 단위 상품 등록 — 옛 선택옵션/용량 추가구매 등록 2개를 통합했다(signstage-docs
  * business/billing-catalog-unit-product-model-redesign-review.md 결정, 2026-09-10). 전용
  * 페이지형(패턴 A), `AdminBillingPlanCreate.tsx`와 같은 구성. 등록 가능한 종류(type) 제한이
  * 없다 — 이중 청구 위험이 통합으로 구조적으로 없어졌다(2장).
+ *
+ * <p>판매 경로(signstage-docs business/platform-order-unit-product-composition-review.md U01)를
+ * 고른다 — 목록의 탭(`?channel=`)이 기본값이다. 플랫폼 수주 경로는 판매 가격 입력이 없다.
  */
 export const AdminUnitProductCreate: FC = () => {
-  const [draft, setDraft] = useState<CreateUnitProductRequest>(EMPTY_DRAFT);
+  const [searchParams] = useSearchParams();
+  const [draft, setDraft] = useState<CreateUnitProductRequest>(() => EMPTY_DRAFT(parseSalesChannel(searchParams.get('channel'))));
+  const isPlatformOrder = draft.salesChannel === 'PLATFORM_ORDER';
   const [effectDefinitions, setEffectDefinitions] = useState<CeremonyEffectDefinition[]>([]);
   const [existingGroups, setExistingGroups] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +121,7 @@ export const AdminUnitProductCreate: FC = () => {
     setIsLoading(true);
     try {
       const response = await api.post('/platform-admin/unit-products', {
-        ...draft,
+        ...toRequestBody(draft),
         name: draft.name.trim(),
         description: normalizeDescription(draft.description),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
@@ -115,7 +147,11 @@ export const AdminUnitProductCreate: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">단위 상품 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">종류/이름/분류를 정하고 최초 판매가격 기간을 함께 만듭니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {isPlatformOrder
+            ? '종류/이름/분류를 정합니다. 고객 가격은 수주 가격표에서, 파트너 단가는 파트너 단가표에서 정합니다.'
+            : '종류/이름/분류를 정하고 최초 판매가격 기간을 함께 만듭니다.'}
+        </p>
       </div>
 
       {created ? (
@@ -129,7 +165,7 @@ export const AdminUnitProductCreate: FC = () => {
               variant="secondary"
               onClick={() => {
                 setCreated(null);
-                setDraft(EMPTY_DRAFT());
+                setDraft(EMPTY_DRAFT(draft.salesChannel));
               }}
             >
               계속 추가하기
@@ -140,6 +176,20 @@ export const AdminUnitProductCreate: FC = () => {
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Field label="판매 경로">
+              <select
+                value={draft.salesChannel}
+                onChange={(e) => setDraft((prev) => ({ ...prev, salesChannel: e.target.value as SalesChannel }))}
+                disabled={isLoading}
+                className={inputClass}
+              >
+                {SALES_CHANNEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="종류">
               <select
                 value={draft.type}
@@ -167,58 +217,66 @@ export const AdminUnitProductCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="통화">
-              <select
-                value={draft.currencyCode}
-                onChange={(e) => setDraft((prev) => ({ ...prev, currencyCode: e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              >
-                {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="공급가">
-              <FormattedNumberInput
-                min={0}
-                value={draft.supplyPrice === null ? '' : draft.supplyPrice}
-                onChange={(raw) => setDraft((prev) => ({ ...prev, supplyPrice: raw === '' ? null : Number(raw) }))}
-                placeholder="미상"
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="판매가">
-              <FormattedNumberInput
-                min={0}
-                value={draft.salePrice === 0 ? '' : draft.salePrice}
-                onChange={(raw) => setDraft((prev) => ({ ...prev, salePrice: Number(raw) }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="판매 시작일">
-              <input
-                type="date"
-                value={draft.effectiveFrom}
-                onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="판매 종료일(무기한이면 비움)">
-              <input
-                type="date"
-                value={draft.effectiveTo ?? ''}
-                onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
+            {!isPlatformOrder && (
+              <>
+                <Field label="통화">
+                  <select
+                    value={draft.currencyCode}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, currencyCode: e.target.value }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  >
+                    {['KRW', 'USD', 'EUR', 'JPY'].map((currency) => (
+                      <option key={currency} value={currency}>
+                        {currency}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="공급가">
+                  <FormattedNumberInput
+                    min={0}
+                    value={draft.supplyPrice ?? ''}
+                    onChange={(raw) => setDraft((prev) => ({ ...prev, supplyPrice: raw === '' ? null : Number(raw) }))}
+                    placeholder="미상"
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="판매가">
+                  <FormattedNumberInput
+                    min={0}
+                    value={draft.salePrice ? draft.salePrice : ''}
+                    onChange={(raw) => setDraft((prev) => ({ ...prev, salePrice: Number(raw) }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="판매 시작일">
+                  <input
+                    type="date"
+                    value={draft.effectiveFrom ?? ''}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="판매 종료일(무기한이면 비움)">
+                  <input
+                    type="date"
+                    value={draft.effectiveTo ?? ''}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <ActiveField
+                  active={draft.active ?? true}
+                  disabled={isLoading}
+                  onChange={(active) => setDraft((prev) => ({ ...prev, active }))}
+                />
+              </>
+            )}
             <ExclusivityGroupField
               value={draft.exclusivityGroup ?? ''}
               existingGroups={existingGroups}
@@ -243,6 +301,7 @@ export const AdminUnitProductCreate: FC = () => {
               </select>
             </Field>
             <PlatformUsageFeeField
+              salesChannel={draft.salesChannel}
               platformUsageFee={draft.platformUsageFee ?? false}
               disabled={isLoading}
               onChange={(platformUsageFee) => setDraft((prev) => ({ ...prev, platformUsageFee }))}

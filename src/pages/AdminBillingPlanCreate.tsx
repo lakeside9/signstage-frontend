@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
@@ -9,15 +9,24 @@ import { api } from '../utils/api';
 import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
 import {
   DISCOUNT_TYPE_OPTIONS,
+  SALES_CHANNEL_OPTIONS,
   TOGGLE_UNIT_PRODUCT_TYPES,
   UNIT_PRODUCT_TYPE_LABEL,
   formatPrice,
   inputClass,
+  parseSalesChannel,
   todayIsoDate,
 } from './billingCatalog/constants';
-import type { BillingPlanSummary, CreateBillingPlanRequest, DiscountType, PlanUnitProductLine, UnitProductSummary } from '../types';
+import type {
+  BillingPlanSummary,
+  CreateBillingPlanRequest,
+  DiscountType,
+  PlanUnitProductLine,
+  SalesChannel,
+  UnitProductSummary,
+} from '../types';
 
-const EMPTY_DRAFT = (): CreateBillingPlanRequest => ({
+const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PARTNER_DIRECT'): CreateBillingPlanRequest => ({
   name: '',
   discountType: 'PERCENT',
   discountValue: 0,
@@ -25,6 +34,7 @@ const EMPTY_DRAFT = (): CreateBillingPlanRequest => ({
   effectiveFrom: todayIsoDate(),
   effectiveTo: null,
   planType: 'STANDARD',
+  salesChannel,
 });
 
 /**
@@ -48,10 +58,15 @@ const emptyLineDrafts = (products: UnitProductSummary[]): Record<number, LineDra
  * "추가구매 후보" 체크박스는 없다 — 구성에 올린 상품(수량이 0이든 N이든)은 전부 그 자체로
  * 추가구매 후보다(같은 문서 11장, 2026-09-10 후속 정리 — 사용자 지적으로 태블릿/현장지원/
  * 온라인지원도 수량을 자유롭게 입력할 수 있게 됐고, 별도 플래그는 필요 없어졌다).
+ *
+ * <p>판매 경로(signstage-docs business/platform-order-unit-product-composition-review.md U01·U03)를
+ * 고르면 같은 경로의 단위 상품만 구성에 올릴 수 있다. 플랫폼 수주 플랜은 할인 기간과 구독 조건이
+ * 없다 — 고객 패키지 가격은 수주 가격표에서 정한다.
  */
 export const AdminBillingPlanCreate: FC = () => {
-  const [draft, setDraft] = useState<CreateBillingPlanRequest>(EMPTY_DRAFT);
-  const [products, setProducts] = useState<UnitProductSummary[]>([]);
+  const [searchParams] = useSearchParams();
+  const [draft, setDraft] = useState<CreateBillingPlanRequest>(() => EMPTY_DRAFT(parseSalesChannel(searchParams.get('channel'))));
+  const [allProducts, setAllProducts] = useState<UnitProductSummary[]>([]);
   const [lineDrafts, setLineDrafts] = useState<Record<number, LineDraft>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [created, setCreated] = useState<BillingPlanSummary | null>(null);
@@ -65,7 +80,7 @@ export const AdminBillingPlanCreate: FC = () => {
         const response = await api.get('/unit-products');
         const data = response.data as UnitProductSummary[];
         if (!cancelled) {
-          setProducts(data);
+          setAllProducts(data);
           setLineDrafts(emptyLineDrafts(data));
         }
       } catch (err) {
@@ -77,6 +92,17 @@ export const AdminBillingPlanCreate: FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isPlatformOrder = draft.salesChannel === 'PLATFORM_ORDER';
+  const products = useMemo(
+    () => allProducts.filter((p) => p.salesChannel === draft.salesChannel),
+    [allProducts, draft.salesChannel],
+  );
+
+  const handleChannelChange = (salesChannel: SalesChannel) => {
+    setDraft((prev) => ({ ...EMPTY_DRAFT(salesChannel), name: prev.name }));
+    setLineDrafts(emptyLineDrafts(allProducts));
+  };
 
   const subtotal = useMemo(
     () =>
@@ -92,6 +118,7 @@ export const AdminBillingPlanCreate: FC = () => {
   const buildLines = (): PlanUnitProductLine[] =>
     Object.entries(lineDrafts)
       .filter((entry): entry is [string, { includedQuantity: number }] => entry[1].includedQuantity !== null)
+      .filter(([unitProductId]) => products.some((p) => p.id === Number(unitProductId)))
       .map(([unitProductId, line]) => ({
         unitProductId: Number(unitProductId),
         includedQuantity: line.includedQuantity,
@@ -115,14 +142,17 @@ export const AdminBillingPlanCreate: FC = () => {
     }
     setIsLoading(true);
     try {
-      const response = await api.post('/platform-admin/billing-plans', {
-        ...draft,
-        name: draft.name.trim(),
-        unitProducts: buildLines(),
-        subscriptionPeriodMonths: draft.planType === 'SUBSCRIPTION' && draft.subscriptionType === 'PERIOD_AND_COUNT'
-          ? draft.subscriptionPeriodMonths
-          : undefined,
-      });
+      const body: CreateBillingPlanRequest = isPlatformOrder
+        ? { name: draft.name.trim(), unitProducts: buildLines(), planType: 'STANDARD', salesChannel: 'PLATFORM_ORDER' }
+        : {
+            ...draft,
+            name: draft.name.trim(),
+            unitProducts: buildLines(),
+            subscriptionPeriodMonths: draft.planType === 'SUBSCRIPTION' && draft.subscriptionType === 'PERIOD_AND_COUNT'
+              ? draft.subscriptionPeriodMonths
+              : undefined,
+          };
+      const response = await api.post('/platform-admin/billing-plans', body);
       setCreated(response.data as BillingPlanSummary);
       showSnackbar('과금 플랜을 등록했습니다.', 'success');
     } catch (err) {
@@ -144,7 +174,11 @@ export const AdminBillingPlanCreate: FC = () => {
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-950">과금 플랜 등록</h1>
-        <p className="mt-1 text-sm text-gray-500">이름/할인을 정하고, 포함할 단위 상품 구성과 최초 할인 기간을 함께 만듭니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {isPlatformOrder
+            ? '이름과 포함할 단위 상품 구성(제공 범위)을 정합니다. 고객 패키지 가격은 수주 가격표에서 정합니다.'
+            : '이름/할인을 정하고, 포함할 단위 상품 구성과 최초 할인 기간을 함께 만듭니다.'}
+        </p>
       </div>
 
       {created ? (
@@ -158,8 +192,8 @@ export const AdminBillingPlanCreate: FC = () => {
               variant="secondary"
               onClick={() => {
                 setCreated(null);
-                setDraft(EMPTY_DRAFT());
-                setLineDrafts(emptyLineDrafts(products));
+                setDraft(EMPTY_DRAFT(draft.salesChannel));
+                setLineDrafts(emptyLineDrafts(allProducts));
               }}
             >
               계속 추가하기
@@ -170,6 +204,20 @@ export const AdminBillingPlanCreate: FC = () => {
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Field label="판매 경로">
+              <select
+                value={draft.salesChannel}
+                onChange={(e) => handleChannelChange(e.target.value as SalesChannel)}
+                disabled={isLoading}
+                className={inputClass}
+              >
+                {SALES_CHANNEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="이름">
               <input
                 type="text"
@@ -179,128 +227,140 @@ export const AdminBillingPlanCreate: FC = () => {
                 className={inputClass}
               />
             </Field>
-            <Field label="할인 방식">
-              <select
-                value={draft.discountType}
-                onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
-                disabled={isLoading}
-                className={inputClass}
-              >
-                {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="할인 값">
-              <FormattedNumberInput
-                min={0}
-                value={draft.discountValue === 0 ? '' : draft.discountValue}
-                onChange={(raw) => setDraft((prev) => ({ ...prev, discountValue: Number(raw) }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="할인 적용 시작일">
-              <input
-                type="date"
-                value={draft.effectiveFrom}
-                onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="할인 적용 종료일(무기한이면 비움)">
-              <input
-                type="date"
-                value={draft.effectiveTo ?? ''}
-                onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
-                disabled={isLoading}
-                className={inputClass}
-              />
-            </Field>
-            <ActiveField active={draft.active} disabled={isLoading} onChange={(active) => setDraft((prev) => ({ ...prev, active }))} />
-          </div>
-
-          <div className="border-t border-gray-100 pt-4">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-950 mb-3">
-              <input
-                type="checkbox"
-                checked={draft.planType === 'SUBSCRIPTION'}
-                disabled={isLoading}
-                onChange={(e) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    planType: e.target.checked ? 'SUBSCRIPTION' : 'STANDARD',
-                    subscriptionType: e.target.checked ? (prev.subscriptionType ?? 'PERIOD_AND_COUNT') : undefined,
-                    subscriptionPeriodMonths: e.target.checked ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
-                    subscriptionAllowedCount: e.target.checked ? prev.subscriptionAllowedCount : undefined,
-                  }))
-                }
-              />
-              구독형 플랜(N회 이용권)으로 만들기
-            </label>
-            {draft.planType === 'SUBSCRIPTION' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Field label="구독 유형">
+            {!isPlatformOrder && (
+              <>
+                <Field label="할인 방식">
                   <select
-                    value={draft.subscriptionType ?? 'PERIOD_AND_COUNT'}
+                    value={draft.discountType ?? 'PERCENT'}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, discountType: e.target.value as DiscountType }))}
                     disabled={isLoading}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        subscriptionType: e.target.value as 'PERIOD_AND_COUNT' | 'COUNT_ONLY',
-                        subscriptionPeriodMonths: e.target.value === 'PERIOD_AND_COUNT' ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
-                      }))
-                    }
                     className={inputClass}
                   >
-                    <option value="PERIOD_AND_COUNT">기간+횟수 (예: 6개월 5회)</option>
-                    <option value="COUNT_ONLY">횟수제 (기간 제한 없음)</option>
+                    {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </Field>
-                {draft.subscriptionType !== 'COUNT_ONLY' && (
-                  <Field label="기간">
-                    <select
-                      value={draft.subscriptionPeriodMonths ?? 6}
-                      disabled={isLoading}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, subscriptionPeriodMonths: Number(e.target.value) }))}
-                      className={inputClass}
-                    >
-                      <option value={6}>6개월</option>
-                      <option value={12}>12개월</option>
-                    </select>
-                  </Field>
-                )}
-                <Field label="허용 횟수">
+                <Field label="할인 값">
                   <FormattedNumberInput
-                    min={1}
-                    value={draft.subscriptionAllowedCount ?? ''}
+                    min={0}
+                    value={draft.discountValue ? draft.discountValue : ''}
+                    onChange={(raw) => setDraft((prev) => ({ ...prev, discountValue: Number(raw) }))}
                     disabled={isLoading}
-                    onChange={(raw) => setDraft((prev) => ({ ...prev, subscriptionAllowedCount: Number(raw) }))}
                     className={inputClass}
                   />
                 </Field>
-              </div>
+                <Field label="할인 적용 시작일">
+                  <input
+                    type="date"
+                    value={draft.effectiveFrom ?? ''}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="할인 적용 종료일(무기한이면 비움)">
+                  <input
+                    type="date"
+                    value={draft.effectiveTo ?? ''}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, effectiveTo: e.target.value === '' ? null : e.target.value }))}
+                    disabled={isLoading}
+                    className={inputClass}
+                  />
+                </Field>
+                <ActiveField
+                  active={draft.active ?? true}
+                  disabled={isLoading}
+                  onChange={(active) => setDraft((prev) => ({ ...prev, active }))}
+                />
+              </>
             )}
-            <p className="mt-1 text-xs text-gray-400">
-              구독형 플랜은 조직이 신청 → 관리자가 승인해야 사용할 수 있고, 이 조건 4개는 등록 후 바꿀 수 없습니다(조건을
-              바꾸려면 새 플랜을 등록해주세요).
-            </p>
           </div>
 
-          <div>
-            <p className="text-xs text-gray-500 mb-1">
-              단위 상품 소계: <span className="font-medium text-gray-950">{formatPrice(subtotal, currencyCode)}</span>
-            </p>
-            <FinalPricePreview
-              salePrice={subtotal}
-              discountType={draft.discountType}
-              discountValue={draft.discountValue}
-              currencyCode={currencyCode}
-            />
-          </div>
+          {!isPlatformOrder && (
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-950 mb-3">
+                <input
+                  type="checkbox"
+                  checked={draft.planType === 'SUBSCRIPTION'}
+                  disabled={isLoading}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      planType: e.target.checked ? 'SUBSCRIPTION' : 'STANDARD',
+                      subscriptionType: e.target.checked ? (prev.subscriptionType ?? 'PERIOD_AND_COUNT') : undefined,
+                      subscriptionPeriodMonths: e.target.checked ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
+                      subscriptionAllowedCount: e.target.checked ? prev.subscriptionAllowedCount : undefined,
+                    }))
+                  }
+                />
+                구독형 플랜(N회 이용권)으로 만들기
+              </label>
+              {draft.planType === 'SUBSCRIPTION' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <Field label="구독 유형">
+                    <select
+                      value={draft.subscriptionType ?? 'PERIOD_AND_COUNT'}
+                      disabled={isLoading}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          subscriptionType: e.target.value as 'PERIOD_AND_COUNT' | 'COUNT_ONLY',
+                          subscriptionPeriodMonths: e.target.value === 'PERIOD_AND_COUNT' ? (prev.subscriptionPeriodMonths ?? 6) : undefined,
+                        }))
+                      }
+                      className={inputClass}
+                    >
+                      <option value="PERIOD_AND_COUNT">기간+횟수 (예: 6개월 5회)</option>
+                      <option value="COUNT_ONLY">횟수제 (기간 제한 없음)</option>
+                    </select>
+                  </Field>
+                  {draft.subscriptionType !== 'COUNT_ONLY' && (
+                    <Field label="기간">
+                      <select
+                        value={draft.subscriptionPeriodMonths ?? 6}
+                        disabled={isLoading}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, subscriptionPeriodMonths: Number(e.target.value) }))}
+                        className={inputClass}
+                      >
+                        <option value={6}>6개월</option>
+                        <option value={12}>12개월</option>
+                      </select>
+                    </Field>
+                  )}
+                  <Field label="허용 횟수">
+                    <FormattedNumberInput
+                      min={1}
+                      value={draft.subscriptionAllowedCount ?? ''}
+                      disabled={isLoading}
+                      onChange={(raw) => setDraft((prev) => ({ ...prev, subscriptionAllowedCount: Number(raw) }))}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-gray-400">
+                구독형 플랜은 조직이 신청 → 관리자가 승인해야 사용할 수 있고, 이 조건 4개는 등록 후 바꿀 수 없습니다(조건을
+                바꾸려면 새 플랜을 등록해주세요).
+              </p>
+            </div>
+          )}
+
+          {!isPlatformOrder && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">
+                단위 상품 소계: <span className="font-medium text-gray-950">{formatPrice(subtotal, currencyCode)}</span>
+              </p>
+              <FinalPricePreview
+                salePrice={subtotal}
+                discountType={draft.discountType ?? 'PERCENT'}
+                discountValue={draft.discountValue ?? 0}
+                currencyCode={currencyCode}
+              />
+            </div>
+          )}
 
           <div>
             <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>

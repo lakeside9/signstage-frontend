@@ -194,7 +194,7 @@ export const OrganizationSubscriptionSection: FC<{ organizationId: string; myRol
     setIsRequestModalOpen(true);
     setSelectedPlanId('');
     try {
-      const response = await api.get('/billing-plans');
+      const response = await api.get('/billing-plans?salesChannel=PARTNER_DIRECT');
       const subscriptionPlans = (response.data as BillingPlanSummary[]).filter((plan) => plan.subscription);
       setPlans(subscriptionPlans);
     } catch (err) {

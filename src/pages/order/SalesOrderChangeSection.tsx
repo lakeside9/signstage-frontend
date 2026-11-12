@@ -105,7 +105,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
     setDraft(toDraft(order));
     if (unitProducts.length === 0) {
       try {
-        const response = await api.get('/unit-products');
+        const response = await api.get('/unit-products?salesChannel=PLATFORM_ORDER');
         setUnitProducts(response.data as UnitProductSummary[]);
       } catch (err) {
         showSnackbar(err instanceof Error ? err.message : '단위 상품을 불러오지 못했습니다.', 'error');

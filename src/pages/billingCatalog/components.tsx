@@ -13,6 +13,7 @@ import {
   EMPTY_UNIT_PRODUCT_PERIOD_DRAFT,
   PERIOD_STATUS_LABEL,
   PERIOD_STATUS_STYLE,
+  SALES_CHANNEL_OPTIONS,
   calculateFinalPrice,
   findUnitProductPricePeriodGaps,
   formatDiscount,
@@ -25,6 +26,7 @@ import type {
   BillingPlanDiscountPeriodSummary,
   CeremonyEffectDefinition,
   DiscountType,
+  SalesChannel,
   UnitProductPricePeriodHistorySummary,
   UnitProductPricePeriodRequest,
   UnitProductPricePeriodSummary,
@@ -233,8 +235,9 @@ export const PlatformUsageFeeField: FC<{
   platformUsageFee: boolean;
   disabled: boolean;
   onChange: (platformUsageFee: boolean) => void;
-}> = ({ platformUsageFee, disabled, onChange }) => (
-  <Field label="과금 대상">
+  salesChannel?: SalesChannel;
+}> = ({ platformUsageFee, disabled, onChange, salesChannel = 'PARTNER_DIRECT' }) => (
+  <Field label={salesChannel === 'PLATFORM_ORDER' ? '수행 주체' : '과금 대상'}>
     <label className="flex items-center gap-1.5 text-sm text-gray-700 h-[34px]">
       <input
         type="checkbox"
@@ -242,10 +245,64 @@ export const PlatformUsageFeeField: FC<{
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
-      {platformUsageFee ? '플랫폼 이용료' : '파트너 자율가(고객 정산)'}
+      {salesChannel === 'PLATFORM_ORDER'
+        ? platformUsageFee
+          ? '플랫폼 제공'
+          : '파트너 수행'
+        : platformUsageFee
+          ? '플랫폼 이용료'
+          : '파트너 자율가(고객 정산)'}
     </label>
   </Field>
 );
+
+/** 단위 상품·플랜 목록 위의 판매 경로 탭. */
+export const SalesChannelTabs: FC<{ value: SalesChannel; onChange: (value: SalesChannel) => void }> = ({
+  value,
+  onChange,
+}) => (
+  <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+    {SALES_CHANNEL_OPTIONS.map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        onClick={() => onChange(option.value)}
+        className={`min-w-28 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+          value === option.value ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
+        }`}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+);
+
+/**
+ * "과금 대상" 배지 — 직접 수주 경로는 플랫폼 이용료/파트너 자율가, 플랫폼 수주 경로는 플랫폼
+ * 제공/파트너 수행으로 읽는다(같은 `platformUsageFee` 분류를 경로에 맞는 말로 보여준다).
+ */
+export const ChargeTargetBadge: FC<{ salesChannel: SalesChannel; platformUsageFee: boolean }> = ({
+  salesChannel,
+  platformUsageFee,
+}) => {
+  const label =
+    salesChannel === 'PLATFORM_ORDER'
+      ? platformUsageFee
+        ? '플랫폼 제공'
+        : '파트너 수행'
+      : platformUsageFee
+        ? '플랫폼 이용료'
+        : '파트너 자율가';
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
+        platformUsageFee ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-500 border-gray-200'
+      }`}
+    >
+      {label}
+    </span>
+  );
+};
 
 /** 목록의 "상태" 열이 쓰는 배지 — 오늘 기준 유효한 판매가격 기간의 상태를 보여준다. */
 export const PeriodStatusBadge: FC<{ status: string }> = ({ status }) => (

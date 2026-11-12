@@ -100,8 +100,8 @@ export const AdminSalesOrderForm: FC = () => {
       try {
         const [customerRes, planRes, productRes, orderRes] = await Promise.all([
           api.get('/platform-admin/customers?status=ACTIVE&size=200'),
-          api.get('/billing-plans'),
-          api.get('/unit-products'),
+          api.get('/billing-plans?salesChannel=PLATFORM_ORDER'),
+          api.get('/unit-products?salesChannel=PLATFORM_ORDER'),
           isEdit ? api.get(`/platform-admin/sales-orders/${salesOrderId}`) : Promise.resolve(null),
         ]);
         if (cancelled) return;

@@ -130,7 +130,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const fetchMargin = async () => (await api.get(`${basePath}/customer-margin`)).data as EffectiveMargin;
-  const fetchCatalog = async () => (await api.get('/unit-products')).data as UnitProductSummary[];
+  const fetchCatalog = async () => (await api.get('/unit-products?salesChannel=PARTNER_DIRECT')).data as UnitProductSummary[];
   const fetchQuotes = async () => (await api.get(`${basePath}/customer-quotes`)).data as CustomerQuoteSummary[];
 
   useEffect(() => {

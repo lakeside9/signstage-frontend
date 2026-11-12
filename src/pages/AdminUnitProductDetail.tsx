@@ -9,7 +9,13 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, HistoryButton, HistoryModal, PeriodStatusBadge, UnitProductPeriodSection } from './billingCatalog/components';
-import { UNIT_PRODUCT_CATEGORY_LABEL, UNIT_PRODUCT_TYPE_LABEL, formatPrice, formatSupplyPrice } from './billingCatalog/constants';
+import {
+  SALES_CHANNEL_LABEL,
+  UNIT_PRODUCT_CATEGORY_LABEL,
+  UNIT_PRODUCT_TYPE_LABEL,
+  formatPrice,
+  formatSupplyPrice,
+} from './billingCatalog/constants';
 import type { CeremonyEffectDefinition, UnitProductHistorySummary, UnitProductSummary } from '../types';
 
 /**
@@ -96,6 +102,16 @@ export const AdminUnitProductDetail: FC = () => {
     }
   };
 
+  const isPlatformOrder = product?.salesChannel === 'PLATFORM_ORDER';
+  const chargeTargetLabel = (platformUsageFee: boolean) =>
+    isPlatformOrder
+      ? platformUsageFee
+        ? '플랫폼 제공'
+        : '파트너 수행'
+      : platformUsageFee
+        ? '플랫폼 이용료'
+        : '파트너 자율가(고객 정산)';
+
   return (
     <div>
       <Link
@@ -144,27 +160,35 @@ export const AdminUnitProductDetail: FC = () => {
             <DetailRow label="종류" value={UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} />
             <DetailRow label="이름" value={product.name} />
             <DetailRow label="설명" value={product.description ?? '없음'} />
-            <DetailRow
-              label="공급가/판매가(개당)"
-              value={
-                product.salePrice === null
-                  ? '-'
-                  : `${formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} / ${formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}`
-              }
-            />
-            {product.salePrice !== null && product.saleUnitQuantity > 1 && (
-              <DetailRow
-                label="판매 단위"
-                value={`${product.saleUnitQuantity}개 단위 구매 — 1묶음 ${formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}`}
-              />
+            <DetailRow label="판매 경로" value={SALES_CHANNEL_LABEL[product.salesChannel]} />
+            {!isPlatformOrder && (
+              <>
+                <DetailRow
+                  label="공급가/판매가(개당)"
+                  value={
+                    product.salePrice === null
+                      ? '-'
+                      : `${formatSupplyPrice(product.supplyPrice, product.currencyCode ?? 'KRW')} / ${formatPrice(product.salePrice, product.currencyCode ?? 'KRW')}`
+                  }
+                />
+                {product.salePrice !== null && product.saleUnitQuantity > 1 && (
+                  <DetailRow
+                    label="판매 단위"
+                    value={`${product.saleUnitQuantity}개 단위 구매 — 1묶음 ${formatPrice(product.salePrice * product.saleUnitQuantity, product.currencyCode ?? 'KRW')}`}
+                  />
+                )}
+                <DetailRow
+                  label="판매 기간"
+                  value={product.effectiveFrom ? `${product.effectiveFrom} ~ ${product.effectiveTo ?? '무기한'}` : '-'}
+                />
+                <DetailRow label="상태" value={<PeriodStatusBadge status={product.periodStatus} />} />
+              </>
             )}
-            <DetailRow
-              label="판매 기간"
-              value={product.effectiveFrom ? `${product.effectiveFrom} ~ ${product.effectiveTo ?? '무기한'}` : '-'}
-            />
-            <DetailRow label="상태" value={<PeriodStatusBadge status={product.periodStatus} />} />
             <DetailRow label="분류" value={UNIT_PRODUCT_CATEGORY_LABEL[product.category] ?? product.category} />
-            <DetailRow label="과금 대상" value={product.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가(고객 정산)'} />
+            <DetailRow
+              label={isPlatformOrder ? '수행 주체' : '과금 대상'}
+              value={chargeTargetLabel(product.platformUsageFee)}
+            />
             <DetailRow label="배타 그룹" value={product.exclusivityGroup ?? '없음'} />
             {product.type === 'EVENT_EFFECT_BUNDLE' ? (
               <DetailRow label="여는 이벤트 효과" value={product.effectDefinitionIds.map(effectName).join(', ') || '없음'} />
@@ -178,12 +202,18 @@ export const AdminUnitProductDetail: FC = () => {
             <DetailRow label="생성일" value={formatDateTime(product.createdAt)} />
           </div>
 
-          <UnitProductPeriodSection
-            itemId={product.id}
-            canManage={canManage}
-            onChanged={() => load().then((data) => data.found && setProduct(data.found))}
-            showSnackbar={showSnackbar}
-          />
+          {isPlatformOrder ? (
+            <p className="mt-4 text-xs text-gray-400">
+              플랫폼 수주 상품은 판매 가격 기간이 없습니다. 고객 가격은 수주 가격표에서, 파트너 단가는 파트너 단가표에서 정합니다.
+            </p>
+          ) : (
+            <UnitProductPeriodSection
+              itemId={product.id}
+              canManage={canManage}
+              onChanged={() => load().then((data) => data.found && setProduct(data.found))}
+              showSnackbar={showSnackbar}
+            />
+          )}
 
           <HistoryModal
             open={isHistoryOpen}
@@ -200,7 +230,7 @@ export const AdminUnitProductDetail: FC = () => {
                 <p className="text-xs text-gray-400 mt-0.5">
                   {UNIT_PRODUCT_CATEGORY_LABEL[h.category] ?? h.category}
                   {' · '}
-                  {h.platformUsageFee ? '플랫폼 이용료' : '파트너 자율가'}
+                  {chargeTargetLabel(h.platformUsageFee)}
                   {h.exclusivityGroup && ` · 배타 그룹: ${h.exclusivityGroup}`}
                   {h.maxPurchaseQuantity !== null && ` · 최대 구매 수량: ${h.maxPurchaseQuantity}개`}
                   {h.saleUnitQuantity > 1 && ` · 판매 단위: ${h.saleUnitQuantity}개`}

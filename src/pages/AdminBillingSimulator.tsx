@@ -98,7 +98,7 @@ export const AdminBillingSimulator: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [plansRes, productsRes] = await Promise.all([api.get('/billing-plans'), api.get('/unit-products')]);
+        const [plansRes, productsRes] = await Promise.all([api.get('/billing-plans?salesChannel=PARTNER_DIRECT'), api.get('/unit-products?salesChannel=PARTNER_DIRECT')]);
         if (cancelled) return;
         const planList = plansRes.data as BillingPlanSummary[];
         setPlans(planList);

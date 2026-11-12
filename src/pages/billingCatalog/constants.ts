@@ -3,6 +3,7 @@ import type {
   BillingPlanDiscountPeriodRequest,
   DiscountType,
   PlanUnitProductLineSummary,
+  SalesChannel,
   UnitProductCategory,
   UnitProductPricePeriodRequest,
   UnitProductPricePeriodSummary,
@@ -26,6 +27,22 @@ import type {
 
 export const inputClass =
   'w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100';
+
+/**
+ * 판매 경로 탭 — signstage-docs business/platform-order-unit-product-composition-review.md U03.
+ * 목록·등록 화면은 `?channel=` 쿼리로 탭을 기억한다.
+ */
+export const SALES_CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
+  { value: 'PARTNER_DIRECT', label: '파트너 직접 수주' },
+  { value: 'PLATFORM_ORDER', label: '플랫폼 수주·파트너 발주' },
+];
+
+export const SALES_CHANNEL_LABEL: Record<SalesChannel, string> = Object.fromEntries(
+  SALES_CHANNEL_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<SalesChannel, string>;
+
+export const parseSalesChannel = (value: string | null): SalesChannel =>
+  value === 'PLATFORM_ORDER' ? 'PLATFORM_ORDER' : 'PARTNER_DIRECT';
 
 export const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
   { value: 'PERCENT', label: '퍼센트' },

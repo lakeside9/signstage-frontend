@@ -10,7 +10,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, FinalPricePreview, HistoryButton, HistoryModal, PeriodStatusBadge, PlanDiscountPeriodSection } from './billingCatalog/components';
-import { UNIT_PRODUCT_TYPE_LABEL, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
+import { SALES_CHANNEL_LABEL, UNIT_PRODUCT_TYPE_LABEL, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
 import type { BillingPlanHistorySummary, BillingPlanSummary, CeremonyUsingPlanSummary, PageResponse } from '../types';
 
 const CEREMONY_STATUS_LABEL: Record<string, string> = {
@@ -121,6 +121,8 @@ export const AdminBillingPlanDetail: FC = () => {
     }
   };
 
+  const isPlatformOrder = plan?.salesChannel === 'PLATFORM_ORDER';
+
   return (
     <div>
       <Link
@@ -167,6 +169,7 @@ export const AdminBillingPlanDetail: FC = () => {
 
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="이름" value={plan.name} />
+            <DetailRow label="판매 경로" value={SALES_CHANNEL_LABEL[plan.salesChannel]} />
             <DetailRow
               label="플랜 유형"
               value={
@@ -175,33 +178,37 @@ export const AdminBillingPlanDetail: FC = () => {
                   : '일반'
               }
             />
-            <DetailRow
-              label="단위 상품 소계"
-              value={formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
-            />
-            <DetailRow
-              label="할인"
-              value={
-                plan.discountType === null || plan.discountValue === null ? (
-                  '-'
-                ) : (
-                  <div>
-                    <p>{formatDiscount(plan.discountType, plan.discountValue)}</p>
-                    <FinalPricePreview
-                      salePrice={planSubtotal(plan.unitProducts)}
-                      discountType={plan.discountType}
-                      discountValue={plan.discountValue}
-                      currencyCode={plan.unitProducts[0]?.currencyCode ?? 'KRW'}
-                    />
-                  </div>
-                )
-              }
-            />
-            <DetailRow
-              label="할인 적용 기간"
-              value={plan.effectiveFrom ? `${plan.effectiveFrom} ~ ${plan.effectiveTo ?? '무기한'}` : '-'}
-            />
-            <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
+            {!isPlatformOrder && (
+              <>
+                <DetailRow
+                  label="단위 상품 소계"
+                  value={formatPrice(planSubtotal(plan.unitProducts), plan.unitProducts[0]?.currencyCode ?? 'KRW')}
+                />
+                <DetailRow
+                  label="할인"
+                  value={
+                    plan.discountType === null || plan.discountValue === null ? (
+                      '-'
+                    ) : (
+                      <div>
+                        <p>{formatDiscount(plan.discountType, plan.discountValue)}</p>
+                        <FinalPricePreview
+                          salePrice={planSubtotal(plan.unitProducts)}
+                          discountType={plan.discountType}
+                          discountValue={plan.discountValue}
+                          currencyCode={plan.unitProducts[0]?.currencyCode ?? 'KRW'}
+                        />
+                      </div>
+                    )
+                  }
+                />
+                <DetailRow
+                  label="할인 적용 기간"
+                  value={plan.effectiveFrom ? `${plan.effectiveFrom} ~ ${plan.effectiveTo ?? '무기한'}` : '-'}
+                />
+                <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
+              </>
+            )}
             <DetailRow
               label="단위 상품 구성"
               value={
@@ -239,12 +246,18 @@ export const AdminBillingPlanDetail: FC = () => {
             <DetailRow label="생성일" value={formatDateTime(plan.createdAt)} />
           </div>
 
-          <PlanDiscountPeriodSection
-            itemId={plan.id}
-            canManage={canManage}
-            onChanged={() => load().then((found) => found && setPlan(found))}
-            showSnackbar={showSnackbar}
-          />
+          {isPlatformOrder ? (
+            <p className="mt-4 text-xs text-gray-400">
+              플랫폼 수주 플랜은 할인 기간이 없습니다. 고객 패키지 가격은 수주 가격표에서 정합니다.
+            </p>
+          ) : (
+            <PlanDiscountPeriodSection
+              itemId={plan.id}
+              canManage={canManage}
+              onChanged={() => load().then((found) => found && setPlan(found))}
+              showSnackbar={showSnackbar}
+            />
+          )}
 
           <HistoryModal
             open={isHistoryOpen}

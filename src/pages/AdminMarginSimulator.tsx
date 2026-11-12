@@ -68,7 +68,7 @@ export const AdminMarginSimulator: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [planRes, productRes] = await Promise.all([api.get('/billing-plans'), api.get('/unit-products')]);
+        const [planRes, productRes] = await Promise.all([api.get('/billing-plans?salesChannel=PLATFORM_ORDER'), api.get('/unit-products?salesChannel=PLATFORM_ORDER')]);
         if (cancelled) return;
         setPlans((planRes.data as BillingPlanSummary[]).filter((plan) => !plan.subscription && plan.active !== false));
         setUnitProducts(productRes.data as UnitProductSummary[]);

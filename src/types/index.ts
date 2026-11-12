@@ -489,6 +489,13 @@ export interface UnitProductPricePeriodRequest {
 }
 
 /**
+ * 카탈로그 판매 경로 — 직접 수주(파트너가 고객과 직접 계약, 플랫폼 이용료)와 플랫폼 수주(플랫폼이
+ * 고객과 계약, 파트너에게 발주)를 나눈다. 생성 후 바꿀 수 없다(signstage-docs
+ * business/platform-order-unit-product-composition-review.md U01).
+ */
+export type SalesChannel = 'PARTNER_DIRECT' | 'PLATFORM_ORDER';
+
+/**
  * GET /api/unit-products 응답(UnitProductDto.Response.UnitProductSummary)과 맞춘다 — 옛
  * `OptionalFeatureSummary`+`CapacityAddOnSummary` 통합. 가격 관련 필드는 "오늘" 기준 유효한
  * 판매가격 기간 값이다 — 기간 사이 공백으로 오늘 유효한 기간이 없으면 전부 null이고
@@ -546,6 +553,7 @@ export interface UnitProductSummary {
    * 기능 추가). `usageCount`보다 훨씬 넓은 범위를 본다.
    */
   canDelete: boolean;
+  salesChannel: SalesChannel;
 }
 
 /**
@@ -597,17 +605,20 @@ export interface CreateUnitProductRequest {
    */
   platformUsageFee?: boolean | null;
   currencyCode?: string;
-  supplyPrice: number | null;
-  salePrice: number;
+  /** 가격·사용여부·기간은 직접 수주 경로에서만 보낸다 — 플랫폼 수주 상품은 판매 가격 기간이 없다. */
+  supplyPrice?: number | null;
+  salePrice?: number;
   taxCode?: string;
-  active: boolean;
-  effectiveFrom: string;
-  effectiveTo: string | null;
+  active?: boolean;
+  effectiveFrom?: string;
+  effectiveTo?: string | null;
   /**
    * 이 묶음이 열어주는 이벤트 효과 목록 — `type`이 `EVENT_EFFECT_BUNDLE`일 때만 의미가
    * 있다. 생략하면(undefined) 빈 묶음으로 시작한다.
    */
   effectDefinitionIds?: number[];
+  /** 생략하면 직접 수주(PARTNER_DIRECT). */
+  salesChannel?: SalesChannel;
 }
 
 /**
@@ -701,6 +712,7 @@ export interface BillingPlanSummary {
    * 추가 — 단위 상품 삭제와 같은 조건). `usageCount`보다 훨씬 넓은 범위를 본다.
    */
   canDelete: boolean;
+  salesChannel: SalesChannel;
 }
 
 /**
@@ -740,11 +752,14 @@ export interface CreateBillingPlanRequest {
   name: string;
   /** 이 플랜이 포함하는 단위 상품 구성 전체(생략하면 빈 목록). */
   unitProducts?: PlanUnitProductLine[];
-  discountType: DiscountType;
-  discountValue: number;
-  active: boolean;
-  effectiveFrom: string;
-  effectiveTo: string | null;
+  /** 할인·사용여부·기간은 직접 수주 경로에서만 보낸다 — 플랫폼 수주 플랜은 할인 기간이 없다. */
+  discountType?: DiscountType;
+  discountValue?: number;
+  active?: boolean;
+  effectiveFrom?: string;
+  effectiveTo?: string | null;
+  /** 생략하면 직접 수주(PARTNER_DIRECT). 플랫폼 수주 플랜은 STANDARD만 된다. */
+  salesChannel?: SalesChannel;
   /** 생략하면 STANDARD(일반 플랜)로 만든다 — 4개 전부 생성 후 불변이라 수정 API엔 없다. */
   planType?: 'STANDARD' | 'SUBSCRIPTION';
   subscriptionType?: 'PERIOD_AND_COUNT' | 'COUNT_ONLY';
