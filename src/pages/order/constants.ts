@@ -17,6 +17,8 @@ import type {
   SalesOrderStatus,
   SalesQuoteCustomItemRequest,
   SalesQuoteLine,
+  UnitProductSummary,
+  UnitProductType,
   ServiceRegion,
 } from '../../types';
 import { formatCurrency } from '../../utils/internationalization';
@@ -276,3 +278,39 @@ export const toCustomItems = (drafts: CustomItemDraft[]): SalesQuoteCustomItemRe
 /** 이름을 넣은 줄은 수량 1 이상, 고객 단가를 넣어야 한다. */
 export const isCustomItemDraftValid = (drafts: CustomItemDraft[]) =>
   drafts.every((item) => !item.name.trim() || (Number(item.quantity) > 0 && item.unitPrice !== ''));
+
+/** 단위 상품 수량의 단위 — 고객 가격은 이 단위 1개당 단가이고, 견적 수량도 이 단위로 센다. */
+export const UNIT_PRODUCT_QUANTITY_UNIT: Record<UnitProductType, string> = {
+  SIGNERS: '명',
+  TEMPLATES: '개',
+  TEST_EVENTS: '회',
+  REHEARSAL_EVENTS: '회',
+  MAIN_EVENTS: '회',
+  TABLETS: '대',
+  WIFI_EQUIPMENT: '대',
+  ONSITE_SUPPORT: '인·일',
+  ONSITE_SUPPORT_REQUEST: '건',
+  ONLINE_SUPPORT: '건',
+  EVENT_EFFECT_BUNDLE: '묶음',
+};
+
+/**
+ * 묶음 판매 안내 — 판매 단위가 1이면 null. 고객 가격은 개당 단가라 묶음 금액은 단가 × 판매 단위이고,
+ * 견적 수량은 판매 단위의 배수로만 넣는다(직접 수주 추가구매와 같은 규칙).
+ */
+export const saleUnitHint = (product: Pick<UnitProductSummary, 'type' | 'saleUnitQuantity'>): string | null => {
+  if (product.saleUnitQuantity <= 1) return null;
+  const unit = UNIT_PRODUCT_QUANTITY_UNIT[product.type];
+  const size = product.saleUnitQuantity;
+  return `판매 단위 ${size}${unit} — 수량은 ${unit} 수로 ${size}, ${size * 2}, ${size * 3}…처럼 넣습니다.`;
+};
+
+/** 판매 단위의 배수가 아닌 옵션의 상품 — 없으면 undefined. */
+export const findSaleUnitViolation = (
+  options: Array<{ unitProductId: string; quantity: string }>,
+  unitProducts: UnitProductSummary[],
+): UnitProductSummary | undefined =>
+  options
+    .map((option) => ({ product: unitProducts.find((item) => String(item.id) === option.unitProductId), quantity: Number(option.quantity) }))
+    .find(({ product, quantity }) => product !== undefined && quantity > 0 && quantity % product.saleUnitQuantity !== 0)
+    ?.product;

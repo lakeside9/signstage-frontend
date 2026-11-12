@@ -13,9 +13,12 @@ import { CustomItemsField, ScopeExtrasFields } from './order/components';
 import {
   EMPTY_SCOPE_EXTRAS_DRAFT,
   REGION_OPTIONS,
+  UNIT_PRODUCT_QUANTITY_UNIT,
   blankToNull,
+  findSaleUnitViolation,
   isCustomItemDraftValid,
   isLodgingDraftValid,
+  saleUnitHint,
   toCustomItemDrafts,
   toCustomItems,
   toScopeExtras,
@@ -128,6 +131,11 @@ export const AdminSalesOrderForm: FC = () => {
   const update = <K extends keyof QuoteDraft>(field: K, value: QuoteDraft[K]) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
 
+  const optionSaleUnitHint = (unitProductId: string) => {
+    const product = unitProducts.find((item) => String(item.id) === unitProductId);
+    return product ? saleUnitHint(product) : null;
+  };
+
   const updateOption = (index: number, patch: Partial<OptionDraft>) =>
     update('options', draft.options.map((option, i) => (i === index ? { ...option, ...patch } : option)));
 
@@ -161,6 +169,11 @@ export const AdminSalesOrderForm: FC = () => {
     }
     if (!isLodgingDraftValid(draft.extras)) {
       showSnackbar('숙박은 박수와 인원을 함께 입력해주세요.', 'error');
+      return;
+    }
+    const saleUnitViolation = findSaleUnitViolation(draft.options, unitProducts);
+    if (saleUnitViolation) {
+      showSnackbar(`${saleUnitViolation.name}은(는) ${saleUnitViolation.saleUnitQuantity}${UNIT_PRODUCT_QUANTITY_UNIT[saleUnitViolation.type]} 단위로만 넣을 수 있습니다.`, 'error');
       return;
     }
     if (!isCustomItemDraftValid(draft.customItems)) {
@@ -306,36 +319,41 @@ export const AdminSalesOrderForm: FC = () => {
             ) : (
               <ul className="space-y-2">
                 {draft.options.map((option, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <select
-                      value={option.unitProductId}
-                      onChange={(e) => updateOption(index, { unitProductId: e.target.value })}
-                      disabled={isSaving}
-                      className={`${inputClass} bg-white flex-1`}
-                    >
-                      <option value="">선택</option>
-                      {unitProducts.map((product) => (
-                        <option key={product.id} value={product.id}>{product.name}</option>
-                      ))}
-                    </select>
-                    <div className="w-24">
-                      <FormattedNumberInput
-                        value={option.quantity}
-                        onChange={(value) => updateOption(index, { quantity: value })}
-                        min={1}
+                  <li key={index}>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={option.unitProductId}
+                        onChange={(e) => updateOption(index, { unitProductId: e.target.value })}
                         disabled={isSaving}
-                        className={inputClass}
-                      />
+                        className={`${inputClass} bg-white flex-1`}
+                      >
+                        <option value="">선택</option>
+                        {unitProducts.map((product) => (
+                          <option key={product.id} value={product.id}>{product.name}</option>
+                        ))}
+                      </select>
+                      <div className="w-24">
+                        <FormattedNumberInput
+                          value={option.quantity}
+                          onChange={(value) => updateOption(index, { quantity: value })}
+                          min={1}
+                          disabled={isSaving}
+                          className={inputClass}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => update('options', draft.options.filter((_, i) => i !== index))}
+                        disabled={isSaving}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                        aria-label="옵션 삭제"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => update('options', draft.options.filter((_, i) => i !== index))}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
-                      aria-label="옵션 삭제"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {optionSaleUnitHint(option.unitProductId) && (
+                      <p className="mt-1 text-[11px] text-gray-400">{optionSaleUnitHint(option.unitProductId)}</p>
+                    )}
                   </li>
                 ))}
               </ul>

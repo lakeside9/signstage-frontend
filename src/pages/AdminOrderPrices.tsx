@@ -10,7 +10,14 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, FormActions } from './billingCatalog/components';
 import { inputClass, todayIsoDate } from './billingCatalog/constants';
-import { REGION_LABEL, REGION_OPTIONS, formatMoney, formatPeriod, isPeriodOpen } from './order/constants';
+import {
+  REGION_LABEL,
+  REGION_OPTIONS,
+  UNIT_PRODUCT_QUANTITY_UNIT,
+  formatMoney,
+  formatPeriod,
+  isPeriodOpen,
+} from './order/constants';
 import type {
   AdminCustomerPrice,
   AdminPartnerRateCard,
@@ -28,7 +35,7 @@ const TABS: Array<{ value: PriceTab; label: string; description: string }> = [
   {
     value: 'customerPrices',
     label: '고객 가격표',
-    description: '고객에게 파는 가격입니다. 범위 플랜(패키지)과 추가 옵션(단위 상품)마다 기간별 가격을 둡니다.',
+    description: '고객에게 파는 가격입니다. 범위 플랜(패키지)과 추가 옵션(단위 상품)마다 기간별 가격을 둡니다. 단가는 원화·부가세 별도 공급가이고, 견적 금액은 단가 × 수량입니다.',
   },
   {
     value: 'regionSurcharges',
@@ -38,9 +45,41 @@ const TABS: Array<{ value: PriceTab; label: string; description: string }> = [
   {
     value: 'partnerRateCards',
     label: '파트너 단가표',
-    description: '발주 금액 계산 기준입니다. 파트너 전용 단가표가 있으면 그것을, 없으면 기본 단가표를 씁니다.',
+    description: '발주 금액 계산 기준입니다. 파트너 전용 단가표가 있으면 그것을, 없으면 기본 단가표를 씁니다. 금액은 원화·부가세 별도이고, 기본 수행비는 발주 1건당, 장비는 1대당, 현장 인력은 1인·일당입니다.',
   },
 ];
+
+/** 고객 가격 행의 단가 기준과 묶음 금액 — 패키지는 1개, 단위 상품은 수량 단위 1개당(묶음 판매면 묶음 금액도). */
+const customerPriceUnit = (
+  price: Pick<AdminCustomerPrice, 'unitProductId' | 'unitPrice' | 'currencyCode'>,
+  unitProducts: UnitProductSummary[],
+): { basis: string; bundle: string | null } => {
+  if (price.unitProductId === null) return { basis: '패키지 1개당', bundle: null };
+  const product = unitProducts.find((item) => item.id === price.unitProductId);
+  if (!product) return { basis: '1단위당', bundle: null };
+  const unit = UNIT_PRODUCT_QUANTITY_UNIT[product.type];
+  const bundle = product.saleUnitQuantity > 1
+    ? `판매 단위 ${product.saleUnitQuantity}${unit} = ${formatMoney(price.unitPrice * product.saleUnitQuantity, price.currencyCode)}`
+    : null;
+  return { basis: `1${unit}당`, bundle };
+};
+
+const customerPriceHint = (target: string, unitProducts: UnitProductSummary[]): string => {
+  if (target.startsWith('plan:')) {
+    return '패키지 1개 가격입니다. 플랜에 포함된 단위 상품 수량은 이 가격에 들어 있습니다.';
+  }
+  const product = target.startsWith('unit:') ? unitProducts.find((item) => `unit:${item.id}` === target) : undefined;
+  if (!product) {
+    return '패키지는 1개 가격, 단위 상품은 수량 단위 1개(템플릿 1개, 태블릿 1대, 현장 인력 1인·일 등) 가격입니다.';
+  }
+  const unit = UNIT_PRODUCT_QUANTITY_UNIT[product.type];
+  const toggle = product.type === 'EVENT_EFFECT_BUNDLE' ? '(수량은 항상 1)' : '';
+  const bundle = product.saleUnitQuantity > 1
+    ? ` ${product.saleUnitQuantity}${unit} 단위로 팔면 묶음 가격 ÷ ${product.saleUnitQuantity}을 넣습니다(예: ${product.saleUnitQuantity}${unit} 10,000원이면 ${10_000 / product.saleUnitQuantity}원). 견적 수량은 ${product.saleUnitQuantity}의 배수로만 넣을 수 있습니다.`
+    : '';
+  const rehearsal = product.type === 'ONSITE_SUPPORT' ? ' 본행사와 다른 날 리허설 인력에도 이 단가를 씁니다.' : '';
+  return `1${unit}${toggle} 가격입니다.${bundle} 플랜 포함 수량을 넘어 옵션으로 더한 수량에만 붙습니다.${rehearsal}`;
+};
 
 const ENDPOINT: Record<PriceTab, string> = {
   customerPrices: '/platform-admin/order-prices/customer-prices',
@@ -311,20 +350,28 @@ export const AdminOrderPrices: FC = () => {
                     <th className={thClass}>구분</th>
                     <th className={thClass}>대상</th>
                     <th className={`${thClass} text-right`}>단가(공급가)</th>
+                    <th className={thClass}>단위</th>
                     <th className={thClass}>적용 기간</th>
                     <th className={`${thClass} text-right`}>처리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {customerPrices.map((price) => (
-                    <tr key={price.id}>
-                      <td className={`${tdClass} text-gray-500`}>{price.billingPlanId ? '패키지(플랜)' : '옵션(단위 상품)'}</td>
-                      <td className={`${tdClass} text-gray-950 font-medium`}>{price.billingPlanName ?? price.unitProductName}</td>
-                      <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(price.unitPrice, price.currencyCode)}</td>
-                      <td className={`${tdClass} text-gray-500`}>{formatPeriod(price.effectiveFrom, price.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{rowActions(price.id, price.effectiveTo, price.used)}</td>
-                    </tr>
-                  ))}
+                  {customerPrices.map((price) => {
+                    const unit = customerPriceUnit(price, unitProducts);
+                    return (
+                      <tr key={price.id}>
+                        <td className={`${tdClass} text-gray-500`}>{price.billingPlanId ? '패키지(플랜)' : '옵션(단위 상품)'}</td>
+                        <td className={`${tdClass} text-gray-950 font-medium`}>{price.billingPlanName ?? price.unitProductName}</td>
+                        <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(price.unitPrice, price.currencyCode)}</td>
+                        <td className={`${tdClass} text-gray-500`}>
+                          <span className="whitespace-nowrap">{unit.basis}</span>
+                          {unit.bundle && <span className="block text-xs text-gray-400 whitespace-nowrap">{unit.bundle}</span>}
+                        </td>
+                        <td className={`${tdClass} text-gray-500`}>{formatPeriod(price.effectiveFrom, price.effectiveTo)}</td>
+                        <td className={`${tdClass} text-right`}>{rowActions(price.id, price.effectiveTo, price.used)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </>
             )}
@@ -333,9 +380,9 @@ export const AdminOrderPrices: FC = () => {
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                   <tr>
                     <th className={thClass}>권역</th>
-                    <th className={`${thClass} text-right`}>고객 할증</th>
-                    <th className={`${thClass} text-right`}>파트너 할증</th>
-                    <th className={`${thClass} text-right`}>숙박 1박(고객/파트너)</th>
+                    <th className={`${thClass} text-right`}>고객 할증(견적 1건당)</th>
+                    <th className={`${thClass} text-right`}>파트너 할증(발주 1건당)</th>
+                    <th className={`${thClass} text-right`}>숙박(1박·1인당, 고객/파트너)</th>
                     <th className={thClass}>적용 기간</th>
                     <th className={`${thClass} text-right`}>처리</th>
                   </tr>
@@ -361,10 +408,10 @@ export const AdminOrderPrices: FC = () => {
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                   <tr>
                     <th className={thClass}>파트너</th>
-                    <th className={`${thClass} text-right`}>기본 수행비</th>
-                    <th className={`${thClass} text-right`}>태블릿 대당</th>
-                    <th className={`${thClass} text-right`}>와이파이 대당</th>
-                    <th className={`${thClass} text-right`}>현장 인력 인·일</th>
+                    <th className={`${thClass} text-right`}>기본 수행비(발주 1건당)</th>
+                    <th className={`${thClass} text-right`}>태블릿(1대당)</th>
+                    <th className={`${thClass} text-right`}>와이파이(1대당)</th>
+                    <th className={`${thClass} text-right`}>현장 인력(1인·일당)</th>
                     <th className={thClass}>적용 기간</th>
                     <th className={`${thClass} text-right`}>처리</th>
                   </tr>
@@ -419,6 +466,9 @@ export const AdminOrderPrices: FC = () => {
                 </select>
               </Field>
               {amountInput('amount1', '단가(공급가)')}
+              <p className="text-xs text-gray-400">
+                원화·부가세 별도. {customerPriceHint(draft.target, unitProducts)}
+              </p>
             </>
           )}
           {activeTab === 'regionSurcharges' && (
@@ -466,6 +516,10 @@ export const AdminOrderPrices: FC = () => {
                 {amountInput('amount4', '와이파이 대당(없으면 0)')}
                 {amountInput('amount3', '현장 인력 인·일')}
               </div>
+              <p className="text-xs text-gray-400">
+                원화·부가세 별도. 기본 수행비는 발주 1건당(행사 운영·세팅), 태블릿·와이파이는 1대당, 현장 인력은 1인·일당 금액입니다.
+                예비 태블릿과 별도일 리허설 인력에도 같은 단가를 씁니다.
+              </p>
             </>
           )}
           <div className="grid grid-cols-2 gap-3">

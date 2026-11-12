@@ -1,104 +1,28 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import {
-  BadgePercent,
-  Boxes,
-  Building2,
-  Calculator,
-  CalendarClock,
   ChevronLeft,
-  ClipboardCheck,
-  ClipboardList,
-  Contact,
-  FileText,
-  FlaskConical,
-  Handshake,
-  HelpCircle,
   Key,
-  KeyRound,
-  Layers,
   LayoutDashboard,
-  LifeBuoy,
-  Link as LinkIcon,
-  ListChecks,
   LogOut,
-  MapPin,
-  Megaphone,
   Menu,
-  MessageCircleQuestion,
-  Package,
-  Percent,
-  PlayCircle,
-  Receipt,
-  Send,
-  Settings,
-  ShieldCheck,
-  ShoppingCart,
-  Sparkles,
-  Tag,
   User,
-  Users,
-  UsersRound,
-  Star,
-  Wallet,
-  Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { NotificationBell } from '../components/NotificationBell';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
+import { MENU_ICONS } from '../utils/menuIcons';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import type { MenuNode, UserProfile } from '../types';
 import { useTranslation } from 'react-i18next';
 
-/**
- * iconKey(서버 `menus.icon_key`) 문자열 → lucide 컴포넌트. 서버가 아는 아이콘 이름이 여기 없으면
- * 기본 아이콘으로 대체한다 — signstage-docs
- * business/menu-and-action-permission-management-review.md 7.1절.
- */
-const ICON_BY_KEY: Record<string, ReactNode> = {
-  Banknote: <Banknote size={20} />,
-  LayoutDashboard: <LayoutDashboard size={20} />,
-  Building2: <Building2 size={20} />,
-  ClipboardCheck: <ClipboardCheck size={20} />,
-  Users: <Users size={20} />,
-  ShieldCheck: <ShieldCheck size={20} />,
-  Package: <Package size={20} />,
-  Calculator: <Calculator size={20} />,
-  ShoppingCart: <ShoppingCart size={20} />,
-  ClipboardList: <ClipboardList size={20} />,
-  User: <User size={20} />,
-  Sparkles: <Sparkles size={20} />,
-  Percent: <Percent size={20} />,
-  Tag: <Tag size={20} />,
-  PlayCircle: <PlayCircle size={20} />,
-  UsersRound: <UsersRound size={20} />,
-  Star: <Star size={20} />,
-  Wallet: <Wallet size={20} />,
-  BadgePercent: <BadgePercent size={20} />,
-  FlaskConical: <FlaskConical size={20} />,
-  Settings: <Settings size={20} />,
-  KeyRound: <KeyRound size={20} />,
-  Layers: <Layers size={20} />,
-  ListChecks: <ListChecks size={20} />,
-  Boxes: <Boxes size={20} />,
-  CalendarClock: <CalendarClock size={20} />,
-  Link: <LinkIcon size={20} />,
-  LifeBuoy: <LifeBuoy size={20} />,
-  HelpCircle: <HelpCircle size={20} />,
-  Megaphone: <Megaphone size={20} />,
-  MessageCircleQuestion: <MessageCircleQuestion size={20} />,
-  MapPin: <MapPin size={20} />,
-  Handshake: <Handshake size={20} />,
-  FileText: <FileText size={20} />,
-  Send: <Send size={20} />,
-  Contact: <Contact size={20} />,
-  Receipt: <Receipt size={20} />,
+const iconFor = (iconKey: string | null) => {
+  const Icon = (iconKey && MENU_ICONS[iconKey]) || LayoutDashboard;
+  return <Icon size={20} />;
 };
-
-const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
 
 export const AdminLayout: FC = () => {
   const { t } = useTranslation();

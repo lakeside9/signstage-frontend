@@ -3,46 +3,17 @@ import type { FC, ReactNode } from 'react';
 import {
   ArrowDown,
   ArrowUp,
-  BadgePercent,
-  Boxes,
-  Building2,
-  Calculator,
   ChevronDown,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ClipboardCheck,
-  ClipboardList,
-  FileSignature,
-  FlaskConical,
-  HelpCircle,
-  KeyRound,
-  Layers,
-  LifeBuoy,
-  ListChecks,
   Loader2,
-  MapPin,
-  Megaphone,
-  MessageCircleQuestion,
-  Package,
-  Percent,
-  PlayCircle,
-  Settings,
-  ShieldCheck,
-  ShoppingCart,
-  Sparkles,
-  Tag,
-  User,
-  Users,
-  UsersRound,
-  Star,
-  Wallet,
-  Banknote,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { MENU_ICONS } from '../utils/menuIcons';
 import type { MenuAdminRow } from '../types';
 
 type RoleAxis = 'PLATFORM' | 'ORGANIZATION';
@@ -52,42 +23,12 @@ const AXIS_TABS: Array<{ value: RoleAxis; label: string }> = [
   { value: 'ORGANIZATION', label: '조직 사용자 콘솔' },
 ];
 
-/** 관리자가 임의 문자열을 넣어 렌더링이 깨지는 걸 막는다 — AdminLayout/UserLayout이 실제로 아는 아이콘만 고른다. */
-const ICON_BY_KEY: Record<string, ReactNode> = {
-  Banknote: <Banknote size={14} />,
-  LayoutDashboard: <ClipboardList size={14} />,
-  FileSignature: <FileSignature size={14} />,
-  Settings: <Settings size={14} />,
-  Building2: <Building2 size={14} />,
-  User: <User size={14} />,
-  Users: <Users size={14} />,
-  ClipboardCheck: <ClipboardCheck size={14} />,
-  ShieldCheck: <ShieldCheck size={14} />,
-  Package: <Package size={14} />,
-  Calculator: <Calculator size={14} />,
-  ShoppingCart: <ShoppingCart size={14} />,
-  ClipboardList: <ClipboardList size={14} />,
-  Percent: <Percent size={14} />,
-  Tag: <Tag size={14} />,
-  PlayCircle: <PlayCircle size={14} />,
-  UsersRound: <UsersRound size={14} />,
-  Star: <Star size={14} />,
-  Wallet: <Wallet size={14} />,
-  BadgePercent: <BadgePercent size={14} />,
-  FlaskConical: <FlaskConical size={14} />,
-  KeyRound: <KeyRound size={14} />,
-  Layers: <Layers size={14} />,
-  Sparkles: <Sparkles size={14} />,
-  ListChecks: <ListChecks size={14} />,
-  Boxes: <Boxes size={14} />,
-  LifeBuoy: <LifeBuoy size={14} />,
-  HelpCircle: <HelpCircle size={14} />,
-  Megaphone: <Megaphone size={14} />,
-  MessageCircleQuestion: <MessageCircleQuestion size={14} />,
-  MapPin: <MapPin size={14} />,
+/** 관리자가 임의 문자열을 넣어 렌더링이 깨지는 걸 막는다 — 레이아웃이 실제로 그리는 아이콘(`MENU_ICONS`)만 고른다. */
+const ICON_OPTIONS = Object.keys(MENU_ICONS);
+const iconFor = (iconKey: string) => {
+  const Icon = MENU_ICONS[iconKey];
+  return Icon ? <Icon size={14} /> : <span className="inline-block w-3.5" />;
 };
-const ICON_OPTIONS = Object.keys(ICON_BY_KEY);
-const iconFor = (iconKey: string) => ICON_BY_KEY[iconKey] ?? <span className="inline-block w-3.5" />;
 
 interface TreeItem {
   row: MenuAdminRow;

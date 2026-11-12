@@ -1,24 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  Building2,
-  Calculator,
   ChevronLeft,
-  FileSignature,
-  HelpCircle,
-  Inbox,
   Key,
   LayoutDashboard,
   LogOut,
-  Megaphone,
   Menu,
-  Settings,
-  ShieldCheck,
   User,
-  Wallet,
-  Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -26,30 +16,15 @@ import { useConsoleFeatureStore } from '../store/useConsoleFeatureStore';
 import { NotificationBell } from '../components/NotificationBell';
 import { SidebarMenuTree } from '../components/SidebarMenuTree';
 import { api } from '../utils/api';
+import { MENU_ICONS } from '../utils/menuIcons';
 import type { MenuNode, UserProfile } from '../types';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import { useTranslation } from 'react-i18next';
 
-/**
- * iconKey(서버 `menus.icon_key`) 문자열 → lucide 컴포넌트 — `AdminLayout`과 같은 방식
- * (signstage-docs business/menu-and-action-permission-management-review.md 7.1절).
- */
-const ICON_BY_KEY: Record<string, ReactNode> = {
-  Banknote: <Banknote size={20} />,
-  Calculator: <Calculator size={20} />,
-  LayoutDashboard: <LayoutDashboard size={20} />,
-  FileSignature: <FileSignature size={20} />,
-  Settings: <Settings size={20} />,
-  Building2: <Building2 size={20} />,
-  User: <User size={20} />,
-  ShieldCheck: <ShieldCheck size={20} />,
-  HelpCircle: <HelpCircle size={20} />,
-  Megaphone: <Megaphone size={20} />,
-  Wallet: <Wallet size={20} />,
-  Inbox: <Inbox size={20} />,
+const iconFor = (iconKey: string | null) => {
+  const Icon = (iconKey && MENU_ICONS[iconKey]) || LayoutDashboard;
+  return <Icon size={20} />;
 };
-
-const iconFor = (iconKey: string | null) => (iconKey && ICON_BY_KEY[iconKey]) || <LayoutDashboard size={20} />;
 
 /**
  * 조직 사용자 화면군의 레이아웃 셸(루트 경로). 플랫폼 관리자는 조직에 소속될 수 없고
