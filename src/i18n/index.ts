@@ -29,7 +29,7 @@ const resources = {
         ceremonyInquiries: '행사 문의 관리', onsiteSupportRequests: '플랫폼 운영사 현장지원 요청 관리',
         groupOrder: '수주·발주 관리', salesOrders: '수주 관리', partnerOrders: '발주 현황',
         customers: '고객 관리', orderPrices: '수주 가격표', receivedPartnerOrders: '발주함',
-        orderInspections: '검수', customerInvoices: '청구·수납', partnerPayouts: '파트너 지급', receivedPartnerPayouts: '지급 내역',
+        orderInspections: '검수', customerInvoices: '청구·수납', partnerEvaluations: '파트너 평가', marginSimulator: '마진 시뮬레이션', partnerPayouts: '파트너 지급', receivedPartnerPayouts: '지급 내역',
       },
       permission: {
         management: '권한 관리',
@@ -133,7 +133,7 @@ const resources = {
         ceremonyInquiries: 'Ceremony inquiries', onsiteSupportRequests: 'Platform onsite support requests',
         groupOrder: 'Sales and subcontracting', salesOrders: 'Sales orders', partnerOrders: 'Partner orders',
         customers: 'Customers', orderPrices: 'Order price lists', receivedPartnerOrders: 'Order inbox',
-        orderInspections: 'Inspections', customerInvoices: 'Customer invoices', partnerPayouts: 'Partner payouts', receivedPartnerPayouts: 'Payouts',
+        orderInspections: 'Inspections', customerInvoices: 'Customer invoices', partnerEvaluations: 'Partner evaluations', marginSimulator: 'Margin simulator', partnerPayouts: 'Partner payouts', receivedPartnerPayouts: 'Payouts',
       },
       permission: {
         management: 'Permission management',

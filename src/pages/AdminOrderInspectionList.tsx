@@ -24,9 +24,18 @@ interface ApproveDraft {
   delayNote: string;
   deductionAmount: string;
   deductionReason: string;
+  performanceRating: string;
 }
 
-const EMPTY_DRAFT: ApproveDraft = { defectNote: '', delayNote: '', deductionAmount: '', deductionReason: '' };
+const EMPTY_DRAFT: ApproveDraft = { defectNote: '', delayNote: '', deductionAmount: '', deductionReason: '', performanceRating: '' };
+
+const RATING_OPTIONS = [
+  { value: '5', label: '5 · 매우 좋음' },
+  { value: '4', label: '4 · 좋음' },
+  { value: '3', label: '3 · 보통' },
+  { value: '2', label: '2 · 미흡' },
+  { value: '1', label: '1 · 매우 미흡' },
+];
 
 /**
  * 검수(플랫폼 관리자) — signstage-docs business/platform-order-partner-subcontract-review.md D11·D13.
@@ -113,6 +122,7 @@ export const AdminOrderInspectionList: FC = () => {
         delayNote: blankToNull(draft.delayNote),
         deductionAmount: deduction,
         deductionReason: deduction > 0 ? draft.deductionReason.trim() : null,
+        performanceRating: draft.performanceRating ? Number(draft.performanceRating) : null,
       });
       showSnackbar('검수를 승인했습니다.', 'success');
       setTarget(null);
@@ -207,6 +217,9 @@ export const AdminOrderInspectionList: FC = () => {
                 <td className="px-4 py-3">
                   <InspectionStatusBadge status={inspection.status} overdue={inspection.overdue} />
                   {inspection.approvalType === 'DEEMED' && <p className="text-xs text-gray-400">승인 간주</p>}
+                  {inspection.performanceRating !== null && (
+                    <p className="text-xs text-gray-400">평점 {inspection.performanceRating}/5</p>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {canInspect && inspection.status === 'PENDING' && !inspection.overdue && (
@@ -266,6 +279,20 @@ export const AdminOrderInspectionList: FC = () => {
                 />
               </Field>
             </div>
+            <Field label="수행 평점(선택, 내부용)">
+              <select
+                value={draft.performanceRating}
+                onChange={(e) => setDraft({ ...draft, performanceRating: e.target.value })}
+                disabled={isSubmitting}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="">입력 안 함</option>
+                {RATING_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </Field>
+            <p className="text-xs text-gray-400">평점은 파트너 평가에만 쓰이고 파트너에게 보이지 않습니다.</p>
             <p className="text-sm text-gray-700">
               지급 대상(공급가){' '}
               <span className="font-bold tabular-nums">

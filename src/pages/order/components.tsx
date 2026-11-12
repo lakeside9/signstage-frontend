@@ -114,6 +114,7 @@ export const InspectionResultRows: FC<{ inspection: OrderInspectionSummary }> = 
           value={`${formatMoney(-inspection.deductionAmount, currency)} (${inspection.deductionReason ?? ''})`}
         />
       )}
+      {inspection.performanceRating !== null && <DetailRow label="수행 평점" value={`${inspection.performanceRating}/5`} />}
       {inspection.payableAmount !== null && (
         <DetailRow label="지급 대상(공급가)" value={formatMoney(inspection.payableAmount, currency)} />
       )}

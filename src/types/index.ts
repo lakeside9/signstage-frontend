@@ -2492,6 +2492,8 @@ export interface OrderInspectionSummary {
   delayNote: string | null;
   deductionAmount: number;
   deductionReason: string | null;
+  /** 수행 평점 1~5(플랫폼 내부용). 파트너 응답에는 항상 null이다. */
+  performanceRating: number | null;
   payableAmount: number | null;
   approvedDate: string | null;
   approvedAt: string | null;
@@ -2617,4 +2619,59 @@ export interface PartnerSubcontractProfile {
   subcontractTermsAgreedAt: string | null;
   privacyConsignmentAgreedAt: string | null;
   orderEligible: boolean;
+}
+
+/** 파트너 평가(플랫폼 내부용) — 발주 응답·검수 결과 집계. */
+export interface PartnerEvaluation {
+  organizationId: number;
+  organizationName: string;
+  orderEligible: boolean;
+  issuedCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  expiredCount: number;
+  /** 수락 / (수락 + 거절 + 만료) × 100. 응답한 발주가 없으면 null */
+  acceptanceRatePercent: number | null;
+  inspectedCount: number;
+  deemedCount: number;
+  defectCount: number;
+  delayCount: number;
+  deductionCount: number;
+  deductionTotal: number;
+  averageRating: number | null;
+  ratedCount: number;
+  lastIssuedAt: string | null;
+}
+
+export interface MarginSimulationRequest {
+  billingPlanId: number;
+  region: ServiceRegion;
+  options: { unitProductId: number; quantity: number }[];
+  discountAmount: number | null;
+  adjustmentAmount: number | null;
+}
+
+/** 한 파트너(또는 기본 단가표)의 발주 금액과 마진. 단가표가 없으면 금액·마진이 null이다. */
+export interface MarginPartnerQuote {
+  organizationId: number | null;
+  organizationName: string | null;
+  partnerRateCardApplied: boolean;
+  partnerAmount: number | null;
+  marginAmount: number | null;
+  marginRatePercent: number | null;
+  marginSufficient: boolean | null;
+  evaluation: PartnerEvaluation | null;
+}
+
+export interface MarginSimulation {
+  currencyCode: string;
+  lines: SalesQuoteLine[];
+  supplyAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  tabletCount: number;
+  onsiteStaffPersonDays: number;
+  minimumMarginRatePercent: number;
+  defaultQuote: MarginPartnerQuote;
+  partnerQuotes: MarginPartnerQuote[];
 }

@@ -40,6 +40,7 @@ import {
   User,
   Users,
   UsersRound,
+  Star,
   Wallet,
   Banknote,
 } from 'lucide-react';
@@ -73,6 +74,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   Tag: <Tag size={20} />,
   PlayCircle: <PlayCircle size={20} />,
   UsersRound: <UsersRound size={20} />,
+  Star: <Star size={20} />,
   Wallet: <Wallet size={20} />,
   BadgePercent: <BadgePercent size={20} />,
   FlaskConical: <FlaskConical size={20} />,
