@@ -3,7 +3,6 @@ import type { FC } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
-  Key,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -18,6 +17,7 @@ import { MENU_ICONS } from '../utils/menuIcons';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import type { MenuNode, UserProfile } from '../types';
 import { useTranslation } from 'react-i18next';
+import logo from '../assets/signstage-logo.png';
 
 const iconFor = (iconKey: string | null) => {
   const Icon = (iconKey && MENU_ICONS[iconKey]) || LayoutDashboard;
@@ -70,11 +70,8 @@ export const AdminLayout: FC = () => {
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col text-gray-950">
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
-        <Link to="/admin" className="flex items-center gap-2">
-          <div className="bg-gray-950 p-1.5 rounded-lg text-white">
-            <Key size={20} />
-          </div>
-          <span className="text-lg font-bold text-gray-950 hidden sm:block">SignStage</span>
+        <Link to="/admin" className="flex items-center" aria-label="SignStage 관리자 홈">
+          <img src={logo} alt="SignStage 싸인스테이지" className="h-9 w-auto" />
         </Link>
 
         <div className="flex items-center gap-4">

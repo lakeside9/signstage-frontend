@@ -4,7 +4,6 @@ import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ChevronLeft,
-  Key,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -20,6 +19,7 @@ import { MENU_ICONS } from '../utils/menuIcons';
 import type { MenuNode, UserProfile } from '../types';
 import { setInternationalizationPreferences } from '../utils/internationalization';
 import { useTranslation } from 'react-i18next';
+import logo from '../assets/signstage-logo.png';
 
 const iconFor = (iconKey: string | null) => {
   const Icon = (iconKey && MENU_ICONS[iconKey]) || LayoutDashboard;
@@ -113,20 +113,14 @@ export const UserLayout: FC = () => {
       <header className="h-16 shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 z-30">
         {isDemoManagement ? (
           <Link to="/admin/demo-ceremonies" className="flex items-center gap-2 text-gray-950">
-            <div className="bg-gray-950 p-1.5 rounded-lg text-white">
-              <Key size={20} />
-            </div>
-            <span className="text-lg font-bold hidden sm:block">SignStage</span>
+            <img src={logo} alt="SignStage 싸인스테이지" className="h-9 w-auto" />
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium border bg-purple-50 text-purple-700 border-purple-200">
               데모 조직 관리 중
             </span>
           </Link>
         ) : (
-          <Link to="/" className="flex items-center gap-2">
-            <div className="bg-gray-950 p-1.5 rounded-lg text-white">
-              <Key size={20} />
-            </div>
-            <span className="text-lg font-bold text-gray-950 hidden sm:block">SignStage</span>
+          <Link to="/" className="flex items-center" aria-label="SignStage 홈">
+            <img src={logo} alt="SignStage 싸인스테이지" className="h-9 w-auto" />
           </Link>
         )}
 

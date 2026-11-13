@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Key, Lock, User } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PlatformAdminInfo } from '../types';
 import { useTranslation } from 'react-i18next';
+import logo from '../assets/signstage-logo.png';
 
 /**
  * signstage-docs business/login-security.md 5장의 로그인 흐름을 구현한다.
@@ -126,10 +127,11 @@ export const LoginView: FC = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 text-gray-950">
       <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-950 rounded-lg mb-4 text-white">
-            <Key size={24} />
-          </div>
-          <h1 className="text-lg font-bold text-gray-950">SignStage</h1>
+          <h1 className="mb-4 flex justify-center">
+            <Link to="/" aria-label="싸인스테이지 홈">
+              <img src={logo} alt="SignStage 싸인스테이지" className="h-12 w-auto" />
+            </Link>
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             {t(step === 'login' ? 'auth.signInGuide' : 'auth.changePasswordGuide')}
           </p>
