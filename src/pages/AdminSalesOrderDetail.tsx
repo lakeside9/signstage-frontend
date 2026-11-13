@@ -75,6 +75,8 @@ export const AdminSalesOrderDetail: FC = () => {
   const [preview, setPreview] = useState<PartnerOrderPreview | null>(null);
   const [cancellingPartnerOrder, setCancellingPartnerOrder] = useState<AdminPartnerOrderSummary | null>(null);
   const [partnerCancelReason, setPartnerCancelReason] = useState('');
+  const [memoTarget, setMemoTarget] = useState<AdminPartnerOrderSummary | null>(null);
+  const [memoDraft, setMemoDraft] = useState('');
   const [offsetTarget, setOffsetTarget] = useState<AdminPartnerOrderSummary | null>(null);
   const [offsetAmount, setOffsetAmount] = useState('');
   const [offsetReason, setOffsetReason] = useState('');
@@ -241,6 +243,18 @@ export const AdminSalesOrderDetail: FC = () => {
       '발주를 취소했습니다.', '발주 취소에 실패했습니다.',
     );
     if (ok) setCancellingPartnerOrder(null);
+  };
+
+  const handleUpdateMemo = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!memoTarget) return;
+    const ok = await run(
+      async () => {
+        await api.put(`/platform-admin/partner-orders/${memoTarget.id}/memo`, { memo: blankToNull(memoDraft) });
+      },
+      '발주 메모를 고치고 파트너에게 알렸습니다.', '메모 수정에 실패했습니다.',
+    );
+    if (ok) setMemoTarget(null);
   };
 
   const handleRegisterOffset = async (e: FormEvent) => {
@@ -479,6 +493,18 @@ export const AdminSalesOrderDetail: FC = () => {
                       )}
                     </td>
                     <td className="py-2 text-right">
+                      {canIssue && (po.status === 'ISSUED' || po.status === 'ACCEPTED') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemoDraft(po.memo ?? '');
+                            setMemoTarget(po);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+                        >
+                          <Pencil size={12} /> 메모 수정
+                        </button>
+                      )}
                       {canIssue && po.status === 'ISSUED' && (
                         <button
                           type="button"
@@ -774,6 +800,28 @@ export const AdminSalesOrderDetail: FC = () => {
           </Field>
           <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="발주 취소" onCancel={() => setCancellingPartnerOrder(null)} />
         </form>
+      </Modal>
+
+      <Modal open={memoTarget !== null} onClose={() => setMemoTarget(null)} title="발주 메모 수정" widthClassName="max-w-md">
+        {memoTarget && (
+          <form onSubmit={handleUpdateMemo} className="space-y-3">
+            <p className="text-sm text-gray-600">
+              {memoTarget.organizationName}에 보낸 발주의 메모를 고칩니다. 바뀌면 파트너에게 알림이 갑니다. 비우면 메모를 지웁니다. 행사가
+              완료된 발주는 고칠 수 없습니다.
+            </p>
+            <Field label="파트너 전달 메모">
+              <textarea
+                value={memoDraft}
+                onChange={(e) => setMemoDraft(e.target.value)}
+                disabled={isSubmitting}
+                rows={4}
+                maxLength={2000}
+                className={inputClass}
+              />
+            </Field>
+            <FormActions isSaving={isSubmitting} savingLabel="저장 중..." saveLabel="저장" onCancel={() => setMemoTarget(null)} />
+          </form>
+        )}
       </Modal>
 
       <Modal open={offsetTarget !== null} onClose={() => setOffsetTarget(null)} title="귀책 상계 등록" widthClassName="max-w-md">
