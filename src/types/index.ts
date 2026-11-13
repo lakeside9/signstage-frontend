@@ -1246,6 +1246,8 @@ export interface CreateCeremonyEventRequest {
  */
 export interface UpdateCeremonyEventRequest {
   name: string;
+  /** 생략하면 그대로 둔다. 바꾸면 새 유형의 생성 한도를 서버가 다시 확인한다. */
+  eventType?: CeremonyEventType;
   venue: string | null;
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
@@ -1609,12 +1611,15 @@ export interface TemplateSummary {
   /** 하위 행사에 매핑돼 있어 삭제할 수 없는 문서 양식이면 false — 삭제 버튼을 숨긴다. */
   deletable: boolean;
   createdAt: string;
+  /** 문서 양식 설명(선택 입력, 2026-11-13). */
+  description: string | null;
 }
 
 /** PUT .../templates/{templateId} 요청(TemplateDto.Request.UpdateTemplate)과 맞춘다. */
 export interface UpdateTemplateRequest {
   title: string;
   documentRole: TemplateDocumentRole;
+  description?: string | null;
 }
 
 /** POST .../templates/{templateId}/fields 요청(TemplateFieldDto.Request.CreateTemplateField)과 맞춘다. */

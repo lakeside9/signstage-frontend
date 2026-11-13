@@ -20,6 +20,7 @@ import {
   MessageCircleQuestion,
   Pencil,
   Plus,
+  Save,
   Settings,
   SquareCheckBig,
   Trash2,
@@ -246,6 +247,7 @@ export const UserCeremonyDetail: FC = () => {
   const [isTemplatesSectionOpen, setIsTemplatesSectionOpen] = useState(true);
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
   const [templateTitle, setTemplateTitle] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
   const [templateDocumentRole, setTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
@@ -255,6 +257,7 @@ export const UserCeremonyDetail: FC = () => {
   const [viewingTemplateId, setViewingTemplateId] = useState<number | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
   const [editTemplateTitle, setEditTemplateTitle] = useState('');
+  const [editTemplateDescription, setEditTemplateDescription] = useState('');
   const [editTemplateDocumentRole, setEditTemplateDocumentRole] = useState<TemplateDocumentRole>('CONTRACT');
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
   const [cloneFieldsTargetId, setCloneFieldsTargetId] = useState<number | null>(null);
@@ -270,6 +273,7 @@ export const UserCeremonyDetail: FC = () => {
   const [viewingEventId, setViewingEventId] = useState<number | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [editEventName, setEditEventName] = useState('');
+  const [editEventType, setEditEventType] = useState<CeremonyEventType>('TEST');
   const [editEventVenue, setEditEventVenue] = useState('');
   const [editEventScheduledStart, setEditEventScheduledStart] = useState('');
   const [editEventScheduledEnd, setEditEventScheduledEnd] = useState('');
@@ -425,6 +429,7 @@ export const UserCeremonyDetail: FC = () => {
     setDeletingEventId(null);
     setEditingEventId(event.id);
     setEditEventName(event.name);
+    setEditEventType(event.eventType);
     setEditEventVenue(event.venue ?? '');
     setEditEventScheduledStart(toDateTimeLocalValue(event.scheduledStartAt));
     setEditEventScheduledEnd(toDateTimeLocalValue(event.scheduledEndAt));
@@ -505,6 +510,7 @@ export const UserCeremonyDetail: FC = () => {
     try {
       await api.put(`${basePath}/events/${eventId}`, {
         name: editEventName.trim(),
+        eventType: editEventType,
         venue: editEventVenue.trim() || null,
         scheduledStartAt: editEventScheduledStart || null,
         scheduledEndAt: editEventScheduledEnd || null,
@@ -514,6 +520,8 @@ export const UserCeremonyDetail: FC = () => {
       });
       showSnackbar('하위 행사를 저장했습니다.', 'success');
       setEditingEventId(null);
+      // 유형을 바꿨으면 그 유형 탭으로 옮겨 방금 저장한 행사가 보이게 한다.
+      setActiveEventType(editEventType);
       setEvents(await fetchEvents());
     } catch (err) {
       const message = err instanceof Error ? err.message : '하위 행사 저장에 실패했습니다.';
@@ -801,7 +809,7 @@ export const UserCeremonyDetail: FC = () => {
   const handleUploadTemplate = async (e: FormEvent) => {
     e.preventDefault();
     if (!templateTitle.trim()) {
-      showSnackbar('문서 제목을 입력해주세요.', 'error');
+      showSnackbar('양식명을 입력해주세요.', 'error');
       return;
     }
     if (!templateFile) {
@@ -812,6 +820,7 @@ export const UserCeremonyDetail: FC = () => {
     const formData = new FormData();
     formData.append('title', templateTitle.trim());
     formData.append('documentRole', templateDocumentRole);
+    if (templateDescription.trim()) formData.append('description', templateDescription.trim());
     formData.append('file', templateFile);
 
     setIsUploadingTemplate(true);
@@ -819,6 +828,7 @@ export const UserCeremonyDetail: FC = () => {
       await api.post(`${basePath}/templates`, formData);
       showSnackbar('문서 양식을 업로드했습니다.', 'success');
       setTemplateTitle('');
+      setTemplateDescription('');
       setTemplateDocumentRole('CONTRACT');
       setTemplateFile(null);
       if (templateFileInputRef.current) templateFileInputRef.current.value = '';
@@ -908,6 +918,7 @@ export const UserCeremonyDetail: FC = () => {
     setEditingTemplateId(template.id);
     setEditTemplateTitle(template.title);
     setEditTemplateDocumentRole(template.documentRole);
+    setEditTemplateDescription(template.description ?? '');
   };
 
   const handleSaveTemplateEdit = async (templateId: number) => {
@@ -920,6 +931,7 @@ export const UserCeremonyDetail: FC = () => {
       await api.put(`${basePath}/templates/${templateId}`, {
         title: editTemplateTitle.trim(),
         documentRole: editTemplateDocumentRole,
+        description: editTemplateDescription.trim() || null,
       });
       showSnackbar('문서 양식을 저장했습니다.', 'success');
       setEditingTemplateId(null);
@@ -1147,14 +1159,14 @@ export const UserCeremonyDetail: FC = () => {
               <p className="mt-1 text-xs text-gray-400">이 행사의 하위 행사(TEST/MAIN)가 명단을 공유합니다.</p>
             </div>
           </button>
-          {isSignersSectionOpen && !isSignerFormOpen && (
+          {isSignersSectionOpen && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownloadSignerExcelTemplate}
                 disabled={isDownloadingSignerTemplate}
-                className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                <Download size={12} />
+                <Download size={14} />
                 엑셀 양식
               </button>
               <input
@@ -1168,18 +1180,18 @@ export const UserCeremonyDetail: FC = () => {
                 onClick={() => signerExcelInputRef.current?.click()}
                 disabled={Boolean(registerDisabledReason) || isUploadingSignerExcel}
                 title={registerDisabledReason}
-                className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                <Upload size={12} />
+                <Upload size={14} />
                 {isUploadingSignerExcel ? '업로드 중...' : '엑셀 업로드'}
               </button>
               <button
                 onClick={() => setIsSignerFormOpen(true)}
                 disabled={Boolean(registerDisabledReason)}
                 title={registerDisabledReason}
-                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
               >
-                <Plus size={12} />
+                <Plus size={14} />
                 서명자 등록
               </button>
             </div>
@@ -1188,61 +1200,6 @@ export const UserCeremonyDetail: FC = () => {
 
         {isSignersSectionOpen && (
         <>
-        {isSignerFormOpen && (
-          <form
-            onSubmit={handleAddSigner}
-            className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-wrap items-end gap-2"
-          >
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
-              <input
-                type="text"
-                value={signerName}
-                onChange={(e) => setSignerName(e.target.value)}
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
-              <input
-                type="text"
-                value={signerAffiliation}
-                onChange={(e) => setSignerAffiliation(e.target.value)}
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
-              <input
-                type="text"
-                value={signerPosition}
-                onChange={(e) => setSignerPosition(e.target.value)}
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-              >
-                {isAddingSigner ? '등록 중...' : '등록'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSignerFormOpen(false)}
-                disabled={isAddingSigner}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-              >
-                취소
-              </button>
-            </div>
-          </form>
-        )}
-
         <ListContainer isLoading={isSignersLoading} isEmpty={signers.length === 0} emptyMessage="아직 등록된 서명자가 없습니다.">
           <table className="w-full text-sm">
             <thead className="text-gray-500 text-xs">
@@ -1374,6 +1331,59 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </Modal>
 
+      {/* 서명자 등록과 문서 업로드는 목록 위 인라인 폼 대신 팝업으로 연다(2026-11-13, 기존 eform 화면과 같은 방식). */}
+      <Modal open={isSignerFormOpen} onClose={() => !isAddingSigner && setIsSignerFormOpen(false)} title="서명자 등록">
+        <form onSubmit={handleAddSigner} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+            <input
+              type="text"
+              value={signerName}
+              onChange={(e) => setSignerName(e.target.value)}
+              disabled={isAddingSigner}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">소속</label>
+            <input
+              type="text"
+              value={signerAffiliation}
+              onChange={(e) => setSignerAffiliation(e.target.value)}
+              disabled={isAddingSigner}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">직책</label>
+            <input
+              type="text"
+              value={signerPosition}
+              onChange={(e) => setSignerPosition(e.target.value)}
+              disabled={isAddingSigner}
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsSignerFormOpen(false)}
+              disabled={isAddingSigner}
+              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={isAddingSigner}
+              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+            >
+              {isAddingSigner ? '등록 중...' : '등록'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal open={editingSignerId !== null} onClose={() => setEditingSignerId(null)} title="서명자 수정">
         <div className="space-y-3">
           <div>
@@ -1472,14 +1482,14 @@ export const UserCeremonyDetail: FC = () => {
               <p className="mt-1 text-xs text-gray-400">PDF 문서를 올리고, 문서 위에 서명란을 배치합니다.</p>
             </div>
           </button>
-          {isTemplatesSectionOpen && !isTemplateFormOpen && (
+          {isTemplatesSectionOpen && (
             <button
               onClick={() => setIsTemplateFormOpen(true)}
               disabled={Boolean(registerDisabledReason)}
               title={registerDisabledReason}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-gray-950"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
             >
-              <Plus size={12} />
+              <Plus size={14} />
               문서 업로드
             </button>
           )}
@@ -1487,65 +1497,6 @@ export const UserCeremonyDetail: FC = () => {
 
         {isTemplatesSectionOpen && (
         <>
-
-        {isTemplateFormOpen && (
-          <form
-            onSubmit={handleUploadTemplate}
-            className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-wrap items-end gap-2"
-          >
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
-              <input
-                type="text"
-                value={templateTitle}
-                onChange={(e) => setTemplateTitle(e.target.value)}
-                disabled={isUploadingTemplate}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
-              <select
-                value={templateDocumentRole}
-                onChange={(e) => setTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
-                disabled={isUploadingTemplate}
-                className="px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
-              >
-                <option value="CONTRACT">계약서</option>
-                <option value="EXHIBITION">전시문서</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">PDF 파일</label>
-              <input
-                ref={templateFileInputRef}
-                type="file"
-                accept="application/pdf"
-                onChange={handleTemplateFileChange}
-                disabled={isUploadingTemplate}
-                className="text-sm text-gray-600 file:mr-2 file:px-3 file:py-1.5 file:rounded-md file:border file:border-gray-200 file:text-xs file:font-medium file:bg-white hover:file:border-gray-400"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={isUploadingTemplate}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-              >
-                <Upload size={12} />
-                {isUploadingTemplate ? '업로드 중...' : '업로드'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsTemplateFormOpen(false)}
-                disabled={isUploadingTemplate}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
-              >
-                취소
-              </button>
-            </div>
-          </form>
-        )}
 
         <ListContainer isLoading={isTemplatesLoading} isEmpty={templates.length === 0} emptyMessage="아직 업로드된 문서 양식이 없습니다.">
           <table className="w-full table-fixed text-sm">
@@ -1714,6 +1665,79 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </section>
 
+      {/* 문서 양식 추가/수정 팝업은 기존 eform 화면과 같은 구성(문서 역할 → PDF 파일 → 양식명 → 설명)으로 맞췄다(2026-11-13). */}
+      <Modal open={isTemplateFormOpen} onClose={() => !isUploadingTemplate && setIsTemplateFormOpen(false)} title="문서 양식 추가" widthClassName="max-w-xl">
+        <form onSubmit={handleUploadTemplate} className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 역할</label>
+            <select
+              value={templateDocumentRole}
+              onChange={(e) => setTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+              disabled={isUploadingTemplate}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50 bg-white"
+            >
+              <option value="CONTRACT">서명용 문서</option>
+              <option value="EXHIBITION">전시용 문서</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">PDF 파일</label>
+            <button
+              type="button"
+              onClick={() => templateFileInputRef.current?.click()}
+              disabled={isUploadingTemplate}
+              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <Upload size={32} className="mx-auto text-gray-400 mb-2" />
+              <div className="text-sm font-bold text-gray-700">{templateFile ? templateFile.name : 'PDF 파일을 선택하세요'}</div>
+            </button>
+            <input
+              ref={templateFileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={handleTemplateFileChange}
+              disabled={isUploadingTemplate}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">양식명</label>
+            <input
+              type="text"
+              value={templateTitle}
+              onChange={(e) => setTemplateTitle(e.target.value)}
+              disabled={isUploadingTemplate}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">설명</label>
+            <textarea
+              rows={3}
+              value={templateDescription}
+              onChange={(e) => setTemplateDescription(e.target.value)}
+              disabled={isUploadingTemplate}
+              maxLength={1000}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setIsTemplateFormOpen(false)}
+              disabled={isUploadingTemplate}
+              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button type="submit" disabled={isUploadingTemplate} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400">
+              {isUploadingTemplate ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              등록
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal open={viewingTemplate !== null} onClose={() => setViewingTemplateId(null)} title="문서 양식 상세">
         {viewingTemplate && (
           <div className="space-y-3">
@@ -1753,44 +1777,56 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </Modal>
 
-      <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정">
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
+      <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정" widthClassName="max-w-xl">
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 역할</label>
+            <select
+              value={editTemplateDocumentRole}
+              onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+              disabled={processingTemplateId === editingTemplateId}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50 bg-white"
+            >
+              <option value="CONTRACT">서명용 문서</option>
+              <option value="EXHIBITION">전시용 문서</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">양식명</label>
             <input
               type="text"
               value={editTemplateTitle}
               onChange={(e) => setEditTemplateTitle(e.target.value)}
               disabled={processingTemplateId === editingTemplateId}
-              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">문서 유형</label>
-            <select
-              value={editTemplateDocumentRole}
-              onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">설명</label>
+            <textarea
+              rows={3}
+              value={editTemplateDescription}
+              onChange={(e) => setEditTemplateDescription(e.target.value)}
               disabled={processingTemplateId === editingTemplateId}
-              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none bg-white"
-            >
-              <option value="CONTRACT">계약서</option>
-              <option value="EXHIBITION">전시문서</option>
-            </select>
+              maxLength={1000}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 transition-all text-sm disabled:bg-gray-50 resize-none"
+            />
           </div>
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
             <button
               onClick={() => setEditingTemplateId(null)}
               disabled={processingTemplateId === editingTemplateId}
-              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={() => editingTemplateId !== null && handleSaveTemplateEdit(editingTemplateId)}
               disabled={processingTemplateId === editingTemplateId}
-              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400"
             >
-              {processingTemplateId === editingTemplateId ? '저장 중...' : '저장'}
+              {processingTemplateId === editingTemplateId ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              저장
             </button>
           </div>
         </div>
@@ -1917,17 +1953,17 @@ export const UserCeremonyDetail: FC = () => {
                 type="button"
                 disabled
                 title={registerDisabledReason}
-                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium opacity-40"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold opacity-40"
               >
-                <Plus size={12} />
+                <Plus size={14} />
                 새 하위 행사
               </button>
             ) : (
               <Link
                 to={`${detailPath}/events/new`}
-                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors"
               >
-                <Plus size={12} />
+                <Plus size={14} />
                 새 하위 행사
               </Link>
             )
@@ -2073,7 +2109,7 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </section>
 
-      <Modal open={viewingEvent !== null} onClose={() => setViewingEventId(null)} title="하위 행사 상세" widthClassName="max-w-lg">
+      <Modal open={viewingEvent !== null} onClose={() => setViewingEventId(null)} title="하위 행사 상세" widthClassName="max-w-3xl">
         {viewingEvent && (
           <div className="space-y-3">
             <div>
@@ -2132,18 +2168,34 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </Modal>
 
-      <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-lg">
+      <Modal open={editingEventId !== null} onClose={() => setEditingEventId(null)} title="하위 행사 수정" widthClassName="max-w-3xl">
         <div className="space-y-3">
           <fieldset disabled={isEventEditReadOnly || processingEventId === editingEventId} className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
-            <input
-              type="text"
-              value={editEventName}
-              onChange={(e) => setEditEventName(e.target.value)}
-              disabled={isEventEditReadOnly || processingEventId === editingEventId}
-              className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
-            />
+          {/* 이름과 구분을 한 줄에 두고 구분은 드롭다운으로 고른다 — 기존 eform 하위 행사 수정 화면과 같은 배치(2026-11-13). */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+              <input
+                type="text"
+                value={editEventName}
+                onChange={(e) => setEditEventName(e.target.value)}
+                disabled={isEventEditReadOnly || processingEventId === editingEventId}
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">구분</label>
+              <select
+                value={editEventType}
+                onChange={(e) => setEditEventType(e.target.value as CeremonyEventType)}
+                disabled={isEventEditReadOnly || processingEventId === editingEventId}
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-md bg-white text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
+              >
+                {(['TEST', 'REHEARSAL', 'MAIN'] as CeremonyEventType[]).map((type) => (
+                  <option key={type} value={type}>{EVENT_TYPE_LABEL[type]}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">장소</label>

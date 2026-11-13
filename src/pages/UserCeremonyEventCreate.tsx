@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, SquareCheckBig } from 'lucide-react';
+import { ArrowLeft, Loader2, RotateCcw, Save, SquareCheckBig } from 'lucide-react';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { EventDateTimeInput } from '../components/EventDateTimeInput';
@@ -130,35 +130,32 @@ export const UserCeremonyEventCreate: FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-5 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">유형</label>
-          <div className="flex gap-2">
-            {(['TEST', 'REHEARSAL', 'MAIN'] as CeremonyEventType[]).map((type) => (
-              <button
-                type="button"
-                key={type}
-                onClick={() => setEventType(type)}
-                disabled={isLoading}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  eventType === type ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'
-                }`}
-              >
-                {type === 'TEST' ? '테스트' : type === 'REHEARSAL' ? '리허설' : '본행사'}
-              </button>
-            ))}
+        {/* 이름과 구분을 한 줄에 두고 구분은 드롭다운으로 고른다 — 기존 eform 하위 행사 등록 화면과 같은 배치(2026-11-13). */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+              placeholder="예: 1차 리허설"
+            />
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isLoading}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
-            placeholder="예: 1차 리허설"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">구분</label>
+            <select
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value as CeremonyEventType)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all text-sm disabled:bg-gray-50"
+            >
+              <option value="TEST">테스트</option>
+              <option value="REHEARSAL">리허설</option>
+              <option value="MAIN">본행사</option>
+            </select>
+          </div>
         </div>
 
         <div>
@@ -236,13 +233,25 @@ export const UserCeremonyEventCreate: FC = () => {
           disabled={isLoading}
         />
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-2 rounded-lg transition-colors shadow-sm text-sm disabled:bg-gray-400"
-        >
-          {isLoading ? '등록 중...' : '하위 행사 등록'}
-        </button>
+        {/* 버튼 크기와 배치(오른쪽 정렬, 취소·등록)는 기존 eform 하위 행사 등록 화면과 같다(2026-11-13). */}
+        <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={() => navigate(detailPath)}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50 transition-all"
+          >
+            <RotateCcw size={16} /> 취소
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400 transition-all shadow-sm"
+          >
+            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            등록
+          </button>
+        </div>
       </form>
     </div>
   );
