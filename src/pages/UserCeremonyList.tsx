@@ -18,18 +18,21 @@ const STATUS_OPTIONS: Array<{ value: CeremonyStatus | 'ALL'; label: string }> = 
   { value: 'DRAFT', label: '플랜 확정 대기' },
   { value: 'IN_PROGRESS', label: '진행중' },
   { value: 'COMPLETED', label: '완료' },
+  { value: 'CANCELLED', label: '취소' },
 ];
 
 const STATUS_BADGE_CLASS: Record<CeremonyStatus, string> = {
   DRAFT: 'bg-amber-50 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 const STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '플랜 확정 대기',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 
 interface SearchParams {

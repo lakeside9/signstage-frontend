@@ -12,6 +12,7 @@ const STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '준비 중(플랜 미확정)',
   IN_PROGRESS: '진행 중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 
 /**

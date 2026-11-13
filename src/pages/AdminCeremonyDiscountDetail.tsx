@@ -19,6 +19,7 @@ const STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '준비 중(플랜 미확정)',
   IN_PROGRESS: '진행 중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
@@ -158,7 +159,7 @@ export const AdminCeremonyDiscountDetail: FC = () => {
                 </Button>
               ) : (
                 <p className="text-xs text-gray-400">
-                  {ceremony.status === 'DRAFT' ? '플랜 확정 전' : '완료된 행사'}에는 설정할 수 없습니다.
+                  {ceremony.status === 'DRAFT' ? '플랜 확정 전' : ceremony.status === 'CANCELLED' ? '취소된 행사' : '완료된 행사'}에는 설정할 수 없습니다.
                 </p>
               ))
             )}

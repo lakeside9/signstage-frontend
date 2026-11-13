@@ -12,7 +12,7 @@ import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
 import { InspectionResultRows, PartnerOrderAmountBreakdown, PartnerOrderStatusBadge } from './order/components';
 import { PartnerScopeChangeSection } from './order/PartnerScopeChangeSection';
-import { REGION_LABEL, formatMoney, formatSchedule, formatScopeExtras, formatWallDateTime } from './order/constants';
+import { REGION_LABEL, formatDueHour, formatMoney, formatSchedule, formatScopeExtras } from './order/constants';
 import type { PartnerOrderDetail } from '../types';
 
 /**
@@ -145,7 +145,7 @@ export const UserPartnerOrderDetail: FC = () => {
             <PartnerOrderStatusBadge status={summary.status} />
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            응답 기한 {formatWallDateTime(summary.responseDueAt)} · 발주일 {formatDateTime(summary.issuedAt)}
+            응답 기한 {formatDueHour(summary.responseDueAt)} · 발주일 {formatDateTime(summary.issuedAt)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -196,6 +196,15 @@ export const UserPartnerOrderDetail: FC = () => {
           />
           {order.respondedAt && <DetailRow label="응답일" value={formatDateTime(order.respondedAt)} />}
           {order.rejectionReason && <DetailRow label="거절 사유" value={order.rejectionReason} />}
+          {order.cancelledAt && (
+            <DetailRow label="취소" value={`${formatDateTime(order.cancelledAt)} · ${order.cancellationReason ?? ''}`} />
+          )}
+          {order.compensationAmount !== null && (
+            <DetailRow
+              label="취소 보상"
+              value={`${formatMoney(order.compensationAmount, summary.currencyCode)} · 다음 월 정산 지급에 포함됩니다.`}
+            />
+          )}
         </section>
         <section className="bg-white border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-bold text-gray-950 mb-2">발주 금액</h2>

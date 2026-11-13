@@ -18,6 +18,7 @@ const CEREMONY_STATUS_LABEL: Record<string, string> = {
   DRAFT: '준비 중(플랜 미확정)',
   IN_PROGRESS: '진행 중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 
 /** 단위 상품 구성 표 — 포함 수량은 묶음 수, 총 포함 개수는 묶음 수 × 판매 단위다(2026-11-13).

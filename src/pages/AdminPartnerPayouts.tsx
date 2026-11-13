@@ -11,7 +11,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { DetailRow, Field, FormActions } from './billingCatalog/components';
 import { inputClass } from './billingCatalog/constants';
-import { OffsetTable, PartnerLedgerTable, PayoutItemsTable, PayoutStatusBadge } from './order/components';
+import { CompensationTable, OffsetTable, PartnerLedgerTable, PayoutItemsTable, PayoutStatusBadge } from './order/components';
 import { PAYOUT_STATUS_LABEL, blankToNull, formatMoney, previousMonth } from './order/constants';
 import type {
   PageResponse,
@@ -482,6 +482,12 @@ export const AdminPartnerPayouts: FC = () => {
               <section>
                 <h3 className="text-sm font-bold text-gray-950 mb-1">반영된 귀책 상계</h3>
                 <OffsetTable offsets={detail.offsets} />
+              </section>
+            )}
+            {detail.compensations.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold text-gray-950 mb-1">더한 취소 보상</h3>
+                <CompensationTable compensations={detail.compensations} currencyCode={summary.currencyCode} />
               </section>
             )}
 

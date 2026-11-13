@@ -19,7 +19,14 @@ import {
   localIsoDate,
   statusBadgeClass,
 } from './constants';
-import type { CustomerInvoiceStatus, CustomerInvoiceSummary, CustomerInvoiceType, DiscountType, SalesOrderBilling } from '../../types';
+import type {
+  CustomerInvoiceStatus,
+  CustomerInvoiceSummary,
+  CustomerInvoiceType,
+  CustomerRefundSummary,
+  DiscountType,
+  SalesOrderBilling,
+} from '../../types';
 
 /*
  * 고객 청구·수납 화면 공용 — signstage-docs business/platform-order-partner-subcontract-review.md D12·D16.
@@ -246,6 +253,9 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
   const [advanceAmountType, setAdvanceAmountType] = useState<DiscountType>('PERCENT');
   const [advanceValue, setAdvanceValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refundTarget, setRefundTarget] = useState<CustomerRefundSummary | null>(null);
+  const [refundedDate, setRefundedDate] = useState('');
+  const [refundMemo, setRefundMemo] = useState('');
 
   const endpoint = `/platform-admin/sales-orders/${salesOrderId}/invoices`;
 
@@ -302,6 +312,25 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
     }
   };
 
+  const handleRecordRefund = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!refundTarget || !refundedDate) return;
+    setIsSubmitting(true);
+    try {
+      const response = await api.post(`/platform-admin/customer-refunds/${refundTarget.id}/refunded`, {
+        refundedDate,
+        refundMemo: blankToNull(refundMemo),
+      });
+      setBilling(response.data as SalesOrderBilling);
+      setRefundTarget(null);
+      showSnackbar('환불 완료를 기록했습니다.', 'success');
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '환불 기록에 실패했습니다.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!billing) return null;
   const currency = billing.currencyCode;
   const ratePercent = Math.round(billing.advancePaymentRate * 100);
@@ -351,7 +380,40 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
           />
         </div>
       )}
-      {!billing.eventCompleted && billing.invoices.some((invoice) => invoice.invoiceType === 'ADVANCE') && (
+      {billing.cancelledByCustomer && (
+        <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm">
+          <p className="text-gray-700">
+            고객 취소 · 취소 수수료 {billing.cancellationFeeRatePercent ?? 0}%{' '}
+            {formatMoney(billing.cancellationFeeAmount ?? 0, currency)}(공급가 기준, 부가세 없음)
+          </p>
+          {billing.refunds.map((refund) => (
+            <div key={refund.id} className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-2">
+              <div>
+                <p className="font-medium text-gray-950">환불 {formatMoney(refund.amount, currency)}</p>
+                <p className="text-xs text-gray-500">
+                  {refund.status === 'REFUNDED'
+                    ? `${refund.refundedDate} 환불 완료${refund.refundMemo ? ` · ${refund.refundMemo}` : ''}`
+                    : '환불 대기 — 시스템 밖에서 환불한 뒤 환불일을 기록합니다.'}
+                </p>
+              </div>
+              {canManage && refund.status === 'PENDING' && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setRefundedDate(localIsoDate());
+                    setRefundMemo('');
+                    setRefundTarget(refund);
+                  }}
+                >
+                  환불 완료 기록
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!billing.eventCompleted && !billing.cancelledByCustomer && billing.invoices.some((invoice) => invoice.invoiceType === 'ADVANCE') && (
         <p className="mt-2 text-xs text-gray-400">잔금은 행사가 완료되면 청구할 수 있습니다.</p>
       )}
 
@@ -412,6 +474,35 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
           </Field>
           <FormActions isSaving={isSubmitting} savingLabel="청구 중..." saveLabel="청구" onCancel={() => setIssueType(null)} />
         </form>
+      </Modal>
+
+      <Modal open={refundTarget !== null} onClose={() => setRefundTarget(null)} title="환불 완료 기록" widthClassName="max-w-sm">
+        {refundTarget && (
+          <form onSubmit={handleRecordRefund} className="space-y-3">
+            <p className="text-sm text-gray-700">고객에게 {formatMoney(refundTarget.amount, currency)}를 환불한 날을 기록합니다.</p>
+            <Field label="환불일">
+              <input
+                type="date"
+                value={refundedDate}
+                max={localIsoDate()}
+                onChange={(e) => setRefundedDate(e.target.value)}
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="메모(선택)">
+              <input
+                value={refundMemo}
+                onChange={(e) => setRefundMemo(e.target.value)}
+                maxLength={500}
+                placeholder="환불 계좌·방법 등"
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </Field>
+            <FormActions isSaving={isSubmitting} savingLabel="기록 중..." saveLabel="기록" onCancel={() => setRefundTarget(null)} />
+          </form>
+        )}
       </Modal>
     </section>
   );

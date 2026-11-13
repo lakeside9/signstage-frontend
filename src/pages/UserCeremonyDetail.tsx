@@ -60,11 +60,13 @@ const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '플랜 확정 대기',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
   DRAFT: 'bg-amber-50 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 const EVENT_STATUS_LABEL: Record<CeremonyEventStatus, string> = {
@@ -489,7 +491,7 @@ export const UserCeremonyDetail: FC = () => {
   };
 
   const editingEvent = events.find(event => event.id === editingEventId);
-  const isEventEditReadOnly = ceremony?.status === 'COMPLETED'
+  const isEventEditReadOnly = ceremony?.status === 'COMPLETED' || ceremony?.status === 'CANCELLED'
     || !editingEvent
     || ['STARTED', 'FINISHED', 'FORCE_FINISHED'].includes(editingEvent.status);
 
@@ -1000,13 +1002,16 @@ export const UserCeremonyDetail: FC = () => {
     return null;
   }
 
-  const isCompleted = ceremony.status === 'COMPLETED';
+  // 고객 취소로 닫힌 행사도 완료처럼 조회만 한다(C01).
+  const isCancelled = ceremony.status === 'CANCELLED';
+  const isCompleted = ceremony.status === 'COMPLETED' || isCancelled;
+  const closedLabel = isCancelled ? '취소된 행사' : '완료된 행사';
   const isDraft = ceremony.status === 'DRAFT';
   // 플랫폼 수주 행사이거나 직접 수주를 보류 중이면 플랫폼 이용료·고객 견적·현장지원 요청을 숨긴다
   // (signstage-docs business/platform-order-partner-subcontract-review.md D07·D10·D29).
   const showDirectOrderTools = partnerDirectOrderEnabled && ceremony.orderRoute !== 'PLATFORM_ORDER';
   const registerDisabledReason = isCompleted
-    ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+    ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
     : isDraft
       ? '플랜을 확정해야 등록할 수 있습니다. 행사 수정 화면에서 플랜을 확정해주세요.'
       : undefined;
@@ -1041,7 +1046,7 @@ export const UserCeremonyDetail: FC = () => {
             {ceremony.orderRoute === 'PLATFORM_ORDER' && ' · 플랫폼 발주 행사'}
           </p>
           {isCompleted && (
-            <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
+            <p className="mt-1 text-xs text-gray-400">{closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -1302,7 +1307,7 @@ export const UserCeremonyDetail: FC = () => {
                         disabled={processingSignerId === signer.id || signer.locked || isCompleted}
                         title={
                           isCompleted
-                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                             : signer.locked
                               ? '시작되었거나 종료된 하위 행사에 배정돼 수정할 수 없습니다.'
                               : undefined
@@ -1317,7 +1322,7 @@ export const UserCeremonyDetail: FC = () => {
                         disabled={processingSignerId === signer.id || !signer.deletable || isCompleted}
                         title={
                           isCompleted
-                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                             : !signer.deletable
                               ? '서명란에 배정됐거나 서명·감사 기록이 남아 있어 삭제할 수 없습니다.'
                               : undefined
@@ -1605,7 +1610,7 @@ export const UserCeremonyDetail: FC = () => {
                           {template.title}
                         </button>
                         <button type="button" aria-label={`${template.title} 문서명 변경`}
-                          title={isCompleted ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.' : '문서명 변경'}
+                          title={isCompleted ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.` : '문서명 변경'}
                           disabled={isTitleSaving || isCompleted}
                           onClick={() => { setRenamingTemplateId(template.id); setRenamingTitle(template.title); }}
                           className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-950 disabled:opacity-40">
@@ -1649,7 +1654,7 @@ export const UserCeremonyDetail: FC = () => {
                         disabled={processingTemplateId === template.id || template.locked || template.status === 'COMPLETED' || isCompleted}
                         title={
                           isCompleted
-                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                             : template.locked
                               ? '하위 행사에 연결된 문서 양식은 수정할 수 없습니다.'
                               : template.status === 'COMPLETED'
@@ -1673,7 +1678,7 @@ export const UserCeremonyDetail: FC = () => {
                         disabled={processingTemplateId === template.id || template.locked || isCompleted}
                         title={
                           isCompleted
-                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                             : template.locked
                               ? '하위 행사에 연결된 문서 양식은 수정할 수 없습니다.'
                               : undefined
@@ -1688,7 +1693,7 @@ export const UserCeremonyDetail: FC = () => {
                         disabled={processingTemplateId === template.id || !template.deletable || isCompleted}
                         title={
                           isCompleted
-                            ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                            ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                             : !template.deletable
                               ? '이미 하위 행사에 매핑된 문서 양식은 삭제할 수 없습니다.'
                               : undefined
@@ -2031,7 +2036,7 @@ export const UserCeremonyDetail: FC = () => {
                           disabled={processingEventId === event.id}
                           title={
                             isCompleted
-                              ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                              ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                               : isEventLocked
                                 ? '시작되었거나 종료된 하위 행사는 수정할 수 없습니다.'
                                 : undefined
@@ -2046,7 +2051,7 @@ export const UserCeremonyDetail: FC = () => {
                           disabled={processingEventId === event.id || isEventLocked || isCompleted}
                           title={
                             isCompleted
-                              ? '완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.'
+                              ? `${closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.`
                               : isEventLocked
                                 ? '시작되었거나 종료된 하위 행사는 삭제할 수 없습니다.'
                                 : undefined

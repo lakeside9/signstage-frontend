@@ -48,11 +48,13 @@ const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '플랜 확정 대기',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 const CEREMONY_STATUS_COLOR: Record<CeremonyStatus, string> = {
   DRAFT: 'bg-amber-50 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = {
@@ -639,7 +641,10 @@ export const UserCeremonyEdit: FC = () => {
     return null;
   }
 
-  const isCompleted = ceremony.status === 'COMPLETED';
+  // 고객 취소로 닫힌 행사도 완료처럼 조회만 한다(C01).
+  const isCancelled = ceremony.status === 'CANCELLED';
+  const isCompleted = ceremony.status === 'COMPLETED' || isCancelled;
+  const closedLabel = isCancelled ? '취소된 행사' : '완료된 행사';
   const isDraft = ceremony.status === 'DRAFT';
   // 플랫폼 수주 행사는 계약 조건(행사명·장소·일정)을 플랫폼만 바꾸고, 플랫폼 이용료·고객 견적·
   // 현장지원 요청 탭이 없다. 직접 수주를 보류 중이면 직접 수주 행사도 그 탭을 숨긴다
@@ -701,7 +706,7 @@ export const UserCeremonyEdit: FC = () => {
         </h1>
         <p className="mt-1 text-sm text-gray-500">{ceremony.title}</p>
         {isCompleted && (
-          <p className="mt-1 text-xs text-gray-400">완료된 행사입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
+          <p className="mt-1 text-xs text-gray-400">{closedLabel}입니다. 하위 데이터는 조회만 할 수 있습니다.</p>
         )}
       </div>
 
@@ -746,7 +751,7 @@ export const UserCeremonyEdit: FC = () => {
           행사 정보
         </h2>
         {isCompleted ? (
-          <p className="text-sm text-gray-400">완료된 행사는 이름/설명을 수정할 수 없습니다.</p>
+          <p className="text-sm text-gray-400">{closedLabel}는 이름/설명을 수정할 수 없습니다.</p>
         ) : (
           <form onSubmit={handleUpdateCeremony} className="space-y-3">
             <div>
@@ -1211,7 +1216,7 @@ export const UserCeremonyEdit: FC = () => {
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : isCompleted ? (
-          <p className="text-sm text-gray-400">완료된 행사는 더 이상 추가구매할 수 없습니다.</p>
+          <p className="text-sm text-gray-400">{closedLabel}는 더 이상 추가구매할 수 없습니다.</p>
         ) : purchasableInCeremony.length === 0 ? (
           <p className="text-sm text-gray-500">추가구매 가능한 단위 상품이 없습니다.</p>
         ) : (

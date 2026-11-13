@@ -955,7 +955,7 @@ export interface CreateCeremonyRequest {
  * 새로 만든 행사는 이 상태로 시작하고, 이 상태에서만 플랜을 바꿀 수 있다. "플랜 확정"으로
  * DRAFT → IN_PROGRESS로 단방향 전이하면 그때부터 서명자/문서/하위 행사를 등록할 수 있다.
  */
-export type CeremonyStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
+export type CeremonyStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface CeremonySummary {
   location?: string | null;
@@ -2523,6 +2523,8 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   acceptanceChannel: SalesOrderAcceptanceChannel | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  /** 고객 사정으로 수락 뒤 취소했는지(C02). */
+  cancelledByCustomer: boolean;
   memo: string | null;
   serviceDescription: string | null;
   quoteFooterNotice: string | null;
@@ -2600,13 +2602,18 @@ export interface PartnerOrderDetail extends OrderScopeExtras {
   inspection: OrderInspectionSummary | null;
   /** 발주 메모 — 관리자가 전한 내용(준비물·주의사항 등). */
   memo: string | null;
+  /** 취소된 발주의 취소일·사유. 고객 취소면 사유가 "고객 취소: "로 시작한다. */
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  /** 고객 취소 보상(C04) — 다음 월 정산에 더한다. */
+  compensationAmount: number | null;
 }
 
 /* 검수·파트너 지급 — signstage-docs business/platform-order-partner-subcontract-review.md D11·D13. */
 export type InspectionStatus = 'PENDING' | 'APPROVED';
 export type InspectionApprovalType = 'MANUAL' | 'DEEMED';
 export type PartnerPayoutStatus = 'CONFIRMED' | 'PAID' | 'CANCELLED';
-export type PartnerLedgerEntryType = 'PAYABLE' | 'PAYMENT' | 'OFFSET' | 'ADJUSTMENT';
+export type PartnerLedgerEntryType = 'PAYABLE' | 'PAYMENT' | 'OFFSET' | 'ADJUSTMENT' | 'COMPENSATION';
 /** 감액 유형 — 계약 기준표(D13). */
 export type InspectionDeductionType =
   | 'LATE_START_MINOR'
@@ -2701,6 +2708,18 @@ export interface PartnerPayoutDetail {
   summary: PartnerPayoutSummary;
   items: OrderInspectionSummary[];
   offsets: PartnerOffsetSummary[];
+  /** 고객 취소 보상(C04) — 지급액에 더한다. */
+  compensations: PartnerCompensationItem[];
+}
+
+export interface PartnerCompensationItem {
+  id: number;
+  partnerOrderId: number;
+  salesOrderTitle: string;
+  amount: number;
+  ratePercent: number;
+  reason: string;
+  occurredOn: string;
 }
 
 /** 파트너 귀책 상계(D13). {@code carriedOver}면 이전 지급액을 넘어 이월된 상계다. */
@@ -2742,7 +2761,7 @@ export interface PartnerLedger {
 }
 
 /* 고객 청구·수납 — signstage-docs business/platform-order-partner-subcontract-review.md D12·D16. */
-export type CustomerInvoiceType = 'ADVANCE' | 'BALANCE';
+export type CustomerInvoiceType = 'ADVANCE' | 'BALANCE' | 'CANCELLATION_FEE';
 export type CustomerInvoiceStatus = 'ISSUED' | 'PAID' | 'CANCELLED';
 
 export interface CustomerInvoiceSummary {
@@ -2783,6 +2802,44 @@ export interface SalesOrderBilling {
   advanceIssuable: boolean;
   balanceIssuable: boolean;
   invoices: CustomerInvoiceSummary[];
+  cancelledByCustomer: boolean;
+  cancellationFeeRatePercent: number | null;
+  cancellationFeeAmount: number | null;
+  refunds: CustomerRefundSummary[];
+}
+
+/** 고객 취소 환불(C03). 환불은 시스템 밖에서 하고 환불일만 기록한다. */
+export interface CustomerRefundSummary {
+  id: number;
+  amount: number;
+  reason: string;
+  status: 'PENDING' | 'REFUNDED';
+  refundedDate: string | null;
+  refundMemo: string | null;
+}
+
+/** 고객 취소 미리보기(C02~C04). refundAmount와 additionalFeeAmount 중 하나만 0보다 크다. */
+export interface CustomerCancellationPreview {
+  salesOrderId: number;
+  currencyCode: string;
+  eventDate: string | null;
+  daysBeforeEvent: number | null;
+  feeRatePercent: number;
+  feeAmount: number;
+  paidAmount: number;
+  refundAmount: number;
+  additionalFeeAmount: number;
+  unpaidInvoiceCount: number;
+  partnerOrders: Array<{
+    partnerOrderId: number;
+    organizationName: string;
+    status: PartnerOrderStatus;
+    partnerOrderAmount: number;
+    compensationRatePercent: number;
+    compensationAmount: number;
+  }>;
+  ceremonyIds: number[];
+  hasProposedChange: boolean;
 }
 
 export interface SalesQuotePortal {

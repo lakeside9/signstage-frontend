@@ -19,14 +19,15 @@ import {
   ACCEPTANCE_CHANNEL_LABEL,
   REGION_LABEL,
   blankToNull,
+  formatDueHour,
   formatMoney,
   formatSchedule,
   formatScopeExtras,
-  formatWallDateTime,
 } from './order/constants';
 import type {
   AdminPartnerOrderSummary,
   AdminSalesOrderDetail as SalesOrderDetail,
+  CustomerCancellationPreview,
   PageResponse,
   PartnerOrderPreview,
   PlatformAdminOrganizationSummary,
@@ -62,6 +63,8 @@ export const AdminSalesOrderDetail: FC = () => {
   const [acceptedByName, setAcceptedByName] = useState('');
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [customerCancelPreview, setCustomerCancelPreview] = useState<CustomerCancellationPreview | null>(null);
+  const [customerCancelReason, setCustomerCancelReason] = useState('');
 
   const [organizations, setOrganizations] = useState<PlatformAdminOrganizationSummary[]>([]);
   const [partnerId, setPartnerId] = useState('');
@@ -143,6 +146,32 @@ export const AdminSalesOrderDetail: FC = () => {
       '수주를 취소했습니다.', '수주 취소에 실패했습니다.',
     );
     if (ok) setIsCancelOpen(false);
+  };
+
+  const openCustomerCancel = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await api.get(`${basePath}/customer-cancellation`);
+      setCustomerCancelReason('');
+      setCustomerCancelPreview(response.data as CustomerCancellationPreview);
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : '고객 취소 내용을 계산하지 못했습니다.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCustomerCancel = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!customerCancelReason.trim()) {
+      showSnackbar('취소 사유를 입력해주세요.', 'error');
+      return;
+    }
+    const ok = await run(
+      async () => { await api.post(`${basePath}/customer-cancellation`, { reason: customerCancelReason.trim() }); },
+      '고객 취소를 처리했습니다.', '고객 취소에 실패했습니다.',
+    );
+    if (ok) setCustomerCancelPreview(null);
   };
 
   const adjustmentValue = adjustmentAmount === '' || adjustmentAmount === '-' ? null : Number(adjustmentAmount);
@@ -295,7 +324,7 @@ export const AdminSalesOrderDetail: FC = () => {
                 </Button>
               </>
             )}
-            {order.status !== 'CANCELLED' && (
+            {order.status === 'QUOTED' && (
               <Button
                 variant="danger-outline"
                 onClick={() => {
@@ -304,6 +333,11 @@ export const AdminSalesOrderDetail: FC = () => {
                 }}
               >
                 <Ban size={14} /> 수주 취소
+              </Button>
+            )}
+            {order.status === 'ACCEPTED' && (
+              <Button variant="danger-outline" onClick={openCustomerCancel} disabled={isSubmitting}>
+                <Ban size={14} /> 고객 취소
               </Button>
             )}
           </div>
@@ -328,7 +362,10 @@ export const AdminSalesOrderDetail: FC = () => {
             />
           )}
           {order.cancelledAt && (
-            <DetailRow label="취소" value={`${formatDateTime(order.cancelledAt)} · ${order.cancellationReason ?? ''}`} />
+            <DetailRow
+              label={order.cancelledByCustomer ? '고객 취소' : '취소'}
+              value={`${formatDateTime(order.cancelledAt)} · ${order.cancellationReason ?? ''}`}
+            />
           )}
           {order.memo && <DetailRow label="내부 메모" value={<span className="whitespace-pre-wrap">{order.memo}</span>} />}
         </section>
@@ -427,7 +464,7 @@ export const AdminSalesOrderDetail: FC = () => {
                       {po.memo && <p className="mt-0.5 max-w-xs text-xs text-gray-500 whitespace-pre-line">메모: {po.memo}</p>}
                     </td>
                     <td className="py-2 text-right tabular-nums">{formatMoney(po.totalAmount, po.currencyCode)}</td>
-                    <td className="py-2 pl-4 text-gray-500">{formatWallDateTime(po.responseDueAt)}</td>
+                    <td className="py-2 pl-4 text-gray-500">{formatDueHour(po.responseDueAt)}</td>
                     <td className="py-2"><PartnerOrderStatusBadge status={po.status} /></td>
                     <td className="py-2 text-xs text-gray-500">
                       {po.status === 'ACCEPTED' && po.ceremonyId !== null ? (
@@ -575,6 +612,7 @@ export const AdminSalesOrderDetail: FC = () => {
                     currencyCode={currency}
                     {...preview}
                     customItems={order.lines.filter((line) => line.lineType === 'CUSTOM_ITEM')}
+                    warnZeroPricedItems
                   />
                   <dl className="mt-2 border-t border-gray-200 pt-2 text-sm space-y-1">
                     <div className="flex justify-between">
@@ -626,12 +664,88 @@ export const AdminSalesOrderDetail: FC = () => {
 
       <Modal open={isCancelOpen} onClose={() => setIsCancelOpen(false)} title="수주 취소" widthClassName="max-w-sm">
         <form onSubmit={handleCancel} className="space-y-3">
-          <p className="text-sm text-gray-600">응답 대기 중인 발주도 함께 취소합니다. 파트너가 수락한 발주가 있으면 취소할 수 없습니다.</p>
+          <p className="text-sm text-gray-600">고객이 수락하기 전 견적을 닫습니다. 고객이 수락한 수주는 "고객 취소"로 정리합니다.</p>
           <Field label="취소 사유">
             <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} disabled={isSubmitting} className={inputClass} />
           </Field>
           <FormActions isSaving={isSubmitting} savingLabel="처리 중..." saveLabel="수주 취소" onCancel={() => setIsCancelOpen(false)} />
         </form>
+      </Modal>
+
+      <Modal
+        open={customerCancelPreview !== null}
+        onClose={() => setCustomerCancelPreview(null)}
+        title="고객 취소"
+        widthClassName="max-w-lg"
+      >
+        {customerCancelPreview && (
+          <form onSubmit={handleCustomerCancel} className="space-y-3">
+            <p className="text-sm text-gray-600">
+              고객 사정으로 수주를 취소합니다. 발주·행사·청구를 한 번에 정리하며 되돌릴 수 없습니다.
+            </p>
+            <dl className="rounded-md bg-gray-50 p-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">행사일까지</dt>
+                <dd>
+                  {customerCancelPreview.daysBeforeEvent === null
+                    ? '행사일 미정'
+                    : `${customerCancelPreview.eventDate} · ${customerCancelPreview.daysBeforeEvent}일 전`}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">취소 수수료({customerCancelPreview.feeRatePercent}% · 공급가 기준, 부가세 없음)</dt>
+                <dd className="tabular-nums">{formatMoney(customerCancelPreview.feeAmount, currency)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">받은 금액</dt>
+                <dd className="tabular-nums">{formatMoney(customerCancelPreview.paidAmount, currency)}</dd>
+              </div>
+              {customerCancelPreview.refundAmount > 0 && (
+                <div className="flex justify-between font-bold">
+                  <dt>환불할 금액(시스템 밖에서 환불 후 기록)</dt>
+                  <dd className="tabular-nums">{formatMoney(customerCancelPreview.refundAmount, currency)}</dd>
+                </div>
+              )}
+              {customerCancelPreview.additionalFeeAmount > 0 && (
+                <div className="flex justify-between font-bold">
+                  <dt>취소 수수료 청구</dt>
+                  <dd className="tabular-nums">{formatMoney(customerCancelPreview.additionalFeeAmount, currency)}</dd>
+                </div>
+              )}
+            </dl>
+            <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+              {customerCancelPreview.unpaidInvoiceCount > 0 && (
+                <li>입금 전 청구 {customerCancelPreview.unpaidInvoiceCount}건을 취소합니다.</li>
+              )}
+              {customerCancelPreview.partnerOrders.map((impact) => (
+                <li key={impact.partnerOrderId}>
+                  {impact.organizationName} 발주({impact.status === 'ACCEPTED' ? '수락' : '응답 대기'})를 취소합니다
+                  {impact.status === 'ACCEPTED' &&
+                    ` · 취소 보상 ${impact.compensationRatePercent}% ${formatMoney(impact.compensationAmount, currency)}(다음 월 정산에 포함)`}
+                </li>
+              ))}
+              {customerCancelPreview.ceremonyIds.length > 0 && (
+                <li>행사 {customerCancelPreview.ceremonyIds.map((id) => `#${id}`).join(', ')}를 취소 상태로 닫습니다.</li>
+              )}
+              {customerCancelPreview.hasProposedChange && <li>진행 중인 범위 변경을 취소합니다.</li>}
+            </ul>
+            <Field label="취소 사유">
+              <input
+                value={customerCancelReason}
+                onChange={(e) => setCustomerCancelReason(e.target.value)}
+                maxLength={500}
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </Field>
+            <FormActions
+              isSaving={isSubmitting}
+              savingLabel="처리 중..."
+              saveLabel="고객 취소"
+              onCancel={() => setCustomerCancelPreview(null)}
+            />
+          </form>
+        )}
       </Modal>
 
       <Modal

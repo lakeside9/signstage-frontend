@@ -7,7 +7,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { inputClass } from './billingCatalog/constants';
 import { PartnerOrderStatusBadge } from './order/components';
-import { PARTNER_ORDER_STATUS_LABEL, REGION_LABEL, formatMoney, formatSchedule, formatWallDateTime } from './order/constants';
+import { PARTNER_ORDER_STATUS_LABEL, REGION_LABEL, formatDueHour, formatMoney, formatSchedule } from './order/constants';
 import type { PageResponse, PartnerOrderStatus, PartnerOrderSummary } from '../types';
 
 const PAGE_SIZE = 20;
@@ -116,7 +116,7 @@ export const UserPartnerOrderList: FC = () => {
                 <td className="px-4 py-3 text-gray-500">{formatSchedule(po.startsAt, po.endsAt)}</td>
                 <td className="px-4 py-3 text-gray-500">{REGION_LABEL[po.region]} · {po.location ?? '장소 미정'}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatMoney(po.totalAmount, po.currencyCode)}</td>
-                <td className="px-4 py-3 text-gray-500">{formatWallDateTime(po.responseDueAt)}</td>
+                <td className="px-4 py-3 text-gray-500">{formatDueHour(po.responseDueAt)}</td>
                 <td className="px-4 py-3"><PartnerOrderStatusBadge status={po.status} /></td>
               </tr>
             ))}

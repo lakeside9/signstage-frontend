@@ -9,7 +9,7 @@ import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { inputClass } from './billingCatalog/constants';
 import { PartnerOrderStatusBadge } from './order/components';
-import { PARTNER_ORDER_STATUS_LABEL, formatMoney, formatWallDateTime } from './order/constants';
+import { PARTNER_ORDER_STATUS_LABEL, formatDueHour, formatMoney } from './order/constants';
 import type { AdminPartnerOrderSummary, PageResponse, PartnerOrderStatus } from '../types';
 
 const PAGE_SIZE = 20;
@@ -131,7 +131,7 @@ export const AdminPartnerOrderList: FC = () => {
                 <td className="px-4 py-3 text-gray-500">{po.organizationName}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatMoney(po.totalAmount, po.currencyCode)}</td>
                 <td className="px-4 py-3 text-gray-500">{formatDateTime(po.issuedAt)}</td>
-                <td className="px-4 py-3 text-gray-500">{formatWallDateTime(po.responseDueAt)}</td>
+                <td className="px-4 py-3 text-gray-500">{formatDueHour(po.responseDueAt)}</td>
                 <td className="px-4 py-3"><PartnerOrderStatusBadge status={po.status} /></td>
               </tr>
             ))}

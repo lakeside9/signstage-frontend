@@ -7,6 +7,7 @@ import type {
   InspectionStatus,
   OrderInspectionSummary,
   PartnerLedger,
+  PartnerCompensationItem,
   PartnerOffsetSummary,
   PartnerOrderStatus,
   PartnerPayoutStatus,
@@ -73,6 +74,8 @@ interface PartnerOrderAmountBreakdownProps {
   customItemAmount?: number;
   /** 직접 입력 항목 내역 — 주면 합계 한 줄 대신 품목별로 보여준다(발주 단가 0원 품목도 보인다). */
   customItems?: PartnerCustomItem[];
+  /** 발주 단가 0인 직접 입력 항목을 경고한다(관리자 발주 화면, I02). */
+  warnZeroPricedItems?: boolean;
 }
 
 /** 파트너 발주에 들어가는 직접 입력 항목 한 줄 — 견적 줄에서 가져온다. */
@@ -131,19 +134,28 @@ export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> =
       formatMoney(amount.adjustmentAmount, amount.currencyCode),
     ]);
   }
+  const zeroPricedItems = !amount.warnZeroPricedItems ? [] : (amount.customItems ?? []).filter((item) => !(item.partnerUnitPrice && item.partnerUnitPrice > 0));
   return (
-    <dl className="text-sm divide-y divide-gray-100">
-      {rows.map(([label, value], index) => (
-        <div key={index} className="flex justify-between gap-3 py-1.5">
-          <dt className="text-gray-500">{label}</dt>
-          <dd className="text-gray-950 tabular-nums">{value}</dd>
+    <>
+      {zeroPricedItems.length > 0 && (
+        <p className="mb-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+          발주 단가가 0인 직접 입력 항목({zeroPricedItems.map((item) => item.name).join(', ')})이 있습니다. 파트너에게 맡기는 품목이면
+          수주 견적에서 발주 단가를 넣으세요.
+        </p>
+      )}
+      <dl className="text-sm divide-y divide-gray-100">
+        {rows.map(([label, value], index) => (
+          <div key={index} className="flex justify-between gap-3 py-1.5">
+            <dt className="text-gray-500">{label}</dt>
+            <dd className="text-gray-950 tabular-nums">{value}</dd>
+          </div>
+        ))}
+        <div className="flex justify-between gap-3 py-1.5 font-bold">
+          <dt className="text-gray-950">발주 금액(공급가)</dt>
+          <dd className="text-gray-950 tabular-nums">{formatMoney(amount.totalAmount, amount.currencyCode)}</dd>
         </div>
-      ))}
-      <div className="flex justify-between gap-3 py-1.5 font-bold">
-        <dt className="text-gray-950">발주 금액(공급가)</dt>
-        <dd className="text-gray-950 tabular-nums">{formatMoney(amount.totalAmount, amount.currencyCode)}</dd>
-      </div>
-    </dl>
+      </dl>
+    </>
   );
 };
 
@@ -269,6 +281,32 @@ export const PartnerLedgerTable: FC<{ ledger: PartnerLedger }> = ({ ledger }) =>
       </table>
     )}
   </div>
+);
+
+/** 지급 건에 더한 고객 취소 보상(C04). */
+export const CompensationTable: FC<{ compensations: PartnerCompensationItem[]; currencyCode: string }> = ({ compensations, currencyCode }) => (
+  <table className="w-full text-sm">
+    <thead className="text-xs text-gray-500 border-b border-gray-200">
+      <tr>
+        <th className="text-left font-medium py-2">발생일</th>
+        <th className="text-left font-medium py-2">행사</th>
+        <th className="text-left font-medium py-2">사유</th>
+        <th className="text-right font-medium py-2">보상</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100">
+      {compensations.map((compensation) => (
+        <tr key={compensation.id}>
+          <td className="py-2 text-gray-500">{compensation.occurredOn}</td>
+          <td className="py-2 text-gray-950">{compensation.salesOrderTitle}</td>
+          <td className="py-2 text-gray-500">
+            고객 취소({compensation.ratePercent}%) · {compensation.reason}
+          </td>
+          <td className="py-2 text-right tabular-nums">{formatMoney(compensation.amount, currencyCode)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
 );
 
 /** 귀책 상계 목록(D13). {@code onCancel}이 있으면 정산 대기 상계에 취소 버튼을 둔다. */
@@ -440,6 +478,11 @@ export const CustomItemsField: FC<{
             </li>
           ))}
         </ul>
+      )}
+      {value.some((item) => item.name.trim() !== '' && !(Number(item.partnerUnitPrice) > 0)) && (
+        <p className="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+          발주 단가가 0인 항목이 있습니다. 파트너가 수행하는 품목이면 발주 금액에 들어가지 않으니 발주 단가를 확인하세요.
+        </p>
       )}
     </div>
   );

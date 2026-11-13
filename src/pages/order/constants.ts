@@ -106,6 +106,7 @@ export const LEDGER_ENTRY_TYPE_LABEL: Record<PartnerLedgerEntryType, string> = {
   PAYMENT: '지급',
   OFFSET: '귀책 상계',
   ADJUSTMENT: '이의 조정',
+  COMPENSATION: '취소 보상',
 };
 
 /** 감액 유형(계약 기준표, D13) — 서버 InspectionDeductionType과 같다. 기준 비율은 서버에서 받는다. */
@@ -138,7 +139,7 @@ export const SALES_ORDER_CHANGE_STATUS_STYLE: Record<SalesOrderChangeStatus, str
 
 export const OFFSET_STATUS_LABEL: Record<PartnerOffsetStatus, string> = { PENDING: '정산 대기', APPLIED: '지급에 반영', CANCELLED: '취소' };
 
-export const INVOICE_TYPE_LABEL: Record<CustomerInvoiceType, string> = { ADVANCE: '선금', BALANCE: '잔금' };
+export const INVOICE_TYPE_LABEL: Record<CustomerInvoiceType, string> = { ADVANCE: '선금', BALANCE: '잔금', CANCELLATION_FEE: '취소 수수료' };
 
 export const INVOICE_STATUS_LABEL: Record<CustomerInvoiceStatus, string> = {
   ISSUED: '입금 대기',
@@ -190,6 +191,10 @@ export const formatMoney = (value: number | null | undefined, currencyCode = PLA
  */
 export const formatWallDateTime = (value: string | null | undefined) =>
   value ? value.replace('T', ' ').slice(0, 16) : '-';
+
+/** 발주 응답 기한 — 시 단위로 받으므로 "YYYY-MM-DD HH시"로 보여준다(I01). */
+export const formatDueHour = (value: string | null | undefined) =>
+  value ? `${value.slice(0, 10)} ${value.slice(11, 13)}시` : '-';
 
 export const formatSchedule = (startsAt: string | null | undefined, endsAt: string | null | undefined) => {
   if (!startsAt && !endsAt) return '미정';

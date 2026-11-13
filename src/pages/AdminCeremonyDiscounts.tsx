@@ -16,18 +16,21 @@ const STATUS_OPTIONS: Array<{ value: CeremonyStatus | 'ALL'; label: string }> = 
   { value: 'DRAFT', label: '준비 중(플랜 미확정)' },
   { value: 'IN_PROGRESS', label: '진행 중' },
   { value: 'COMPLETED', label: '완료' },
+  { value: 'CANCELLED', label: '취소' },
 ];
 
 const STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '준비 중',
   IN_PROGRESS: '진행 중',
   COMPLETED: '완료',
+  CANCELLED: '취소',
 };
 
 const STATUS_BADGE_CLASS: Record<CeremonyStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-600 border-gray-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 const formatDiscount = (discountType: DiscountType, discountValue: number) =>
