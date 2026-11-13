@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, Copy, FileText, Loader2, Pencil, Send, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, FileDown, FileText, Loader2, Pencil, Send, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
@@ -39,11 +39,9 @@ const defaultResponseDueAt = () => {
   return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T18:00`;
 };
 
-const quoteLinkOf = (token: string) => `${window.location.origin}/sales-quotes/${token}`;
-
 /**
  * 수주 상세(플랫폼 관리자) — signstage-docs business/platform-order-partner-subcontract-review.md
- * 3장 흐름의 중심 화면. 견적 → 고객 수락(견적 링크 또는 관리자 기록) → 파트너 발주(미리보기로
+ * 3장 흐름의 중심 화면. 견적(PDF로 고객에게 전달) → 고객 수락(관리자 기록) → 파트너 발주(미리보기로
  * 발주 금액·마진·파트너 자격 확인 후 발급) → 파트너 수락 시 행사 생성. 수주당 응답 대기·수락
  * 발주는 하나이고(D04), 거절·만료·취소된 뒤에는 다시 발주할 수 있다.
  */
@@ -238,16 +236,6 @@ export const AdminSalesOrderDetail: FC = () => {
     if (ok) setOffsetTarget(null);
   };
 
-  const handleCopyLink = async () => {
-    if (!order) return;
-    try {
-      await navigator.clipboard.writeText(quoteLinkOf(order.quoteAccessToken));
-      showSnackbar('견적 링크를 복사했습니다.', 'success');
-    } catch {
-      showSnackbar('복사하지 못했습니다. 링크를 직접 선택해 복사해주세요.', 'error');
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-400">
@@ -343,6 +331,12 @@ export const AdminSalesOrderDetail: FC = () => {
 
         <section className="bg-white border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-bold text-gray-950 mb-2">고객 견적</h2>
+          {order.serviceDescription && (
+            <div className="mb-3 rounded-md bg-gray-50 px-3 py-2">
+              <p className="text-xs font-medium text-gray-500">제공 서비스</p>
+              <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{order.serviceDescription}</p>
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead className="text-xs text-gray-500">
               <tr>
@@ -353,7 +347,7 @@ export const AdminSalesOrderDetail: FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {order.lines.map((line, index) => (
-                <tr key={index}>
+                <tr key={index} className="align-top">
                   <td className="py-1.5 text-gray-950">
                     {line.name}
                     {line.lineType === 'CUSTOM_ITEM' && (
@@ -361,6 +355,7 @@ export const AdminSalesOrderDetail: FC = () => {
                         직접 입력 · 발주 단가 {formatMoney(line.partnerUnitPrice ?? 0, currency)}
                       </span>
                     )}
+                    {line.description && <p className="mt-0.5 text-xs text-gray-500 whitespace-pre-line">{line.description}</p>}
                   </td>
                   <td className="py-1.5 text-right text-gray-500 tabular-nums">{line.quantity}</td>
                   <td className="py-1.5 text-right tabular-nums">{formatMoney(line.amount, currency)}</td>
@@ -381,14 +376,15 @@ export const AdminSalesOrderDetail: FC = () => {
             </div>
           </dl>
           {order.status !== 'CANCELLED' && (
-            <div className="mt-4 rounded-md bg-gray-50 p-3">
-              <p className="text-xs font-medium text-gray-500 mb-1">고객 견적 링크(로그인 없이 열람·수락)</p>
-              <div className="flex items-center gap-2">
-                <input readOnly value={quoteLinkOf(order.quoteAccessToken)} className={`${inputClass} bg-white text-xs`} />
-                <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-                  <Copy size={12} /> 복사
-                </Button>
-              </div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-md bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">견적서를 확인하고 PDF로 내려받아 고객에게 전달합니다(견적 링크는 외부에 주지 않습니다).</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(`/admin/sales-orders/${order.id}/quote-document`, '_blank', 'noopener')}
+              >
+                <FileDown size={12} /> 견적서 보기·PDF
+              </Button>
             </div>
           )}
         </section>

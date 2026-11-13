@@ -36,6 +36,7 @@ const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateUnitP
     type,
     name: '',
     description: '',
+    quoteDescription: '',
     category,
     exclusivityGroup: '',
     maxPurchaseQuantity: null,
@@ -61,6 +62,7 @@ const toRequestBody = (draft: CreateUnitProductRequest): CreateUnitProductReques
         type: draft.type,
         name: draft.name,
         description: draft.description,
+        quoteDescription: draft.quoteDescription,
         category: draft.category,
         exclusivityGroup: draft.exclusivityGroup,
         maxPurchaseQuantity: draft.maxPurchaseQuantity,
@@ -124,6 +126,7 @@ export const AdminUnitProductCreate: FC = () => {
         ...toRequestBody(draft),
         name: draft.name.trim(),
         description: normalizeDescription(draft.description),
+        quoteDescription: normalizeDescription(draft.quoteDescription),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
       setCreated(response.data as UnitProductSummary);
@@ -338,13 +341,24 @@ export const AdminUnitProductCreate: FC = () => {
               </>
             )}
           </div>
-          <Field label="설명(선택)">
+          <Field label="설명(관리자용, 선택)">
             <textarea
               value={draft.description ?? ''}
               onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
               disabled={isLoading}
               rows={3}
               placeholder="이 상품이 무엇인지 설명해주세요 — 이벤트 효과 묶음처럼 이름만으로는 무엇이 포함되는지 알기 어려운 상품일수록 도움이 됩니다."
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
+          <Field label="견적서 표시 설명(선택)">
+            <textarea
+              value={draft.quoteDescription ?? ''}
+              onChange={(e) => setDraft((prev) => ({ ...prev, quoteDescription: e.target.value }))}
+              disabled={isLoading}
+              rows={2}
+              maxLength={500}
+              placeholder="고객 견적서에서 이 상품 이름 아래 보이는 설명입니다(예: 행사용 서명 문서 템플릿 제작, 묶음당 10종). 비우면 이름만 보입니다."
               className={`${inputClass} resize-y`}
             />
           </Field>

@@ -62,11 +62,14 @@ interface QuoteDraft {
   discountReason: string;
   quoteValidUntil: string;
   memo: string;
+  /** 견적서 "제공 서비스" 본문 — 플랜을 고르면 플랜 문구로 채우고, 견적마다 고칠 수 있다. */
+  serviceDescription: string;
 }
 
 const EMPTY_DRAFT: QuoteDraft = {
   customerId: '', title: '', billingPlanId: '', region: 'CAPITAL', location: '', startsAt: '', endsAt: '',
   options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, adjustment: EMPTY_QUOTE_ADJUSTMENT_DRAFT, discountReason: '', quoteValidUntil: '', memo: '',
+  serviceDescription: '',
 };
 
 const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => ({
@@ -86,6 +89,7 @@ const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => ({
     discountReason: order.discountReason ?? '',
     quoteValidUntil: order.quoteValidUntil,
     memo: order.memo ?? '',
+    serviceDescription: order.serviceDescription ?? '',
 });
 
 /**
@@ -137,6 +141,14 @@ export const AdminSalesOrderForm: FC = () => {
   const update = <K extends keyof QuoteDraft>(field: K, value: QuoteDraft[K]) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
 
+  /** 플랜을 바꾸면 서비스 설명을 새 플랜 문구로 바꾼다 — 관리자가 고친 문구(이전 플랜 문구와 다르면)는 그대로 둔다. */
+  const changePlan = (billingPlanId: string) =>
+    setDraft((prev) => {
+      const planText = (id: string) => plans.find((plan) => String(plan.id) === id)?.serviceDescription ?? '';
+      const isUntouched = prev.serviceDescription.trim() === '' || prev.serviceDescription === planText(prev.billingPlanId);
+      return { ...prev, billingPlanId, serviceDescription: isUntouched ? planText(billingPlanId) : prev.serviceDescription };
+    });
+
   const optionSaleUnitHint = (unitProductId: string) => {
     const product = unitProducts.find((item) => String(item.id) === unitProductId);
     return product ? saleUnitHint(product) : null;
@@ -161,6 +173,8 @@ export const AdminSalesOrderForm: FC = () => {
     ...toScopeExtras(draft.extras),
     quoteValidUntil: draft.quoteValidUntil || null,
     memo: blankToNull(draft.memo),
+    // 빈 문자열이면 견적서에 "제공 서비스" 칸을 두지 않는다(null을 보내면 서버가 플랜 문구를 쓴다).
+    serviceDescription: draft.serviceDescription.trim(),
   });
 
   // 계산 결과 미리보기 — 계산할 수 없는 입력이면 안내 문구만 보인다.
@@ -317,7 +331,7 @@ export const AdminSalesOrderForm: FC = () => {
           <Field label="패키지(범위 플랜)">
             <select
               value={draft.billingPlanId}
-              onChange={(e) => update('billingPlanId', e.target.value)}
+              onChange={(e) => changePlan(e.target.value)}
               disabled={isSaving}
               className={`${inputClass} bg-white`}
             >
@@ -423,6 +437,32 @@ export const AdminSalesOrderForm: FC = () => {
           </div>
           {!draft.quoteValidUntil && <p className="text-xs text-gray-400">비우면 오늘부터 30일입니다.</p>}
           <QuotePreview {...quotePreview} />
+          <Field label="견적서 서비스 설명">
+            <textarea
+              value={draft.serviceDescription}
+              onChange={(e) => update('serviceDescription', e.target.value)}
+              disabled={isSaving}
+              rows={5}
+              maxLength={5000}
+              placeholder="고객 견적서의 &quot;제공 서비스&quot;에 보이는 설명입니다. 비우면 그 칸이 없습니다."
+              className={`${inputClass} resize-y`}
+            />
+            <div className="mt-1 flex items-start justify-between gap-3">
+              <p className="text-xs text-gray-400">
+                패키지를 고르면 플랜 문구로 채워집니다. 이 견적에만 적용되고, 패키지 줄에는 플랜에서 "견적서 표시"를 켠 포함 상품, 옵션 줄에는 상품 견적서 설명이 자동으로 붙습니다.
+              </p>
+              {selectedPlan?.serviceDescription && draft.serviceDescription !== selectedPlan.serviceDescription && (
+                <button
+                  type="button"
+                  onClick={() => update('serviceDescription', selectedPlan.serviceDescription ?? '')}
+                  disabled={isSaving}
+                  className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-950 hover:underline"
+                >
+                  플랜 문구로 되돌리기
+                </button>
+              )}
+            </div>
+          </Field>
           <Field label="내부 메모">
             <textarea
               value={draft.memo}

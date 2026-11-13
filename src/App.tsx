@@ -84,6 +84,7 @@ import { AdminMarginSimulator } from './pages/AdminMarginSimulator';
 import { UserPartnerPayoutEntry } from './pages/UserPartnerPayoutEntry';
 import { UserPartnerPayoutList } from './pages/UserPartnerPayoutList';
 import { SalesQuotePortalView } from './pages/SalesQuotePortalView';
+import { AdminSalesQuoteDocument } from './pages/AdminSalesQuoteDocument';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -103,6 +104,15 @@ function App() {
           element={
             <ProtectedRoute requireDemoViewer>
               <DemoView />
+            </ProtectedRoute>
+          }
+        />
+        {/* 관리자 레이아웃 밖 단독 화면 — 인쇄(PDF 저장)하면 견적서만 나온다. */}
+        <Route
+          path="/admin/sales-orders/:salesOrderId/quote-document"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminSalesQuoteDocument />
             </ProtectedRoute>
           }
         />

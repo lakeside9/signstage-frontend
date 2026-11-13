@@ -22,12 +22,13 @@ const CEREMONY_STATUS_LABEL: Record<string, string> = {
 
 /** 단위 상품 구성 표 — 포함 수량은 묶음 수, 총 포함 개수는 묶음 수 × 판매 단위다(2026-11-13).
  * compact는 좁은 이력 모달용으로 유형을 상품명 아래에 두고 추가구매 열을 뺀다. 이력 스냅샷에는
- * 판매가가 없어(salePrice null) showPrice를 끈다. */
-const UnitProductLineTable: FC<{ lines: PlanUnitProductLineSummary[]; showPrice: boolean; compact?: boolean }> = ({
-  lines,
-  showPrice,
-  compact = false,
-}) => (
+ * 판매가가 없어(salePrice null) showPrice를 끈다. showQuoteFlag는 플랫폼 수주 플랜의 "견적서 표시" 열이다. */
+const UnitProductLineTable: FC<{
+  lines: PlanUnitProductLineSummary[];
+  showPrice: boolean;
+  showQuoteFlag: boolean;
+  compact?: boolean;
+}> = ({ lines, showPrice, showQuoteFlag, compact = false }) => (
   <div className="rounded-md border border-gray-200 overflow-x-auto">
     <table className={`w-full ${compact ? 'text-xs' : 'text-sm'}`}>
       <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -39,6 +40,7 @@ const UnitProductLineTable: FC<{ lines: PlanUnitProductLineSummary[]; showPrice:
           <th className="text-right px-3 py-2 font-medium">총 포함 개수</th>
           {showPrice && <th className="text-right px-3 py-2 font-medium">판매가(개당)</th>}
           {showPrice && <th className="text-right px-3 py-2 font-medium">소계</th>}
+          {showQuoteFlag && <th className="text-center px-3 py-2 font-medium whitespace-nowrap">견적서 표시</th>}
           {!compact && <th className="text-left px-3 py-2 font-medium">추가구매</th>}
         </tr>
       </thead>
@@ -71,6 +73,15 @@ const UnitProductLineTable: FC<{ lines: PlanUnitProductLineSummary[]; showPrice:
               {showPrice && (
                 <td className="px-3 py-2 text-right tabular-nums">
                   {line.salePrice === null ? '-' : formatPrice(line.salePrice * line.totalQuantity, currencyCode)}
+                </td>
+              )}
+              {showQuoteFlag && (
+                <td className="px-3 py-2 text-center">
+                  {line.showOnQuote && line.includedQuantity > 0 ? (
+                    <span className="text-gray-950">표시</span>
+                  ) : (
+                    <span className="text-gray-300">-</span>
+                  )}
                 </td>
               )}
               {/* 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매
@@ -277,12 +288,20 @@ export const AdminBillingPlanDetail: FC = () => {
                 <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
               </>
             )}
+            {plan.serviceDescription ? (
+              <div className="px-4 py-3 space-y-1">
+                <span className="text-xs font-medium text-gray-500">견적서 서비스 설명</span>
+                <p className="text-sm text-gray-950 whitespace-pre-line">{plan.serviceDescription}</p>
+              </div>
+            ) : (
+              <DetailRow label="견적서 서비스 설명" value="없음" />
+            )}
             {plan.unitProducts.length === 0 ? (
               <DetailRow label="단위 상품 구성" value="없음" />
             ) : (
               <div className="px-4 py-3 space-y-2">
                 <span className="text-xs font-medium text-gray-500">단위 상품 구성</span>
-                <UnitProductLineTable lines={plan.unitProducts} showPrice={!isPlatformOrder} />
+                <UnitProductLineTable lines={plan.unitProducts} showPrice={!isPlatformOrder} showQuoteFlag={isPlatformOrder} />
               </div>
             )}
             <DetailRow
@@ -328,11 +347,14 @@ export const AdminBillingPlanDetail: FC = () => {
               <li key={h.id} className="py-2">
                 <p className="text-sm text-gray-950 font-medium">{h.name}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
+                {h.serviceDescription && (
+                  <p className="text-xs text-gray-500 mt-1 whitespace-pre-line">{h.serviceDescription}</p>
+                )}
                 {h.unitProducts.length === 0 ? (
                   <p className="text-xs text-gray-500 mt-1">포함 단위 상품 없음</p>
                 ) : (
                   <div className="mt-2">
-                    <UnitProductLineTable lines={h.unitProducts} showPrice={false} compact />
+                    <UnitProductLineTable lines={h.unitProducts} showPrice={false} showQuoteFlag={isPlatformOrder} compact />
                   </div>
                 )}
               </li>

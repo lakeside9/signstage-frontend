@@ -6,8 +6,8 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { BundleSizeCell, Field, TotalQuantityCell, UsageWarning } from './billingCatalog/components';
-import { TOGGLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, inputClass } from './billingCatalog/constants';
+import { BundleSizeCell, Field, ServiceDescriptionField, ShowOnQuoteCell, TotalQuantityCell, UsageWarning } from './billingCatalog/components';
+import { TOGGLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, defaultShowOnQuote, inputClass, isPlanComposable, normalizeDescription } from './billingCatalog/constants';
 import type { BillingPlanSummary, PlanUnitProductLine, UnitProductSummary, UpdateBillingPlanRequest } from '../types';
 
 /**
@@ -18,6 +18,8 @@ import type { BillingPlanSummary, PlanUnitProductLine, UnitProductSummary, Updat
  */
 interface LineDraft {
   includedQuantity: number | null;
+  /** 고객 견적서 패키지 줄 아래에 보일지(플랫폼 수주 플랜만 쓴다). */
+  showOnQuote: boolean;
 }
 
 /** 과금 플랜 수정 — 인라인 편집이 아니라 별도 페이지로 구성한다(사용자 요청, 2026-09-09).
@@ -32,6 +34,7 @@ export const AdminBillingPlanEdit: FC = () => {
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
   const [products, setProducts] = useState<UnitProductSummary[]>([]);
   const [name, setName] = useState('');
+  const [serviceDescription, setServiceDescription] = useState('');
   const [lineDrafts, setLineDrafts] = useState<Record<number, LineDraft>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,14 +55,17 @@ export const AdminBillingPlanEdit: FC = () => {
             return;
           }
           setPlan(found);
-          // 플랜과 같은 판매 경로의 단위 상품만 구성에 올릴 수 있다(서버도 다시 확인한다).
-          setProducts(allProducts.filter((p) => p.salesChannel === found.salesChannel));
+          // 플랜과 같은 판매 경로의 단위 상품만 구성에 올릴 수 있고(서버도 다시 확인한다), 플랫폼 수주 플랜은
+          // 플랫폼 제공 상품만 보인다. 예전에 넣어 둔 파트너 수행 상품은 몰래 빠지지 않게 그대로 보여 직접 비우게 한다.
+          const includedIds = new Set(found.unitProducts.map((line) => line.unitProductId));
+          setProducts(allProducts.filter((p) => isPlanComposable(p, found.salesChannel) || includedIds.has(p.id)));
           setName(found.name);
+          setServiceDescription(found.serviceDescription ?? '');
           const drafts: Record<number, LineDraft> = Object.fromEntries(
-            allProducts.map((p) => [p.id, { includedQuantity: null }]),
+            allProducts.map((p) => [p.id, { includedQuantity: null, showOnQuote: defaultShowOnQuote(p.type) }]),
           );
           for (const line of found.unitProducts) {
-            drafts[line.unitProductId] = { includedQuantity: line.includedQuantity };
+            drafts[line.unitProductId] = { includedQuantity: line.includedQuantity, showOnQuote: line.showOnQuote };
           }
           setLineDrafts(drafts);
         }
@@ -77,10 +83,11 @@ export const AdminBillingPlanEdit: FC = () => {
 
   const buildLines = (): PlanUnitProductLine[] =>
     Object.entries(lineDrafts)
-      .filter((entry): entry is [string, { includedQuantity: number }] => entry[1].includedQuantity !== null)
+      .filter((entry): entry is [string, LineDraft & { includedQuantity: number }] => entry[1].includedQuantity !== null)
       .map(([unitProductId, line]) => ({
         unitProductId: Number(unitProductId),
         includedQuantity: line.includedQuantity,
+        showOnQuote: line.includedQuantity > 0 && line.showOnQuote,
       }));
 
   const handleSubmit = async (e: FormEvent) => {
@@ -91,7 +98,11 @@ export const AdminBillingPlanEdit: FC = () => {
     }
     setIsSaving(true);
     try {
-      const body: UpdateBillingPlanRequest = { name: name.trim(), unitProducts: buildLines() };
+      const body: UpdateBillingPlanRequest = {
+        name: name.trim(),
+        serviceDescription: normalizeDescription(serviceDescription),
+        unitProducts: buildLines(),
+      };
       await api.put(`/platform-admin/billing-plans/${planId}`, body);
       showSnackbar('과금 플랜을 저장했습니다.', 'success');
       navigate(`/admin/billing-catalog/plans/${planId}`);
@@ -139,8 +150,15 @@ export const AdminBillingPlanEdit: FC = () => {
             </Field>
           </div>
 
+          <ServiceDescriptionField value={serviceDescription} onChange={setServiceDescription} disabled={isSaving} />
+
           <div>
             <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>
+            {plan.salesChannel === 'PLATFORM_ORDER' && (
+              <p className="mb-1 text-xs text-gray-400">
+                플랫폼 제공 단위 상품만 보입니다 — 파트너 수행 상품(장비·인력)은 견적의 추가 옵션으로 넣습니다.
+              </p>
+            )}
             {products.length === 0 ? (
               <p className="text-xs text-gray-400">등록된 단위 상품이 없습니다.</p>
             ) : (
@@ -152,11 +170,12 @@ export const AdminBillingPlanEdit: FC = () => {
                       <th className="text-right px-3 py-2 font-medium w-32">묶음 상품 개수</th>
                       <th className="text-left px-3 py-2 font-medium w-32">입력 개수(묶음 수)</th>
                       <th className="text-right px-3 py-2 font-medium w-28">총 개수</th>
+                      {plan.salesChannel === 'PLATFORM_ORDER' && <th className="text-center px-3 py-2 font-medium w-24">견적서 표시</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => {
-                      const line = lineDrafts[product.id] ?? { includedQuantity: null };
+                      const line = lineDrafts[product.id] ?? { includedQuantity: null, showOnQuote: defaultShowOnQuote(product.type) };
                       const isToggle = TOGGLE_UNIT_PRODUCT_TYPES.includes(product.type);
                       return (
                         <tr key={product.id}>
@@ -165,6 +184,11 @@ export const AdminBillingPlanEdit: FC = () => {
                             <span className="ml-1.5 text-xs text-gray-400">
                               {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type}
                             </span>
+                            {!isPlanComposable(product, plan.salesChannel) && (
+                              <span className="ml-1.5 inline-block rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+                                파트너 수행 · 기존 구성(비우면 빠짐)
+                              </span>
+                            )}
                           </td>
                           <BundleSizeCell type={product.type} saleUnitQuantity={product.saleUnitQuantity} />
                           <td className="px-3 py-2">
@@ -179,7 +203,7 @@ export const AdminBillingPlanEdit: FC = () => {
                                 onChange={(raw) => {
                                   setLineDrafts((prev) => ({
                                     ...prev,
-                                    [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
+                                    [product.id]: { ...line, includedQuantity: raw === '' ? null : Number(raw) },
                                   }));
                                 }}
                                 className={inputClass}
@@ -191,6 +215,16 @@ export const AdminBillingPlanEdit: FC = () => {
                             saleUnitQuantity={product.saleUnitQuantity}
                             includedQuantity={line.includedQuantity}
                           />
+                          {plan.salesChannel === 'PLATFORM_ORDER' && (
+                            <ShowOnQuoteCell
+                              checked={line.showOnQuote}
+                              includedQuantity={line.includedQuantity}
+                              disabled={isSaving}
+                              onChange={(showOnQuote) =>
+                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, showOnQuote } }))
+                              }
+                            />
+                          )}
                         </tr>
                       );
                     })}

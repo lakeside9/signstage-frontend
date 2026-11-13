@@ -509,6 +509,8 @@ export interface UnitProductSummary {
   name: string;
   /** 이 상품이 무엇인지 설명하는 자유 텍스트. null이면 설명 없음(2026-09-11 사용자 요청). */
   description: string | null;
+  /** 고객 견적서에서 이 상품 줄 아래 보이는 설명(관리자 메모인 description과 별개). */
+  quoteDescription: string | null;
   /** 같은 값을 가진 다른 단위 상품과 한 CeremonyEvent에 동시 적용할 수 없다. null이면 배타 관계 없음. */
   exclusivityGroup: string | null;
   /**
@@ -567,6 +569,7 @@ export interface UnitProductHistorySummary {
   type: UnitProductType;
   name: string;
   description: string | null;
+  quoteDescription: string | null;
   category: UnitProductCategory;
   exclusivityGroup: string | null;
   maxPurchaseQuantity: number | null;
@@ -585,6 +588,7 @@ export interface CreateUnitProductRequest {
   name: string;
   /** 이 상품이 무엇인지 설명하는 자유 텍스트. 생략하면(undefined) 설명 없음(2026-09-11 사용자 요청). */
   description?: string | null;
+  quoteDescription?: string | null;
   category: UnitProductCategory;
   exclusivityGroup?: string | null;
   /**
@@ -631,6 +635,7 @@ export interface UpdateUnitProductRequest {
   name: string;
   /** 이 상품이 무엇인지 설명하는 자유 텍스트. null이면 설명 없음(2026-09-11 사용자 요청). */
   description: string | null;
+  quoteDescription?: string | null;
   exclusivityGroup: string | null;
   /** 한 행사에서 추가구매로 누적 살 수 있는 최대 수량. null이면 무제한. `EVENT_EFFECT_BUNDLE`이면 보내도 무시된다. */
   maxPurchaseQuantity: number | null;
@@ -659,6 +664,8 @@ export interface PlanUnitProductLine {
    * 타입은 0 또는 1만 허용된다.
    */
   includedQuantity: number;
+  /** 고객 견적서 패키지 줄 아래에 포함 수량을 보일지. 생략하면 서명자만 보인다. */
+  showOnQuote?: boolean;
 }
 
 /** 플랜이 포함하는 단위 상품 한 줄 응답 — 목록/상세/이력 화면이 공유한다. */
@@ -673,6 +680,8 @@ export interface PlanUnitProductLineSummary {
   saleUnitQuantity: number;
   /** 실제 포함 개수 = 묶음 수 × 판매 단위 — 행사 한도·금액은 이 값이다. */
   totalQuantity: number;
+  /** 고객 견적서 패키지 줄 아래에 보이는지(플랫폼 수주 플랜). */
+  showOnQuote: boolean;
   /** "오늘" 기준 단위 상품 자체의 판매가(할인 없음, 개당) — 플랜 이력 스냅샷 행에서는 null이다. */
   salePrice: number | null;
   currencyCode: string | null;
@@ -690,6 +699,8 @@ export interface PlanUnitProductLineSummary {
 export interface BillingPlanSummary {
   id: number;
   name: string;
+  /** 견적서 "제공 서비스" 본문(일반 텍스트, 줄바꿈 유지). */
+  serviceDescription: string | null;
   unitProducts: PlanUnitProductLineSummary[];
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
@@ -729,6 +740,7 @@ export interface BillingPlanSummary {
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
+  serviceDescription: string | null;
   unitProducts: PlanUnitProductLineSummary[];
   createdBy: number;
   createdAt: string;
@@ -756,6 +768,7 @@ export interface CeremonyUsingPlanSummary {
  */
 export interface CreateBillingPlanRequest {
   name: string;
+  serviceDescription?: string | null;
   /** 이 플랜이 포함하는 단위 상품 구성 전체(생략하면 빈 목록). */
   unitProducts?: PlanUnitProductLine[];
   /** 할인·사용여부·기간은 직접 수주 경로에서만 보낸다 — 플랫폼 수주 플랜은 할인 기간이 없다. */
@@ -780,6 +793,7 @@ export interface CreateBillingPlanRequest {
  */
 export interface UpdateBillingPlanRequest {
   name: string;
+  serviceDescription?: string | null;
   /** 단위 상품 구성을 통째로 교체한다(생략하면 빈 목록 — 전부 뺀다는 뜻). */
   unitProducts?: PlanUnitProductLine[];
 }
@@ -2387,6 +2401,8 @@ export interface SaveSalesQuoteRequest {
   lodgingPersons: number | null;
   quoteValidUntil: string | null;
   memo: string | null;
+  /** 견적서 "제공 서비스" 본문 — 생략하면 플랜 문구, 빈 문자열이면 없음. */
+  serviceDescription?: string | null;
 }
 
 export interface AdminSalesOrderSummary {
@@ -2418,6 +2434,8 @@ export interface SalesQuoteLine {
   taxAmount: number;
   /** 직접 입력 줄의 발주 단가. 다른 줄은 null이다. */
   partnerUnitPrice: number | null;
+  /** 견적서 줄 설명(저장된 줄만, 미리보기는 null). */
+  description: string | null;
 }
 
 export interface AdminPartnerOrderSummary extends OrderScopeExtras {
@@ -2487,6 +2505,7 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   cancelledAt: string | null;
   cancellationReason: string | null;
   memo: string | null;
+  serviceDescription: string | null;
   lines: SalesQuoteLine[];
   partnerOrders: AdminPartnerOrderSummary[];
 }
@@ -2751,7 +2770,7 @@ export interface SalesQuotePortal {
   endsAt: string | null;
   currencyCode: string;
   currencyFractionDigits: number | null;
-  lines: Array<{ lineType: SalesOrderLineType; name: string; quantity: number; unitPrice: number; amount: number }>;
+  lines: Array<{ lineType: SalesOrderLineType; name: string; quantity: number; unitPrice: number; amount: number; description: string | null }>;
   supplyAmount: number;
   vatAmount: number;
   totalAmount: number;
@@ -2759,6 +2778,7 @@ export interface SalesQuotePortal {
   status: SalesOrderStatus;
   acceptedAt: string | null;
   acceptedByName: string | null;
+  serviceDescription: string | null;
 }
 
 export interface PartnerSubcontractProfile {

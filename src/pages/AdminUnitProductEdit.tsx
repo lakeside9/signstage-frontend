@@ -56,6 +56,7 @@ export const AdminUnitProductEdit: FC = () => {
           setDraft({
             name: found.name,
             description: found.description,
+            quoteDescription: found.quoteDescription,
             exclusivityGroup: found.exclusivityGroup ?? '',
             maxPurchaseQuantity: found.maxPurchaseQuantity,
             saleUnitQuantity: found.saleUnitQuantity,
@@ -88,6 +89,7 @@ export const AdminUnitProductEdit: FC = () => {
         ...draft,
         name: draft.name.trim(),
         description: normalizeDescription(draft.description),
+        quoteDescription: normalizeDescription(draft.quoteDescription),
         exclusivityGroup: normalizeExclusivityGroup(draft.exclusivityGroup),
       });
       showSnackbar('단위 상품을 저장했습니다.', 'success');
@@ -207,13 +209,24 @@ export const AdminUnitProductEdit: FC = () => {
             )}
           </div>
 
-          <Field label="설명(선택)">
+          <Field label="설명(관리자용, 선택)">
             <textarea
               value={draft.description ?? ''}
               onChange={(e) => setDraft((prev) => prev && { ...prev, description: e.target.value })}
               disabled={isSaving}
               rows={3}
               placeholder="이 상품이 무엇인지 설명해주세요 — 이벤트 효과 묶음처럼 이름만으로는 무엇이 포함되는지 알기 어려운 상품일수록 도움이 됩니다."
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
+          <Field label="견적서 표시 설명(선택)">
+            <textarea
+              value={draft.quoteDescription ?? ''}
+              onChange={(e) => setDraft((prev) => prev && { ...prev, quoteDescription: e.target.value })}
+              disabled={isSaving}
+              rows={2}
+              maxLength={500}
+              placeholder="고객 견적서에서 이 상품 이름 아래 보이는 설명입니다(예: 행사용 서명 문서 템플릿 제작, 묶음당 10종). 비우면 이름만 보입니다."
               className={`${inputClass} resize-y`}
             />
           </Field>

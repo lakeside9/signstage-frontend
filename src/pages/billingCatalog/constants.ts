@@ -8,6 +8,7 @@ import type {
   UnitProductCategory,
   UnitProductPricePeriodRequest,
   UnitProductPricePeriodSummary,
+  UnitProductSummary,
   UnitProductType,
 } from '../../types';
 
@@ -149,6 +150,16 @@ export const EFFECT_TRIGGER_LABEL: Record<string, string> = {
  * 수 있고, `EVENT_EFFECT_BUNDLE`만 이 상수로 상한(1)을 걷는다.
  */
 export const TOGGLE_UNIT_PRODUCT_TYPES: UnitProductType[] = ['EVENT_EFFECT_BUNDLE'];
+
+/**
+ * 플랜 구성에 올릴 수 있는 단위 상품 — 같은 판매 경로여야 하고, 플랫폼 수주·파트너 발주 플랜은 "플랫폼 제공"
+ * 상품(platformUsageFee)만 올린다. "파트너 수행" 상품(장비·인력)은 견적 옵션과 파트너 발주 쪽에서 다룬다.
+ */
+export const isPlanComposable = (product: UnitProductSummary, salesChannel: SalesChannel): boolean =>
+  product.salesChannel === salesChannel && (salesChannel !== 'PLATFORM_ORDER' || product.platformUsageFee);
+
+/** 새 플랜 구성 줄의 "견적서 표시" 기본값 — 고객 견적서에는 기본으로 서명자 수만 보인다. */
+export const defaultShowOnQuote = (type: UnitProductType): boolean => type === 'SIGNERS';
 
 /**
  * 플랜이 포함하는 단위 상품 줄들의 소계 — `Σ(unitProduct.salePrice × totalQuantity)`(개당 판매가 × 묶음 수 × 판매 단위), 백엔드

@@ -54,6 +54,54 @@ export const Field: FC<{ label: string; children: ReactNode }> = ({ label, child
 );
 
 /**
+ * 견적서 "제공 서비스" 본문 입력 — 줄바꿈을 그대로 보여주는 일반 텍스트다("- "로 시작하면 목록처럼 읽힌다). 수주
+ * 견적을 저장할 때 이 문구가 견적에 복사되고, 관리자가 견적마다 고칠 수 있다.
+ */
+export const ServiceDescriptionField: FC<{ value: string; onChange: (value: string) => void; disabled: boolean }> = ({
+  value,
+  onChange,
+  disabled,
+}) => (
+  <Field label="견적서 서비스 설명(선택)">
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      rows={5}
+      maxLength={5000}
+      placeholder={'고객 견적서의 "제공 서비스"에 보이는 설명입니다. 예)\nSignStage 행사 운영 패키지\n- 사전 테스트·리허설·본행사 현장 운영\n- 서명 문서 템플릿 제작과 서명 결과 보고서 제공'}
+      className={`${inputClass} resize-y`}
+    />
+    <p className="mt-1 text-xs text-gray-400">
+      견적을 저장할 때 이 문구가 견적서에 복사됩니다 — 견적마다 고칠 수 있고, 여기서 문구를 바꿔도 이미 보낸 견적은 그대로입니다.
+      패키지 줄 아래에는 단위 상품 구성에서 "견적서 표시"를 켠 상품의 포함 수량이 자동으로 붙습니다.
+    </p>
+  </Field>
+);
+
+/** 플랜 구성 표의 "견적서 표시" 칸 — 기본 포함 수량이 있어야 견적서에 보일 수 있어 그 전에는 끈 상태로 막는다. */
+export const ShowOnQuoteCell: FC<{
+  checked: boolean;
+  includedQuantity: number | null;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}> = ({ checked, includedQuantity, disabled, onChange }) => {
+  const hasIncluded = includedQuantity !== null && includedQuantity > 0;
+  return (
+    <td className="px-3 py-2 text-center">
+      <input
+        type="checkbox"
+        checked={hasIncluded && checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled || !hasIncluded}
+        aria-label="고객 견적서에 표시"
+        className="h-4 w-4 accent-gray-950 disabled:opacity-40"
+      />
+    </td>
+  );
+};
+
+/**
  * 플랜 구성 표의 수량 칸 — 입력 개수는 판매 단위 묶음 수라(2026-11-13) "묶음 상품 개수"(판매 단위)와
  * "총 개수"(입력 개수 × 판매 단위)를 입력칸 양옆 열로 보인다. 판매 단위가 1이면 묶음이 아니라 흐리게 그린다.
  */

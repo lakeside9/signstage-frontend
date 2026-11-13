@@ -6,14 +6,17 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, BundleSizeCell, Field, FinalPricePreview, TotalQuantityCell } from './billingCatalog/components';
+import { ActiveField, BundleSizeCell, Field, FinalPricePreview, ServiceDescriptionField, ShowOnQuoteCell, TotalQuantityCell } from './billingCatalog/components';
 import {
   DISCOUNT_TYPE_OPTIONS,
   SALES_CHANNEL_OPTIONS,
   TOGGLE_UNIT_PRODUCT_TYPES,
   UNIT_PRODUCT_TYPE_LABEL,
   formatPrice,
+  defaultShowOnQuote,
   inputClass,
+  isPlanComposable,
+  normalizeDescription,
   parseSalesChannel,
   todayIsoDate,
 } from './billingCatalog/constants';
@@ -28,6 +31,7 @@ import type {
 
 const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateBillingPlanRequest => ({
   name: '',
+  serviceDescription: '',
   discountType: 'PERCENT',
   discountValue: 0,
   active: true,
@@ -45,10 +49,12 @@ const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateBilli
  */
 interface LineDraft {
   includedQuantity: number | null;
+  /** 고객 견적서 패키지 줄 아래에 보일지(플랫폼 수주 플랜만 쓴다). */
+  showOnQuote: boolean;
 }
 
 const emptyLineDrafts = (products: UnitProductSummary[]): Record<number, LineDraft> =>
-  Object.fromEntries(products.map((p) => [p.id, { includedQuantity: null }]));
+  Object.fromEntries(products.map((p) => [p.id, { includedQuantity: null, showOnQuote: defaultShowOnQuote(p.type) }]));
 
 /**
  * 과금 플랜 등록 — 전용 페이지형(detail-form-screen-convention.md 패턴 A). 제출 성공 시 같은
@@ -95,12 +101,12 @@ export const AdminBillingPlanCreate: FC = () => {
 
   const isPlatformOrder = draft.salesChannel === 'PLATFORM_ORDER';
   const products = useMemo(
-    () => allProducts.filter((p) => p.salesChannel === draft.salesChannel),
+    () => allProducts.filter((p) => isPlanComposable(p, draft.salesChannel ?? 'PLATFORM_ORDER')),
     [allProducts, draft.salesChannel],
   );
 
   const handleChannelChange = (salesChannel: SalesChannel) => {
-    setDraft((prev) => ({ ...EMPTY_DRAFT(salesChannel), name: prev.name }));
+    setDraft((prev) => ({ ...EMPTY_DRAFT(salesChannel), name: prev.name, serviceDescription: prev.serviceDescription }));
     setLineDrafts(emptyLineDrafts(allProducts));
   };
 
@@ -117,11 +123,12 @@ export const AdminBillingPlanCreate: FC = () => {
 
   const buildLines = (): PlanUnitProductLine[] =>
     Object.entries(lineDrafts)
-      .filter((entry): entry is [string, { includedQuantity: number }] => entry[1].includedQuantity !== null)
+      .filter((entry): entry is [string, LineDraft & { includedQuantity: number }] => entry[1].includedQuantity !== null)
       .filter(([unitProductId]) => products.some((p) => p.id === Number(unitProductId)))
       .map(([unitProductId, line]) => ({
         unitProductId: Number(unitProductId),
         includedQuantity: line.includedQuantity,
+        showOnQuote: line.includedQuantity > 0 && line.showOnQuote,
       }));
 
   const handleSubmit = async (e: FormEvent) => {
@@ -143,10 +150,17 @@ export const AdminBillingPlanCreate: FC = () => {
     setIsLoading(true);
     try {
       const body: CreateBillingPlanRequest = isPlatformOrder
-        ? { name: draft.name.trim(), unitProducts: buildLines(), planType: 'STANDARD', salesChannel: 'PLATFORM_ORDER' }
+        ? {
+            name: draft.name.trim(),
+            serviceDescription: normalizeDescription(draft.serviceDescription),
+            unitProducts: buildLines(),
+            planType: 'STANDARD',
+            salesChannel: 'PLATFORM_ORDER',
+          }
         : {
             ...draft,
             name: draft.name.trim(),
+            serviceDescription: normalizeDescription(draft.serviceDescription),
             unitProducts: buildLines(),
             subscriptionPeriodMonths: draft.planType === 'SUBSCRIPTION' && draft.subscriptionType === 'PERIOD_AND_COUNT'
               ? draft.subscriptionPeriodMonths
@@ -362,8 +376,19 @@ export const AdminBillingPlanCreate: FC = () => {
             </div>
           )}
 
+          <ServiceDescriptionField
+            value={draft.serviceDescription ?? ''}
+            onChange={(serviceDescription) => setDraft((prev) => ({ ...prev, serviceDescription }))}
+            disabled={isLoading}
+          />
+
           <div>
             <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>
+            {isPlatformOrder && (
+              <p className="mb-1 text-xs text-gray-400">
+                플랫폼 제공 단위 상품만 보입니다 — 파트너 수행 상품(장비·인력)은 견적의 추가 옵션으로 넣습니다.
+              </p>
+            )}
             {products.length === 0 ? (
               <p className="text-xs text-gray-400">등록된 단위 상품이 없습니다. 먼저 단위 상품을 등록해주세요.</p>
             ) : (
@@ -375,11 +400,12 @@ export const AdminBillingPlanCreate: FC = () => {
                       <th className="text-right px-3 py-2 font-medium w-32">묶음 상품 개수</th>
                       <th className="text-left px-3 py-2 font-medium w-32">입력 개수(묶음 수)</th>
                       <th className="text-right px-3 py-2 font-medium w-28">총 개수</th>
+                      {isPlatformOrder && <th className="text-center px-3 py-2 font-medium w-24">견적서 표시</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => {
-                      const line = lineDrafts[product.id] ?? { includedQuantity: null };
+                      const line = lineDrafts[product.id] ?? { includedQuantity: null, showOnQuote: defaultShowOnQuote(product.type) };
                       const isToggle = TOGGLE_UNIT_PRODUCT_TYPES.includes(product.type);
                       return (
                         <tr key={product.id}>
@@ -402,7 +428,7 @@ export const AdminBillingPlanCreate: FC = () => {
                                 onChange={(raw) => {
                                   setLineDrafts((prev) => ({
                                     ...prev,
-                                    [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
+                                    [product.id]: { ...line, includedQuantity: raw === '' ? null : Number(raw) },
                                   }));
                                 }}
                                 className={inputClass}
@@ -414,6 +440,16 @@ export const AdminBillingPlanCreate: FC = () => {
                             saleUnitQuantity={product.saleUnitQuantity}
                             includedQuantity={line.includedQuantity}
                           />
+                          {isPlatformOrder && (
+                            <ShowOnQuoteCell
+                              checked={line.showOnQuote}
+                              includedQuantity={line.includedQuantity}
+                              disabled={isLoading}
+                              onChange={(showOnQuote) =>
+                                setLineDrafts((prev) => ({ ...prev, [product.id]: { ...line, showOnQuote } }))
+                              }
+                            />
+                          )}
                         </tr>
                       );
                     })}

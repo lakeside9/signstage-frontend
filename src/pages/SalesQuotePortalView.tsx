@@ -93,6 +93,13 @@ export const SalesQuotePortalView: FC = () => {
           <div><dt className="text-xs text-gray-500">견적 유효기간</dt><dd className="text-gray-950">{quote.quoteValidUntil}까지</dd></div>
         </dl>
 
+        {quote.serviceDescription && (
+          <section className="mt-6">
+            <h2 className="text-sm font-bold text-gray-950">제공 서비스</h2>
+            <p className="mt-2 rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-line">{quote.serviceDescription}</p>
+          </section>
+        )}
+
         <table className="mt-6 w-full text-sm">
           <thead className="text-xs text-gray-500 border-b border-gray-200">
             <tr>
@@ -104,8 +111,13 @@ export const SalesQuotePortalView: FC = () => {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {quote.lines.map((line, index) => (
-              <tr key={index}>
-                <td className="py-2 text-gray-950">{line.name}</td>
+              <tr key={index} className="align-top">
+                <td className="py-2 text-gray-950">
+                  {line.name}
+                  {line.description && (
+                    <p className="mt-0.5 text-xs text-gray-500 whitespace-pre-line">{line.description}</p>
+                  )}
+                </td>
                 <td className="py-2 text-right tabular-nums text-gray-500">{line.quantity}</td>
                 <td className="py-2 text-right tabular-nums text-gray-500">{formatMoney(line.unitPrice, currency)}</td>
                 <td className="py-2 text-right tabular-nums">{formatMoney(line.amount, currency)}</td>

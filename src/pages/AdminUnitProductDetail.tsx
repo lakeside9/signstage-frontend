@@ -159,7 +159,11 @@ export const AdminUnitProductDetail: FC = () => {
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             <DetailRow label="종류" value={UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type} />
             <DetailRow label="이름" value={product.name} />
-            <DetailRow label="설명" value={product.description ?? '없음'} />
+            <DetailRow label="설명(관리자용)" value={product.description ?? '없음'} />
+            <DetailRow
+              label="견적서 표시 설명"
+              value={product.quoteDescription ? <span className="whitespace-pre-line">{product.quoteDescription}</span> : '없음'}
+            />
             <DetailRow label="판매 경로" value={SALES_CHANNEL_LABEL[product.salesChannel]} />
             {!isPlatformOrder && (
               <>
@@ -236,6 +240,7 @@ export const AdminUnitProductDetail: FC = () => {
                   {h.saleUnitQuantity > 1 && ` · 판매 단위: ${h.saleUnitQuantity}개`}
                 </p>
                 {h.description && <p className="text-xs text-gray-400 mt-0.5">설명: {h.description}</p>}
+                {h.quoteDescription && <p className="text-xs text-gray-400 mt-0.5">견적서 설명: {h.quoteDescription}</p>}
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
               </li>
             ))}
