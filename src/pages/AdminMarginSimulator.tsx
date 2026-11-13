@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Calculator, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Calculator, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -101,6 +101,12 @@ export const AdminMarginSimulator: FC = () => {
   const update = <K extends keyof SimulationDraft>(field: K, value: SimulationDraft[K]) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
 
+  /** 입력과 계산 결과를 처음 상태로 되돌린다. */
+  const handleReset = () => {
+    setDraft(EMPTY_DRAFT);
+    setResult(null);
+  };
+
   const optionSaleUnitHint = (unitProductId: string) => {
     const product = unitProducts.find((item) => String(item.id) === unitProductId);
     return product ? saleUnitHint(product) : null;
@@ -177,8 +183,9 @@ export const AdminMarginSimulator: FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] gap-4 items-start">
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+      {/* 입력(왼쪽)과 결과(오른쪽)를 반반으로 나눈다(2026-11-13). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 min-w-0">
           <Field label="패키지(범위 플랜)">
             <select
               value={draft.billingPlanId}
@@ -276,9 +283,15 @@ export const AdminMarginSimulator: FC = () => {
               className={inputClass}
             />
           </Field>
-          <Button type="submit" disabled={isCalculating} className="w-full justify-center">
-            {isCalculating ? '계산 중...' : '계산'}
-          </Button>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleReset} disabled={isCalculating}>
+              <RotateCcw size={14} /> 초기화
+            </Button>
+            <Button type="submit" size="sm" disabled={isCalculating}>
+              {isCalculating ? <Loader2 size={14} className="animate-spin" /> : <Calculator size={14} />}
+              {isCalculating ? '계산 중...' : '계산'}
+            </Button>
+          </div>
         </form>
 
         {result ? (
