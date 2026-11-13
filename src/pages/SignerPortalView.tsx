@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
-import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, MousePointerClick, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, Minimize2, MousePointerClick, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -38,6 +38,19 @@ const SIGNER_EVENT_TYPE_META: Record<CeremonyEventType, { label: string; classNa
 // 유지되게 하기 위해서). TTL을 두는 이유는 같은 브라우저를 다른 행사/서명자가 나중에
 // 다시 쓸 수도 있어 무기한 남기지 않기 위해서다.
 const TOOLBAR_SETTINGS_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** 서명자용 안드로이드 앱(WebView)이 넣어 주는 전체화면 브리지 — legacy `SignerView.tsx`와 같다. 없으면 브라우저 전체화면을 쓴다. */
+interface SignStageAndroidBridge {
+  enterFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  isFullscreen?: () => boolean;
+}
+
+declare global {
+  interface Window {
+    SignStageAndroid?: SignStageAndroidBridge;
+  }
+}
 const TOOLBAR_SETTINGS_STORAGE_PREFIX = 'signstage.signerPortalView.settings';
 
 interface ToolbarSettings {
@@ -182,6 +195,7 @@ export const SignerPortalView: FC = () => {
   const [signatureCanvasKey, setSignatureCanvasKey] = useState(0);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const portalBase = `/portal/events/${eventAccessKey}/signers/${signerAccessKey}`;
@@ -216,6 +230,49 @@ export const SignerPortalView: FC = () => {
    * 서명자가 즉시 최신 상태를 당겨오고 싶을 때 쓴다. 실패하면 스낵바로만 알리고 화면은
    * 그대로 둔다(ProjectorView.tsx와 달리 여기는 사용자가 직접 누른 조작이라 결과를 알려준다).
    */
+  // ESC 등 버튼 밖에서 전체화면이 풀리거나 앱/탭을 오가도 "전체화면/해제" 표시가 실제 상태를 따라가게 한다.
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      const nativeFullscreen = window.SignStageAndroid?.isFullscreen?.() ?? false;
+      setIsFullscreen(Boolean(document.fullscreenElement) || nativeFullscreen);
+    };
+
+    syncFullscreenState();
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('visibilitychange', syncFullscreenState);
+    window.addEventListener('focus', syncFullscreenState);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState);
+      document.removeEventListener('visibilitychange', syncFullscreenState);
+      window.removeEventListener('focus', syncFullscreenState);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    const nextFullscreen = !isFullscreen;
+
+    try {
+      if (nextFullscreen) {
+        if (window.SignStageAndroid?.enterFullscreen) {
+          window.SignStageAndroid.enterFullscreen();
+        } else if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else {
+        if (window.SignStageAndroid?.exitFullscreen) {
+          window.SignStageAndroid.exitFullscreen();
+        } else if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+      setIsFullscreen(nextFullscreen);
+    } catch (err) {
+      console.warn('Failed to toggle fullscreen:', err);
+      showSnackbar('전체화면 전환에 실패했습니다.', 'error');
+    }
+  };
+
   const handleRefresh = async () => {
     if (isRefreshing || isSubmittingSignature) return;
     setIsRefreshing(true);
@@ -633,6 +690,20 @@ export const SignerPortalView: FC = () => {
             <span className={`inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-black ${SIGNER_EVENT_TYPE_META[context.eventType].className}`}>
               {SIGNER_EVENT_TYPE_META[context.eventType].label}
             </span>
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-black transition-colors ${
+                isFullscreen
+                  ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
+                  : 'border-gray-700 bg-gray-950/40 text-gray-200 hover:bg-gray-800 hover:text-white'
+              }`}
+              title={isFullscreen ? '전체화면 해제' : '전체화면으로 전환'}
+              aria-pressed={isFullscreen}
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              {isFullscreen ? '해제' : '전체화면'}
+            </button>
             <button
               type="button"
               onClick={handleRefresh}
