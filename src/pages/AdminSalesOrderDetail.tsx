@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Ban, CheckCircle2, FileDown, FileText, Loader2, Pencil, Send, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
+import { DateHourInput } from '../components/DateHourInput';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
@@ -519,10 +520,9 @@ export const AdminSalesOrderDetail: FC = () => {
                   />
                 </Field>
                 <Field label="응답 기한(현지 시각)">
-                  <input
-                    type="datetime-local"
+                  <DateHourInput
                     value={responseDueAt}
-                    onChange={(e) => setResponseDueAt(e.target.value)}
+                    onChange={setResponseDueAt}
                     disabled={isSubmitting}
                     className={inputClass}
                   />
@@ -554,7 +554,11 @@ export const AdminSalesOrderDetail: FC = () => {
             <div className="rounded-md bg-gray-50 p-3">
               {preview ? (
                 <>
-                  <PartnerOrderAmountBreakdown currencyCode={currency} {...preview} />
+                  <PartnerOrderAmountBreakdown
+                    currencyCode={currency}
+                    {...preview}
+                    customItems={order.lines.filter((line) => line.lineType === 'CUSTOM_ITEM')}
+                  />
                   <dl className="mt-2 border-t border-gray-200 pt-2 text-sm space-y-1">
                     <div className="flex justify-between">
                       <dt className="text-gray-500">고객 공급가</dt>

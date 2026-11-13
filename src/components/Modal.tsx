@@ -14,7 +14,7 @@ interface ModalProps {
 /**
  * 화면 어디서든 쓰는 공용 팝업(모달). 배경 클릭이나 ESC로 닫힌다. 인라인 확장 행 대신
  * 수정 폼/삭제 확인처럼 화면 흐름과 분리된 팝업이 필요한 곳에 쓴다(UserCeremonyDetail의
- * 서명자/문서 양식/하위 행사 관리가 첫 사용처).
+ * 서명자/문서 양식/하위 행사 관리가 첫 사용처). 내용이 화면보다 길면 제목 줄은 고정하고 본문만 스크롤한다.
  */
 export const Modal: FC<ModalProps> = ({ open, onClose, title, children, widthClassName = 'max-w-md' }) => {
   useEffect(() => {
@@ -31,14 +31,14 @@ export const Modal: FC<ModalProps> = ({ open, onClose, title, children, widthCla
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className={`relative w-full ${widthClassName} bg-white rounded-lg shadow-xl`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className={`relative w-full ${widthClassName} max-h-[calc(100dvh-2rem)] flex flex-col bg-white rounded-lg shadow-xl`}>
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-950">{title}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-950" aria-label="닫기">
             <X size={18} />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

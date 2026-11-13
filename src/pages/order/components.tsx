@@ -71,6 +71,15 @@ interface PartnerOrderAmountBreakdownProps {
   lodgingPersonNights?: number;
   lodgingNightRate?: number;
   customItemAmount?: number;
+  /** 직접 입력 항목 내역 — 주면 합계 한 줄 대신 품목별로 보여준다(발주 단가 0원 품목도 보인다). */
+  customItems?: PartnerCustomItem[];
+}
+
+/** 파트너 발주에 들어가는 직접 입력 항목 한 줄 — 견적 줄에서 가져온다. */
+export interface PartnerCustomItem {
+  name: string;
+  quantity: number;
+  partnerUnitPrice: number | null;
 }
 
 /**
@@ -105,7 +114,15 @@ export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> =
       formatMoney(lodging * (amount.lodgingNightRate ?? 0), amount.currencyCode),
     ]);
   }
-  if ((amount.customItemAmount ?? 0) > 0) {
+  if (amount.customItems && amount.customItems.length > 0) {
+    amount.customItems.forEach((item) => {
+      const unitPrice = item.partnerUnitPrice ?? 0;
+      rows.push([
+        `직접 입력 · ${item.name} ${item.quantity.toLocaleString()} × ${formatMoney(unitPrice, amount.currencyCode)}`,
+        formatMoney(item.quantity * unitPrice, amount.currencyCode),
+      ]);
+    });
+  } else if ((amount.customItemAmount ?? 0) > 0) {
     rows.push(['직접 입력 항목', formatMoney(amount.customItemAmount ?? 0, amount.currencyCode)]);
   }
   if (amount.adjustmentAmount !== 0) {
@@ -116,8 +133,8 @@ export const PartnerOrderAmountBreakdown: FC<PartnerOrderAmountBreakdownProps> =
   }
   return (
     <dl className="text-sm divide-y divide-gray-100">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex justify-between gap-3 py-1.5">
+      {rows.map(([label, value], index) => (
+        <div key={index} className="flex justify-between gap-3 py-1.5">
           <dt className="text-gray-500">{label}</dt>
           <dd className="text-gray-950 tabular-nums">{value}</dd>
         </div>
@@ -347,14 +364,20 @@ export const CustomItemsField: FC<{
     onChange(value.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500">직접 입력 항목</span>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-gray-500">
+          직접 입력 항목
+          <span className="ml-2 font-normal text-amber-700">
+            발주 단가를 입력해야 파트너 발주 금액과 예상 마진에 반영됩니다(비우면 0원).
+          </span>
+        </span>
         <Button
           type="button"
           variant="secondary"
           size="sm"
           onClick={() => onChange([...value, EMPTY_CUSTOM_ITEM_DRAFT])}
           disabled={disabled}
+          className="shrink-0 whitespace-nowrap"
         >
           <Plus size={12} /> 항목 추가
         </Button>

@@ -211,6 +211,7 @@ export const UserPartnerOrderDetail: FC = () => {
             lodgingPersonNights={order.lodgingNights * order.lodgingPersons}
             lodgingNightRate={order.lodgingNightRate}
             customItemAmount={order.customItemAmount}
+            customItems={order.options.filter((option) => option.unitProductId === null)}
           />
           <p className="mt-2 text-xs text-gray-400">부가세 별도. 지급은 행사 후 검수 승인 기준으로 합니다.</p>
         </section>

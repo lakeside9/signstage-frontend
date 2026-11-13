@@ -94,7 +94,6 @@ export const AdminSalesQuoteDocument: FC = () => {
           <dt className="text-gray-500">행사명</dt><dd className="text-gray-950">{order.title}</dd>
           <dt className="text-gray-500">일정</dt><dd className="text-gray-950">{formatSchedule(order.startsAt, order.endsAt)}</dd>
           <dt className="text-gray-500">장소</dt><dd className="text-gray-950">{order.location ?? '미정'}</dd>
-          <dt className="text-gray-500">패키지</dt><dd className="text-gray-950">{order.billingPlanName}</dd>
         </dl>
 
         <div className="mt-5 flex items-baseline justify-between rounded-md bg-gray-50 px-4 py-3 print:border print:border-gray-300 print:bg-white">
@@ -125,6 +124,9 @@ export const AdminSalesQuoteDocument: FC = () => {
                   {line.name}
                   {line.description && (
                     <p className="mt-0.5 text-xs text-gray-500 whitespace-pre-line">{line.description}</p>
+                  )}
+                  {line.lineType === 'DISCOUNT' && order.discountReason && (
+                    <p className="mt-0.5 text-xs text-gray-500 whitespace-pre-line">할인 사유: {order.discountReason}</p>
                   )}
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-gray-600">{line.quantity.toLocaleString()}</td>
