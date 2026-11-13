@@ -225,6 +225,7 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
                 const fieldStrokes = strokesByField.get(field.id) ?? [];
                 const hasStroke = fieldStrokes.length > 0;
                 const borderColor = hasStroke ? '#10b981' : '#f59e0b';
+                const labelColor = hasStroke ? '#047857' : '#b45309';
 
                 return (
                   <Fragment key={field.id}>
@@ -238,13 +239,21 @@ export const MappedDocumentPreview: FC<MappedDocumentPreviewProps> = ({
                       fill={hasStroke ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)'}
                       listening={false}
                     />
+                    {/* 서명란 가운데에 상태색(진한 주황/초록)으로 이름을 쓴다(2026-11-13). 서명이 들어오면 서명이 가려지지 않게 흐리게 둔다. */}
                     <Text
-                      x={field.xRatio * stageWidth + 4}
-                      y={field.yRatio * stageHeight + 4}
+                      x={field.xRatio * stageWidth}
+                      y={field.yRatio * stageHeight}
+                      width={field.widthRatio * stageWidth}
+                      height={field.heightRatio * stageHeight}
                       text={signerName ?? field.roleCode ?? field.fieldName ?? '서명란'}
-                      fontSize={10}
+                      align="center"
+                      verticalAlign="middle"
+                      wrap="none"
+                      ellipsis
+                      fontSize={Math.min(Math.max(8, 9 * scale), field.heightRatio * stageHeight * 0.45)}
                       fontStyle="bold"
-                      fill="#ffffff"
+                      fill={labelColor}
+                      opacity={hasStroke ? 0.35 : 1}
                       padding={2}
                       listening={false}
                     />
