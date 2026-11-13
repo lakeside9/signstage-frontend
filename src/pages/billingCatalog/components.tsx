@@ -207,10 +207,13 @@ export const EffectDefinitionPicker: FC<{
   const toggle = (id: number, checked: boolean) => {
     onChange(checked ? [...selectedIds, id] : selectedIds.filter((existing) => existing !== id));
   };
+  // 한 묶음에는 개별 서명 확인 효과와 전체 서명 완료 효과 중 한 종류만 담는다(2026-11-13, 서버도 같은 규칙으로 거부한다).
+  const selectedTrigger = definitions.find((definition) => selectedIds.includes(definition.id))?.triggerType ?? null;
 
   return (
     <div className="sm:col-span-2 md:col-span-3">
       <span className="block text-xs font-medium text-gray-500 mb-1">이 묶음이 여는 이벤트 효과</span>
+      <p className="mb-1.5 text-[11px] text-gray-400">개별 서명 확인 효과와 전체 서명 완료 효과 중 한 종류만 담을 수 있습니다.</p>
       {definitions.length === 0 ? (
         <p className="text-xs text-gray-400">등록된 이벤트 효과가 없습니다. 먼저 이벤트 효과 관리 화면에서 효과를 등록해주세요.</p>
       ) : (
@@ -220,7 +223,7 @@ export const EffectDefinitionPicker: FC<{
               <input
                 type="checkbox"
                 checked={selectedIds.includes(definition.id)}
-                disabled={disabled}
+                disabled={disabled || (selectedTrigger != null && definition.triggerType !== selectedTrigger)}
                 onChange={(e) => toggle(definition.id, e.target.checked)}
               />
               <span className="truncate" title={definition.displayName}>
