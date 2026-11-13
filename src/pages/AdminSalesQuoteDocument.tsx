@@ -4,8 +4,10 @@ import { useParams } from 'react-router-dom';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { api } from '../utils/api';
+import logo from '../assets/signstage-logo.png';
 import { formatMoney, formatSchedule } from './order/constants';
-import type { AdminSalesOrderDetail } from '../types';
+import { useQuoteSealUrl } from './order/useQuoteSealUrl';
+import type { AdminSalesOrderDetail, QuoteSupplier } from '../types';
 
 const todayIsoDate = () => new Date().toLocaleDateString('sv-SE');
 
@@ -22,6 +24,14 @@ export const AdminSalesQuoteDocument: FC = () => {
   const { salesOrderId } = useParams<{ salesOrderId: string }>();
   const [order, setOrder] = useState<AdminSalesOrderDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** 견적에 쓰인 공통 문구의 공급자 정보 — 문구 없이 저장된 옛 견적은 모두 비어 있어 공급자 칸이 안 보인다. */
+  const [supplier, setSupplier] = useState<QuoteSupplier | null>(null);
+  const [isSupplierLoaded, setIsSupplierLoaded] = useState(false);
+  const { sealUrl, isLoaded: isSealLoaded } = useQuoteSealUrl(
+    supplier?.sealAvailable && supplier.quoteTemplateId !== null
+      ? `/platform-admin/quote-templates/${supplier.quoteTemplateId}/seal`
+      : null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +41,16 @@ export const AdminSalesQuoteDocument: FC = () => {
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : '견적을 불러오지 못했습니다.');
+      });
+    api.get(`/platform-admin/sales-orders/${salesOrderId}/quote-supplier`)
+      .then((response) => {
+        if (!cancelled) setSupplier(response.data as QuoteSupplier);
+      })
+      .catch(() => {
+        // 공급자 정보는 없어도 견적서는 보인다.
+      })
+      .finally(() => {
+        if (!cancelled) setIsSupplierLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -58,6 +78,17 @@ export const AdminSalesQuoteDocument: FC = () => {
   }
 
   const currency = order.currencyCode;
+  // 인감 이미지를 받기 전에 인쇄하면 빈 칸으로 저장되므로 다 받은 뒤에 PDF 다운로드를 연다.
+  const isReadyToPrint = isSupplierLoaded && isSealLoaded;
+  const supplierRows = supplier
+    ? ([
+        ['상호', supplier.name],
+        ['대표자', supplier.representative],
+        ['사업자등록번호', supplier.businessNumber],
+        ['주소', supplier.address],
+        ['연락처', supplier.phone],
+      ] as const).filter(([, value]) => value !== null)
+    : [];
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 print:bg-white print:p-0">
@@ -68,26 +99,55 @@ export const AdminSalesQuoteDocument: FC = () => {
             ? '취소된 견적입니다 — 고객에게 보내지 마세요.'
             : '내용을 확인한 뒤 PDF로 내려받아 고객에게 전달하세요. 인쇄 창에서 대상을 "PDF로 저장"으로 고릅니다.'}
         </p>
-        <Button size="sm" onClick={() => window.print()}>
-          <Download size={14} /> PDF 다운로드
+        <Button size="sm" onClick={() => window.print()} disabled={!isReadyToPrint}>
+          {isReadyToPrint ? <Download size={14} /> : <Loader2 size={14} className="animate-spin" />} PDF 다운로드
         </Button>
       </div>
 
       <article className="mx-auto max-w-[210mm] bg-white p-10 shadow-sm print:max-w-none print:p-0 print:shadow-none">
         <header className="flex items-end justify-between border-b-2 border-gray-950 pb-3">
           <h1 className="text-2xl font-bold tracking-widest text-gray-950">견 적 서</h1>
-          <p className="text-sm font-bold tracking-wide text-gray-950">SIGNSTAGE</p>
+          <img src={logo} alt="SignStage 싸인스테이지" className="h-12 w-auto" />
         </header>
 
         <section className="mt-5 grid grid-cols-2 gap-6 text-sm">
           <div>
             <p className="text-base font-bold text-gray-950">{order.customerName} 귀하</p>
             <p className="mt-1 text-gray-500">아래와 같이 견적합니다.</p>
+            <dl className="mt-4 space-y-1">
+              <div className="flex gap-3"><dt className="w-20 shrink-0 text-gray-500">견적일</dt><dd className="text-gray-950">{todayIsoDate()}</dd></div>
+              <div className="flex gap-3"><dt className="w-20 shrink-0 text-gray-500">유효기간</dt><dd className="text-gray-950">{order.quoteValidUntil}까지</dd></div>
+            </dl>
           </div>
-          <dl className="space-y-1">
-            <div className="flex gap-3"><dt className="w-20 shrink-0 text-gray-500">견적일</dt><dd className="text-gray-950">{todayIsoDate()}</dd></div>
-            <div className="flex gap-3"><dt className="w-20 shrink-0 text-gray-500">유효기간</dt><dd className="text-gray-950">{order.quoteValidUntil}까지</dd></div>
-          </dl>
+          {supplierRows.length > 0 && (
+            <table className="w-full border border-gray-300 text-xs break-inside-avoid">
+              <tbody>
+                {supplierRows.map(([label, value], index) => (
+                  <tr key={label} className="border-b border-gray-200 last:border-b-0">
+                    {index === 0 && (
+                      <th
+                        rowSpan={supplierRows.length}
+                        className="w-7 border-r border-gray-300 bg-gray-50 px-1 text-center font-medium text-gray-600 [writing-mode:vertical-rl] tracking-[0.5em] print:bg-white"
+                      >
+                        공급자
+                      </th>
+                    )}
+                    <th className="w-24 border-r border-gray-200 px-2 py-1.5 text-left font-medium text-gray-500 whitespace-nowrap">{label}</th>
+                    <td className="relative px-2 py-1.5 text-gray-950">
+                      {value}
+                      {label === '대표자' && sealUrl && (
+                        <img
+                          src={sealUrl}
+                          alt="인감"
+                          className="absolute right-2 top-1/2 h-14 w-14 -translate-y-1/2 object-contain"
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
 
         <dl className="mt-5 grid grid-cols-[6rem_1fr] gap-y-1.5 border-y border-gray-200 py-3 text-sm">

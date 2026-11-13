@@ -62,7 +62,8 @@ export const AdminLayout: FC = () => {
   }, [loadMyPermissions]);
 
   const handleLogout = () => {
-    logout();
+    // 로그아웃하면 메인(공개 홈)으로 간다 — 이동보다 로그아웃이 먼저 그려져도 ProtectedRoute가 `/`로 보낸다.
+    logout({ byUser: true });
     navigate('/');
   };
 

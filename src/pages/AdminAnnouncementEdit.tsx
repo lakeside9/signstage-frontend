@@ -4,10 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { HtmlEditor } from '../components/HtmlEditor';
+import { SupportAudienceField } from '../components/SupportAudienceField';
 import { isHtmlContentEmpty } from '../utils/htmlContent';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import type { AnnouncementSummary, UpdateAnnouncementRequest } from '../types';
+import type { AnnouncementSummary, SupportAudience, UpdateAnnouncementRequest } from '../types';
 
 const inputClass =
   'w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100';
@@ -24,6 +25,7 @@ export const AdminAnnouncementEdit: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [audience, setAudience] = useState<SupportAudience>('PARTNER');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [pinned, setPinned] = useState(false);
@@ -37,6 +39,7 @@ export const AdminAnnouncementEdit: FC = () => {
         const response = await api.get(`/platform-admin/announcements/${announcementId}`);
         if (cancelled) return;
         const data = response.data as AnnouncementSummary;
+        setAudience(data.audience);
         setTitle(data.title);
         setContent(data.content);
         setPinned(data.pinned);
@@ -62,13 +65,14 @@ export const AdminAnnouncementEdit: FC = () => {
     setIsSaving(true);
     try {
       await api.put(`/platform-admin/announcements/${announcementId}`, {
+        audience,
         title: title.trim(),
         content: content.trim(),
         pinned,
         active,
       } satisfies UpdateAnnouncementRequest);
       showSnackbar('공지사항을 수정했습니다.', 'success');
-      navigate('/admin/announcements');
+      navigate(`/admin/announcements?audience=${audience}`);
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : '공지사항 수정에 실패했습니다.', 'error');
     } finally {
@@ -78,7 +82,7 @@ export const AdminAnnouncementEdit: FC = () => {
 
   return (
     <div>
-      <Link to="/admin/announcements" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
+      <Link to={`/admin/announcements?audience=${audience}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-950 mb-4">
         <ArrowLeft size={16} /> 공지사항 관리로
       </Link>
 
@@ -92,6 +96,7 @@ export const AdminAnnouncementEdit: FC = () => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <SupportAudienceField value={audience} onChange={setAudience} disabled={isSaving} />
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">제목</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isSaving} className={inputClass} />
@@ -109,7 +114,7 @@ export const AdminAnnouncementEdit: FC = () => {
             사용
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button to="/admin/announcements" variant="secondary">
+            <Button to={`/admin/announcements?audience=${audience}`} variant="secondary">
               취소
             </Button>
             <Button type="submit" disabled={isSaving || !title.trim() || isHtmlContentEmpty(content)}>

@@ -43,6 +43,7 @@ import { AdminAnnouncementList } from './pages/AdminAnnouncementList';
 import { AdminAnnouncementCreate } from './pages/AdminAnnouncementCreate';
 import { AdminAnnouncementEdit } from './pages/AdminAnnouncementEdit';
 import { AdminCeremonyInquiries } from './pages/AdminCeremonyInquiries';
+import { AdminContactInquiries } from './pages/AdminContactInquiries';
 import { AdminOnsiteSupportRequests } from './pages/AdminOnsiteSupportRequests';
 import { UserFaqList } from './pages/UserFaqList';
 import { UserAnnouncementList } from './pages/UserAnnouncementList';
@@ -85,6 +86,9 @@ import { AdminMarginSimulator } from './pages/AdminMarginSimulator';
 import { UserPartnerPayoutEntry } from './pages/UserPartnerPayoutEntry';
 import { UserPartnerPayoutList } from './pages/UserPartnerPayoutList';
 import { SalesQuotePortalView } from './pages/SalesQuotePortalView';
+import { PublicContact } from './pages/public/PublicContact';
+import { PublicNotices } from './pages/public/PublicNotices';
+import { PublicLayout } from './layouts/PublicLayout';
 import { AdminSalesQuoteDocument } from './pages/AdminSalesQuoteDocument';
 import { AdminLayout } from './layouts/AdminLayout';
 import { UserLayout } from './layouts/UserLayout';
@@ -100,6 +104,10 @@ function App() {
         <Route path="/portal/:eventAccessKey/:signerAccessKey" element={<SignerPortalView />} />
         <Route path="/projector/:eventAccessKey" element={<ProjectorView />} />
         <Route path="/sales-quotes/:accessToken" element={<SalesQuotePortalView />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/contact" element={<PublicContact />} />
+          <Route path="/notices" element={<PublicNotices />} />
+        </Route>
         <Route
           path="/demo"
           element={
@@ -226,6 +234,7 @@ function App() {
           <Route path="announcements/new" element={<AdminAnnouncementCreate />} />
           <Route path="announcements/:announcementId/edit" element={<AdminAnnouncementEdit />} />
           <Route path="ceremony-inquiries" element={<AdminCeremonyInquiries />} />
+          <Route path="contact-inquiries" element={<AdminContactInquiries />} />
           <Route path="onsite-support-requests" element={<AdminOnsiteSupportRequests />} />
           <Route path="customers" element={<AdminCustomerList />} />
           <Route path="order-prices" element={<AdminOrderPrices />} />

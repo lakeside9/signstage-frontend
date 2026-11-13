@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import type { FC, ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { IntroView } from '../pages/IntroView';
+import { PublicLayout } from '../layouts/PublicLayout';
+import { PublicHome } from '../pages/public/PublicHome';
 
 const decodeExpiry = (token: string): number | null => {
   try {
@@ -40,6 +41,7 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin
   const token = useAuthStore((state) => state.token);
   const platformAdmin = useAuthStore((state) => state.platformAdmin);
   const isDemoViewer = useAuthStore((state) => state.isDemoViewer);
+  const signedOutByUser = useAuthStore((state) => state.signedOutByUser);
   const logout = useAuthStore((state) => state.logout);
   const location = useLocation();
 
@@ -54,10 +56,18 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = ({ children, requireAdmin
   }, [token, logout]);
 
   if (!isLoggedIn) {
-    // 루트("/")에 인증 없이 들어오면 로그인 화면 대신 인트로 화면을 먼저 보여준다.
+    // 루트("/")에 인증 없이 들어오면 로그인 화면 대신 공개 홈(PublicLayout + PublicHome)을 보여준다.
     // 그 외 보호된 경로로 직접 들어오면 기존대로 로그인 화면으로 돌려보낸다.
     if (location.pathname === '/') {
-      return <IntroView />;
+      return (
+        <PublicLayout>
+          <PublicHome />
+        </PublicLayout>
+      );
+    }
+    // 사용자가 직접 로그아웃했으면 로그인 화면이 아니라 메인으로 보낸다.
+    if (signedOutByUser) {
+      return <Navigate to="/" replace />;
     }
     return <Navigate to="/login" replace state={{ from: location }} />;
   }

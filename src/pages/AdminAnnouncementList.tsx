@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Megaphone, Pencil, Pin, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SupportAudienceTabs } from '../components/SupportAudienceField';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
+import { SUPPORT_AUDIENCE_DESCRIPTION, parseSupportAudience } from '../utils/supportAudience';
 import type { AnnouncementSummary, PageResponse } from '../types';
 
 const PAGE_SIZE = 20;
@@ -24,12 +26,14 @@ const EMPTY_SEARCH: SearchValues = { keyword: '', active: 'ALL' };
 /**
  * 공지사항 관리(플랫폼 관리자) — signstage-docs business/partner-support-center-review.md 3장.
  * 목록/등록/수정 3화면으로 구성한다(2026-09-12 사용자 요청 — "회원관리처럼 페이지로
- * 구성해주세요"). 검색(키워드/사용여부)도 같은 날 후속 요청으로 추가했다. v1은 플랫폼
- * 전체 공개만 지원한다(조직별 타겟팅은 범위 밖).
+ * 구성해주세요"). 검색(키워드/사용여부)도 같은 날 후속 요청으로 추가했다. 조직별 타겟팅은 범위 밖이고,
+ * 파트너용/고객용 탭으로만 나눈다(2026-11-13). 고른 탭은 주소(`?audience=`)에 남겨 등록·수정 뒤에도 유지된다.
  */
 export const AdminAnnouncementList: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_ANNOUNCEMENT_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const [urlParams, setUrlParams] = useSearchParams();
+  const audience = parseSupportAudience(urlParams.get('audience'));
 
   const [formValues, setFormValues] = useState<SearchValues>(EMPTY_SEARCH);
   const [searchParams, setSearchParams] = useState<SearchValues>(EMPTY_SEARCH);
@@ -40,6 +44,7 @@ export const AdminAnnouncementList: FC = () => {
 
   const fetchAnnouncements = async () => {
     const query = new URLSearchParams();
+    query.set('audience', audience);
     if (searchParams.keyword.trim()) query.set('keyword', searchParams.keyword.trim());
     if (searchParams.active !== 'ALL') query.set('active', searchParams.active);
     query.set('page', String(page));
@@ -64,7 +69,14 @@ export const AdminAnnouncementList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page]);
+  }, [audience, searchParams, page]);
+
+  const handleAudienceChange = (next: typeof audience) => {
+    if (next === audience) return;
+    setIsLoading(true);
+    setPage(0);
+    setUrlParams({ audience: next }, { replace: true });
+  };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -102,14 +114,16 @@ export const AdminAnnouncementList: FC = () => {
             <Megaphone size={20} className="text-gray-400" />
             공지사항 관리
           </h1>
-          <p className="mt-1 text-sm text-gray-500">파트너 화면에 노출되는 플랫폼 전체 공지입니다. 고정한 공지가 상단에 먼저 표시됩니다.</p>
+          <p className="mt-1 text-sm text-gray-500">{SUPPORT_AUDIENCE_DESCRIPTION[audience]} 고정한 공지가 상단에 먼저 표시됩니다.</p>
         </div>
         {canManage && (
-          <Button to="/admin/announcements/new">
+          <Button to={`/admin/announcements/new?audience=${audience}`}>
             <Plus size={16} /> 공지 등록
           </Button>
         )}
       </div>
+
+      <SupportAudienceTabs value={audience} onChange={handleAudienceChange} />
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
         <SearchField label="검색어" className="w-56">

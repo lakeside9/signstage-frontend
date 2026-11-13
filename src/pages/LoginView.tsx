@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Key, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
@@ -190,13 +190,6 @@ export const LoginView: FC = () => {
             >
               {t(isLoading ? 'auth.signingIn' : 'auth.signIn')}
             </button>
-
-            <p className="text-center text-sm text-gray-500">
-              {t('auth.noAccount')}{' '}
-              <Link to="/signup" className="text-gray-950 font-medium hover:underline">
-                {t('auth.signUp')}
-              </Link>
-            </p>
           </form>
         ) : (
           <form onSubmit={handleChangePassword} className="space-y-6">

@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, HelpCircle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ListContainer } from '../components/ListContainer';
 import { SearchBar, SearchField } from '../components/SearchBar';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SupportAudienceTabs } from '../components/SupportAudienceField';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { SUPPORT_AUDIENCE_DESCRIPTION, parseSupportAudience } from '../utils/supportAudience';
 import type { FaqSummary, PageResponse } from '../types';
 
 const PAGE_SIZE = 20;
@@ -27,10 +29,15 @@ const EMPTY_SEARCH: SearchValues = { keyword: '', active: 'ALL' };
  * `CeremonyEffectManagement.tsx`와 같은 원칙으로, **검색 필터가 걸려 있으면 순서 이동을
  * 막는다**(위/아래 이동이 "지금 화면에 보이는 부분 목록"이 아니라 전체 목록 기준으로만
  * 의미가 있기 때문).
+ *
+ * 파트너용/고객용 탭으로 나눈다(2026-11-13) — 표시 순서도 대상별이다. 고른 탭은 주소(`?audience=`)에 남겨
+ * 등록·수정 화면에서 돌아와도 유지된다.
  */
 export const AdminFaqList: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_FAQ_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
+  const [urlParams, setUrlParams] = useSearchParams();
+  const audience = parseSupportAudience(urlParams.get('audience'));
 
   const [formValues, setFormValues] = useState<SearchValues>(EMPTY_SEARCH);
   const [searchParams, setSearchParams] = useState<SearchValues>(EMPTY_SEARCH);
@@ -42,6 +49,7 @@ export const AdminFaqList: FC = () => {
 
   const fetchFaqs = async () => {
     const query = new URLSearchParams();
+    query.set('audience', audience);
     if (searchParams.keyword.trim()) query.set('keyword', searchParams.keyword.trim());
     if (searchParams.active !== 'ALL') query.set('active', searchParams.active);
     query.set('page', String(page));
@@ -66,7 +74,14 @@ export const AdminFaqList: FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page]);
+  }, [audience, searchParams, page]);
+
+  const handleAudienceChange = (next: typeof audience) => {
+    if (next === audience) return;
+    setIsLoading(true);
+    setPage(0);
+    setUrlParams({ audience: next }, { replace: true });
+  };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -104,7 +119,7 @@ export const AdminFaqList: FC = () => {
     try {
       const reordered = [...faqs];
       [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-      await api.put('/platform-admin/faqs/order', {
+      await api.put(`/platform-admin/faqs/order?audience=${audience}`, {
         items: reordered.map((faq, i) => ({ id: faq.id, displayOrder: (i + 1) * 10 })),
       });
       setPageData(await fetchFaqs());
@@ -123,14 +138,16 @@ export const AdminFaqList: FC = () => {
             <HelpCircle size={20} className="text-gray-400" />
             FAQ 관리
           </h1>
-          <p className="mt-1 text-sm text-gray-500">파트너 화면에 노출되는 자주 묻는 질문 카탈로그입니다.</p>
+          <p className="mt-1 text-sm text-gray-500">자주 묻는 질문 카탈로그입니다. {SUPPORT_AUDIENCE_DESCRIPTION[audience]}</p>
         </div>
         {canManage && (
-          <Button to="/admin/faqs/new">
+          <Button to={`/admin/faqs/new?audience=${audience}`}>
             <Plus size={16} /> FAQ 등록
           </Button>
         )}
       </div>
+
+      <SupportAudienceTabs value={audience} onChange={handleAudienceChange} />
 
       <SearchBar onSubmit={handleSearch} onReset={handleReset}>
         <SearchField label="검색어" className="w-56">

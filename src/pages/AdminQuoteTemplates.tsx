@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { CalendarX, Pencil, Plus, ScrollText, Trash2 } from 'lucide-react';
+import { Building2, CalendarX, Pencil, Plus, ScrollText, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ListContainer } from '../components/ListContainer';
@@ -12,6 +12,7 @@ import { useClientPagination } from '../utils/useClientPagination';
 import { Field, FormActions } from './billingCatalog/components';
 import { inputClass, normalizeDescription, todayIsoDate } from './billingCatalog/constants';
 import { formatPeriod, isPeriodOpen } from './order/constants';
+import { QuoteSupplierModal } from './order/QuoteSupplierModal';
 import type { QuoteTemplate, SaveQuoteTemplateRequest } from '../types';
 
 const ENDPOINT = '/platform-admin/quote-templates';
@@ -53,6 +54,9 @@ export const AdminQuoteTemplates: FC = () => {
   const [closeDate, setCloseDate] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** 공급자·인감을 편집 중인 문구 id — 목록을 다시 받아도 최신 문구를 보이도록 id로 둔다. */
+  const [supplierTemplateId, setSupplierTemplateId] = useState<number | null>(null);
+  const supplierTemplate = templates.find((template) => template.id === supplierTemplateId) ?? null;
 
   const reload = async () => {
     const response = await api.get(ENDPOINT);
@@ -175,7 +179,7 @@ export const AdminQuoteTemplates: FC = () => {
             견적 공통 문구
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            견적서의 "제공 서비스" 설명과 하단 안내문구입니다. 새 견적은 저장일에 유효한 문구를 복사하고, 견적마다 고칠 수 있습니다.
+            견적서의 "제공 서비스" 설명과 하단 안내문구, 공급자 정보·인감입니다. 새 견적은 저장일에 유효한 문구를 복사하고, 견적마다 고칠 수 있습니다.
             견적에 쓰인 문구는 고칠 수 없어 기간을 종료하고 새 문구를 등록합니다.
           </p>
         </div>
@@ -197,6 +201,7 @@ export const AdminQuoteTemplates: FC = () => {
             <tr>
               <th className="text-left px-4 py-3 font-medium">견적서 서비스 설명</th>
               <th className="text-left px-4 py-3 font-medium">하단 안내문구</th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">공급자</th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">적용 기간</th>
               <th className="text-right px-4 py-3 font-medium">처리</th>
             </tr>
@@ -210,6 +215,10 @@ export const AdminQuoteTemplates: FC = () => {
                 <td className="px-4 py-3 text-gray-600 whitespace-pre-line">
                   {template.footerNotice ?? <span className="text-gray-400">없음</span>}
                 </td>
+                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                  {template.supplier.name ?? <span className="text-gray-400">없음</span>}
+                  <span className="block mt-0.5 text-xs text-gray-400">인감 {template.supplier.sealAvailable ? '있음' : '없음'}</span>
+                </td>
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                   {formatPeriod(template.effectiveFrom, template.effectiveTo)}
                   {isEffectiveToday(template) && (
@@ -220,6 +229,9 @@ export const AdminQuoteTemplates: FC = () => {
                 <td className="px-4 py-3 text-right">
                   {canManage && (
                     <div className="inline-flex items-center gap-1">
+                      <button type="button" onClick={() => setSupplierTemplateId(template.id)} className={actionButtonClass}>
+                        <Building2 size={12} /> 공급자·인감
+                      </button>
                       {!template.used && (
                         <button type="button" onClick={() => openEdit(template)} className={actionButtonClass}>
                           <Pencil size={12} /> 수정
@@ -328,6 +340,8 @@ export const AdminQuoteTemplates: FC = () => {
           <FormActions isSaving={isSaving} savingLabel="처리 중..." saveLabel="기간 종료" onCancel={() => setClosingId(null)} />
         </form>
       </Modal>
+
+      <QuoteSupplierModal template={supplierTemplate} onClose={() => setSupplierTemplateId(null)} onChanged={reload} />
 
       <ConfirmDialog
         open={deletingId !== null}

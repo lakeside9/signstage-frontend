@@ -2085,8 +2085,12 @@ export interface CustomerQuotePreviewDetail {
 // signstage-docs business/partner-support-center-review.md.
 
 /** GET /api/faqs, /api/platform-admin/faqs 응답(FaqDto.Response.FaqSummary)과 맞춘다. */
+/** FAQ·공지사항 대상 — 파트너용(조직 콘솔)과 고객용(로그인 없이 보는 공개 화면). */
+export type SupportAudience = 'PARTNER' | 'CUSTOMER';
+
 export interface FaqSummary {
   id: number;
+  audience: SupportAudience;
   category: string | null;
   question: string;
   answer: string;
@@ -2096,12 +2100,14 @@ export interface FaqSummary {
 }
 
 export interface CreateFaqRequest {
+  audience: SupportAudience;
   category: string | null;
   question: string;
   answer: string;
 }
 
 export interface UpdateFaqRequest {
+  audience: SupportAudience;
   category: string | null;
   question: string;
   answer: string;
@@ -2111,6 +2117,7 @@ export interface UpdateFaqRequest {
 /** GET /api/announcements, /api/platform-admin/announcements 응답(AnnouncementDto.Response.AnnouncementSummary)과 맞춘다. */
 export interface AnnouncementSummary {
   id: number;
+  audience: SupportAudience;
   title: string;
   content: string;
   pinned: boolean;
@@ -2119,12 +2126,14 @@ export interface AnnouncementSummary {
 }
 
 export interface CreateAnnouncementRequest {
+  audience: SupportAudience;
   title: string;
   content: string;
   pinned?: boolean;
 }
 
 export interface UpdateAnnouncementRequest {
+  audience: SupportAudience;
   title: string;
   content: string;
   pinned: boolean;
@@ -2357,6 +2366,26 @@ export interface QuoteTemplate {
   effectiveTo: string | null;
   /** 견적에 복사됐는지 — 쓰이지 않은 문구만 고치거나 지울 수 있다. */
   used: boolean;
+  supplier: QuoteSupplier;
+}
+
+/** 견적서 공급자 정보(견적 공통 문구별). 인감 이미지는 관리자 인증 API로만 받는다. */
+export interface QuoteSupplier {
+  quoteTemplateId: number | null;
+  name: string | null;
+  representative: string | null;
+  businessNumber: string | null;
+  address: string | null;
+  phone: string | null;
+  sealAvailable: boolean;
+}
+
+export interface SaveQuoteSupplierRequest {
+  name: string | null;
+  representative: string | null;
+  businessNumber: string | null;
+  address: string | null;
+  phone: string | null;
 }
 
 export interface SaveQuoteTemplateRequest {
@@ -3044,5 +3073,38 @@ export interface NotificationSummary {
   message: string | null;
   linkPath: string | null;
   read: boolean;
+  createdAt: string;
+}
+
+/** 고객 문의하기(공개 화면, 2026-11-13). 답변은 시스템 밖에서 하고 관리자는 처리 상태·메모만 기록한다. */
+export type ContactInquiryType = 'INTRODUCTION' | 'PRICING' | 'ONSITE_SUPPORT' | 'OTHER';
+export type ContactInquiryStatus = 'RECEIVED' | 'IN_PROGRESS' | 'DONE';
+
+export interface SubmitContactInquiryRequest {
+  inquiryType: ContactInquiryType;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string | null;
+  eventDate: string | null;
+  expectedSigners: number | null;
+  message: string;
+  privacyConsented: boolean;
+  website: string | null;
+}
+
+export interface ContactInquiry {
+  id: number;
+  inquiryType: ContactInquiryType;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string | null;
+  eventDate: string | null;
+  expectedSigners: number | null;
+  message: string;
+  status: ContactInquiryStatus;
+  adminMemo: string | null;
+  handledAt: string | null;
   createdAt: string;
 }
