@@ -1,4 +1,6 @@
 import type {
+  AdminSalesOrderDetail,
+  DiscountType,
   OrderScopeExtras,
   CustomerInvoiceStatus,
   CustomerInvoiceType,
@@ -242,6 +244,51 @@ export const toScopeExtras = (draft: ScopeExtrasDraft): OrderScopeExtras => ({
 /** 숙박은 박수·인원을 함께 넣거나 함께 비운다. */
 export const isLodgingDraftValid = (draft: ScopeExtrasDraft) =>
   (Number(draft.lodgingNights) > 0) === (Number(draft.lodgingPersons) > 0);
+
+/** 견적 금액 조정 입력 — 영업 할인(정액/퍼센트)과 공급가(부가세 별도) 절사 단위. 견적 작성·범위 변경·마진 시뮬레이션이 같이 쓴다. */
+export interface QuoteAdjustmentDraft {
+  discountType: DiscountType;
+  discountAmount: string;
+  discountRatePercent: string;
+  truncationUnit: string;
+}
+
+export const EMPTY_QUOTE_ADJUSTMENT_DRAFT: QuoteAdjustmentDraft = {
+  discountType: 'FIXED_AMOUNT', discountAmount: '', discountRatePercent: '', truncationUnit: '',
+};
+
+export const TRUNCATION_UNIT_OPTIONS = [
+  { value: '', label: '절사 안 함' },
+  { value: '10', label: '10원 미만 절사' },
+  { value: '100', label: '100원 미만 절사' },
+  { value: '1000', label: '1,000원 미만 절사' },
+  { value: '10000', label: '10,000원 미만 절사' },
+];
+
+/** 저장된 수주에서 할인 방식·값과 절사 단위를 되살린다 — 정액 할인 금액은 할인 줄에서 읽는다. */
+export const toQuoteAdjustmentDraft = (order: AdminSalesOrderDetail): QuoteAdjustmentDraft => {
+  const discountLine = order.lines.find((line) => line.lineType === 'DISCOUNT');
+  return {
+    discountType: order.discountRatePercent !== null ? 'PERCENT' : 'FIXED_AMOUNT',
+    discountAmount: discountLine && order.discountRatePercent === null ? String(Math.abs(discountLine.amount)) : '',
+    discountRatePercent: order.discountRatePercent !== null ? String(order.discountRatePercent) : '',
+    truncationUnit: order.truncationUnit !== null ? String(order.truncationUnit) : '',
+  };
+};
+
+/** 할인 방식에 맞는 값만 보낸다. */
+export const toQuoteAdjustment = (draft: QuoteAdjustmentDraft) => ({
+  discountType: draft.discountType,
+  discountAmount: draft.discountType === 'FIXED_AMOUNT' && draft.discountAmount !== '' ? Number(draft.discountAmount) : null,
+  discountRatePercent: draft.discountType === 'PERCENT' && draft.discountRatePercent !== '' ? Number(draft.discountRatePercent) : null,
+  truncationUnit: draft.truncationUnit === '' ? null : Number(draft.truncationUnit),
+});
+
+export const hasQuoteDiscount = (draft: QuoteAdjustmentDraft) =>
+  draft.discountType === 'PERCENT' ? Number(draft.discountRatePercent) > 0 : Number(draft.discountAmount) > 0;
+
+export const isDiscountRateValid = (draft: QuoteAdjustmentDraft) =>
+  draft.discountType !== 'PERCENT' || (Number(draft.discountRatePercent) >= 0 && Number(draft.discountRatePercent) <= 100);
 
 /** 입력 중인 직접 입력 항목 — 카탈로그에 없는 품목. 발주 단가를 비우면 0(플랫폼이 처리)이다. */
 export interface CustomItemDraft {

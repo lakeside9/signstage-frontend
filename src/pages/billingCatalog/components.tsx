@@ -30,7 +30,9 @@ import type {
   UnitProductPricePeriodHistorySummary,
   UnitProductPricePeriodRequest,
   UnitProductPricePeriodSummary,
+  UnitProductType,
 } from '../../types';
+import { UNIT_PRODUCT_QUANTITY_UNIT } from '../order/constants';
 
 /**
  * 과금 카탈로그(단위 상품/플랜) 목록/등록/상세/수정 화면이 공유하는 컴포넌트 — 순수 상수/포맷터는
@@ -49,6 +51,31 @@ export const Field: FC<{ label: string; children: ReactNode }> = ({ label, child
     <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
     {children}
   </div>
+);
+
+/**
+ * 플랜 구성 표의 수량 칸 — 입력 개수는 판매 단위 묶음 수라(2026-11-13) "묶음 상품 개수"(판매 단위)와
+ * "총 개수"(입력 개수 × 판매 단위)를 입력칸 양옆 열로 보인다. 판매 단위가 1이면 묶음이 아니라 흐리게 그린다.
+ */
+export const BundleSizeCell: FC<{ type: UnitProductType; saleUnitQuantity: number }> = ({ type, saleUnitQuantity }) => (
+  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${saleUnitQuantity > 1 ? 'text-gray-950' : 'text-gray-400'}`}>
+    {saleUnitQuantity.toLocaleString()}
+    {UNIT_PRODUCT_QUANTITY_UNIT[type]}
+  </td>
+);
+
+export const TotalQuantityCell: FC<{ type: UnitProductType; saleUnitQuantity: number; includedQuantity: number | null }> = ({
+  type,
+  saleUnitQuantity,
+  includedQuantity,
+}) => (
+  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap font-medium text-gray-950">
+    {includedQuantity === null ? (
+      <span className="font-normal text-gray-300">-</span>
+    ) : (
+      `${(includedQuantity * saleUnitQuantity).toLocaleString()}${UNIT_PRODUCT_QUANTITY_UNIT[type]}`
+    )}
+  </td>
 );
 
 const EXCLUSIVITY_GROUP_CUSTOM_OPTION = '__custom__';

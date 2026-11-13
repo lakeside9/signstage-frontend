@@ -5,7 +5,7 @@ import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { api } from '../utils/api';
 import { formatCurrency } from '../utils/internationalization';
 import type { BillingPlanSummary, DiscountType, OrganizationDiscountOverview, PageResponse, PlatformAdminOrganizationSummary, UnitProductSummary } from '../types';
-import { UNIT_PRODUCT_CATEGORY_LABEL, UNIT_PRODUCT_CATEGORY_OPTIONS, planSubtotal } from './billingCatalog/constants';
+import { UNIT_PRODUCT_CATEGORY_LABEL, UNIT_PRODUCT_CATEGORY_OPTIONS, formatIncludedQuantity, planSubtotal } from './billingCatalog/constants';
 
 const DISCOUNT_TYPE_OPTIONS: Array<{ value: DiscountType; label: string }> = [
   { value: 'PERCENT', label: '퍼센트' },
@@ -209,7 +209,7 @@ export const AdminBillingSimulator: FC = () => {
         if (!product || product.supplyPrice === null) {
           hasUnknownSupply = true;
         } else {
-          supply += product.supplyPrice * line.includedQuantity;
+          supply += product.supplyPrice * line.totalQuantity;
         }
       }
     }
@@ -348,7 +348,7 @@ export const AdminBillingSimulator: FC = () => {
                       <p className="mt-1 text-xs text-gray-400">
                         {plan.unitProducts.length === 0
                           ? '포함 단위 상품 없음'
-                          : plan.unitProducts.map((line) => `${line.unitProductName} ${line.includedQuantity}`).join(' · ')}
+                          : plan.unitProducts.map((line) => `${line.unitProductName} ${formatIncludedQuantity(line.unitProductType, line.includedQuantity, line.saleUnitQuantity)}`).join(' · ')}
                       </p>
                     </label>
                   );

@@ -667,8 +667,13 @@ export interface PlanUnitProductLineSummary {
   unitProductType: UnitProductType;
   unitProductName: string;
   unitProductCategory: UnitProductCategory;
+  /** 포함 묶음 수(판매 단위 기준). */
   includedQuantity: number;
-  /** "오늘" 기준 단위 상품 자체의 판매가(할인 없음) — 플랜 이력 스냅샷 행에서는 null이다. */
+  /** 판매 단위(묶음 하나의 개수). 1이면 묶음 상품이 아니다. */
+  saleUnitQuantity: number;
+  /** 실제 포함 개수 = 묶음 수 × 판매 단위 — 행사 한도·금액은 이 값이다. */
+  totalQuantity: number;
+  /** "오늘" 기준 단위 상품 자체의 판매가(할인 없음, 개당) — 플랜 이력 스냅샷 행에서는 null이다. */
   salePrice: number | null;
   currencyCode: string | null;
 }
@@ -2260,7 +2265,9 @@ export type SalesOrderLineType =
   | 'REGION_SURCHARGE'
   | 'REHEARSAL_STAFF'
   | 'LODGING'
-  | 'DISCOUNT';
+  | 'DISCOUNT'
+  /** 공급가 단수 절사 — 버린 공급가와 그 세액이 음수다. */
+  | 'TRUNCATION';
 
 /** 플랜·옵션 밖의 수행 범위 — 예비 태블릿(D23, 고객 미청구), 리허설 별도일 인력(D24), 숙박(D26). */
 export interface OrderScopeExtras {
@@ -2367,8 +2374,13 @@ export interface SaveSalesQuoteRequest {
   endsAt: string | null;
   options: SalesQuoteOptionRequest[];
   customItems: SalesQuoteCustomItemRequest[];
+  /** 영업 할인 방식 — 생략하면 정액. 정액이면 discountAmount, 퍼센트면 discountRatePercent를 쓴다. */
+  discountType?: DiscountType;
   discountAmount: number | null;
+  discountRatePercent?: number | null;
   discountReason: string | null;
+  /** 공급가(부가세 별도) 절사 단위 — 10·100·1,000·10,000. null이면 절사하지 않는다. */
+  truncationUnit?: number | null;
   spareTabletCount: number | null;
   rehearsalStaffPersonDays: number | null;
   lodgingNights: number | null;
@@ -2461,6 +2473,10 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   vatAmount: number;
   totalAmount: number;
   discountReason: string | null;
+  /** 퍼센트 할인이면 할인율(%), 정액 할인·할인 없음이면 null. */
+  discountRatePercent: number | null;
+  /** 공급가 절사 단위. 절사하지 않으면 null. */
+  truncationUnit: number | null;
   estimatedPartnerAmount: number;
   status: SalesOrderStatus;
   quoteValidUntil: string;
@@ -2786,7 +2802,10 @@ export interface MarginSimulationRequest {
   region: ServiceRegion;
   options: { unitProductId: number; quantity: number }[];
   customItems: SalesQuoteCustomItemRequest[];
+  discountType?: DiscountType;
   discountAmount: number | null;
+  discountRatePercent?: number | null;
+  truncationUnit?: number | null;
   adjustmentAmount: number | null;
   spareTabletCount: number | null;
   rehearsalStaffPersonDays: number | null;

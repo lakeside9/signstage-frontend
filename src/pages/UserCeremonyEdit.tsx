@@ -681,8 +681,9 @@ export const UserCeremonyEdit: FC = () => {
     discountValue: livePlan.discountValue,
     currencyCode: livePlan.unitProducts[0]?.currencyCode ?? 'KRW',
     subtotal: planSubtotal(livePlan.unitProducts),
+    // 플랜 포함 수량은 묶음 수 — 행사에는 실제 개수(스냅샷과 같은 값)를 보인다.
     includedQuantityOf: (type: string) =>
-      livePlan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
+      livePlan.unitProducts.find((line) => line.unitProductType === type)?.totalQuantity ?? 0,
   };
   const plan = isDraft ? (planFromLive ?? planFromSnapshot ?? null) : (planFromSnapshot ?? planFromLive ?? null);
 

@@ -6,22 +6,25 @@ import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field } from './billingCatalog/components';
-import { inputClass } from './billingCatalog/constants';
-import { CustomItemsField, ScopeExtrasFields } from './order/components';
+import { formatIncludedQuantity, inputClass } from './billingCatalog/constants';
+import { CustomItemsField, DiscountField, ScopeExtrasFields, TruncationField } from './order/components';
 import { AcceptanceRate, AverageRating } from './order/evaluationComponents';
 import {
+  EMPTY_QUOTE_ADJUSTMENT_DRAFT,
   EMPTY_SCOPE_EXTRAS_DRAFT,
   REGION_OPTIONS,
   UNIT_PRODUCT_QUANTITY_UNIT,
   findSaleUnitViolation,
   formatMoney,
   isCustomItemDraftValid,
+  isDiscountRateValid,
   isLodgingDraftValid,
   saleUnitHint,
   toCustomItems,
+  toQuoteAdjustment,
   toScopeExtras,
 } from './order/constants';
-import type { CustomItemDraft, ScopeExtrasDraft } from './order/constants';
+import type { CustomItemDraft, QuoteAdjustmentDraft, ScopeExtrasDraft } from './order/constants';
 import type {
   BillingPlanSummary,
   MarginPartnerQuote,
@@ -42,12 +45,12 @@ interface SimulationDraft {
   options: OptionDraft[];
   customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
-  discountAmount: string;
+  adjustment: QuoteAdjustmentDraft;
   adjustmentAmount: string;
 }
 
 const EMPTY_DRAFT: SimulationDraft = {
-  billingPlanId: '', region: 'CAPITAL', options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', adjustmentAmount: '',
+  billingPlanId: '', region: 'CAPITAL', options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, adjustment: EMPTY_QUOTE_ADJUSTMENT_DRAFT, adjustmentAmount: '',
 };
 
 const MarginCell: FC<{ quote: MarginPartnerQuote; currency: string }> = ({ quote, currency }) => {
@@ -125,6 +128,10 @@ export const AdminMarginSimulator: FC = () => {
       showSnackbar('직접 입력 항목은 수량과 고객 단가를 입력해주세요.', 'error');
       return;
     }
+    if (!isDiscountRateValid(draft.adjustment)) {
+      showSnackbar('할인율은 0~100% 사이로 입력해주세요.', 'error');
+      return;
+    }
     const request: MarginSimulationRequest = {
       billingPlanId: Number(draft.billingPlanId),
       region: draft.region,
@@ -132,7 +139,7 @@ export const AdminMarginSimulator: FC = () => {
         .filter((option) => option.unitProductId && Number(option.quantity) > 0)
         .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
       customItems: toCustomItems(draft.customItems),
-      discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
+      ...toQuoteAdjustment(draft.adjustment),
       adjustmentAmount: draft.adjustmentAmount === '' ? null : Number(draft.adjustmentAmount),
       ...toScopeExtras(draft.extras),
     };
@@ -187,7 +194,7 @@ export const AdminMarginSimulator: FC = () => {
           </Field>
           {selectedPlan && (
             <p className="text-xs text-gray-500">
-              포함: {selectedPlan.unitProducts.map((line) => `${line.unitProductName} ${line.includedQuantity}`).join(', ') || '없음'}
+              포함: {selectedPlan.unitProducts.map((line) => `${line.unitProductName} ${formatIncludedQuantity(line.unitProductType, line.includedQuantity, line.saleUnitQuantity)}`).join(', ') || '없음'}
             </p>
           )}
           <Field label="권역">
@@ -258,16 +265,8 @@ export const AdminMarginSimulator: FC = () => {
           </div>
           <CustomItemsField value={draft.customItems} onChange={(next) => update('customItems', next)} disabled={isCalculating} />
           <ScopeExtrasFields value={draft.extras} onChange={(next) => update('extras', next)} disabled={isCalculating} />
-          <Field label="영업 할인(공급가)">
-            <FormattedNumberInput
-              value={draft.discountAmount}
-              onChange={(value) => update('discountAmount', value)}
-              min={0}
-              disabled={isCalculating}
-              placeholder="0"
-              className={inputClass}
-            />
-          </Field>
+          <DiscountField value={draft.adjustment} onChange={(next) => update('adjustment', next)} disabled={isCalculating} />
+          <TruncationField value={draft.adjustment} onChange={(next) => update('adjustment', next)} disabled={isCalculating} />
           <Field label="발주 조정액(선택, 음수 가능)">
             <FormattedNumberInput
               value={draft.adjustmentAmount}

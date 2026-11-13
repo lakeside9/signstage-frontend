@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, Field, FinalPricePreview } from './billingCatalog/components';
+import { ActiveField, BundleSizeCell, Field, FinalPricePreview, TotalQuantityCell } from './billingCatalog/components';
 import {
   DISCOUNT_TYPE_OPTIONS,
   SALES_CHANNEL_OPTIONS,
@@ -109,7 +109,7 @@ export const AdminBillingPlanCreate: FC = () => {
       products.reduce((sum, p) => {
         const line = lineDrafts[p.id];
         if (!line || p.salePrice === null || line.includedQuantity === null) return sum;
-        return sum + p.salePrice * line.includedQuantity;
+        return sum + p.salePrice * line.includedQuantity * p.saleUnitQuantity;
       }, 0),
     [products, lineDrafts],
   );
@@ -372,7 +372,9 @@ export const AdminBillingPlanCreate: FC = () => {
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">단위 상품</th>
-                      <th className="text-left px-3 py-2 font-medium w-32">기본 포함 수량</th>
+                      <th className="text-right px-3 py-2 font-medium w-32">묶음 상품 개수</th>
+                      <th className="text-left px-3 py-2 font-medium w-32">입력 개수(묶음 수)</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">총 개수</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -387,22 +389,31 @@ export const AdminBillingPlanCreate: FC = () => {
                               {UNIT_PRODUCT_TYPE_LABEL[product.type] ?? product.type}
                             </span>
                           </td>
+                          <BundleSizeCell type={product.type} saleUnitQuantity={product.saleUnitQuantity} />
                           <td className="px-3 py-2">
-                            <FormattedNumberInput
-                              min={0}
-                              max={isToggle ? 1 : undefined}
-                              value={line.includedQuantity ?? ''}
-                              disabled={isLoading}
-                              placeholder="—"
-                              onChange={(raw) => {
-                                setLineDrafts((prev) => ({
-                                  ...prev,
-                                  [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
-                                }));
-                              }}
-                              className={`${inputClass} w-24`}
-                            />
+                            {/* inputClass의 w-full이 w-24를 덮어써 폭은 감싸는 div로 고정한다. */}
+                            <div className="w-24">
+                              <FormattedNumberInput
+                                min={0}
+                                max={isToggle ? 1 : undefined}
+                                value={line.includedQuantity ?? ''}
+                                disabled={isLoading}
+                                placeholder="—"
+                                onChange={(raw) => {
+                                  setLineDrafts((prev) => ({
+                                    ...prev,
+                                    [product.id]: { includedQuantity: raw === '' ? null : Number(raw) },
+                                  }));
+                                }}
+                                className={inputClass}
+                              />
+                            </div>
                           </td>
+                          <TotalQuantityCell
+                            type={product.type}
+                            saleUnitQuantity={product.saleUnitQuantity}
+                            includedQuantity={line.includedQuantity}
+                          />
                         </tr>
                       );
                     })}
@@ -412,10 +423,10 @@ export const AdminBillingPlanCreate: FC = () => {
             )}
             <p className="mt-1 text-xs text-gray-400">
               수량을 입력한 상품(0 포함)만 이 플랜 구성에 포함됩니다 — 빈 칸으로 두면 이 플랜과 무관한 상품입니다. 0을
-              입력하면 기본 포함은 없지만 이 플랜의 행사가 추가구매할 수 있고, 1 이상을 입력하면 그 수량만큼 기본
+              입력하면 기본 포함은 없지만 이 플랜의 행사가 추가구매할 수 있고, 1 이상을 입력하면 그 묶음 수만큼 기본
               포함되면서 더 필요하면 추가구매도 할 수 있습니다(추가구매는 여전히 사용자가 요청하고 관리자가 승인해야
               합니다). 이벤트 효과 묶음은 토글형이라 수량이 0 또는 1만 가능합니다. 이 구성은 이후 수정 화면에서도
-              통째로 바꿀 수 있습니다.
+              통째로 바꿀 수 있습니다. 수량은 판매 단위 묶음 수입니다 — 템플릿 문서가 10개 묶음이면 2는 20개입니다.
             </p>
           </div>
 

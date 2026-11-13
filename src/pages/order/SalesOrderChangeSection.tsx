@@ -10,22 +10,27 @@ import { api } from '../../utils/api';
 import { formatDateTime } from '../../utils/internationalization';
 import { Field, FormActions } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
-import { CustomItemsField, SalesOrderChangeStatusBadge, ScopeExtrasFields } from './components';
+import { CustomItemsField, DiscountField, QuotePreview, SalesOrderChangeStatusBadge, ScopeExtrasFields, TruncationField } from './components';
+import { useQuotePreview } from './useQuotePreview';
 import {
   UNIT_PRODUCT_QUANTITY_UNIT,
   findSaleUnitViolation,
   formatMoney,
   formatSchedule,
   formatScopeExtras,
+  hasQuoteDiscount,
   isCustomItemDraftValid,
+  isDiscountRateValid,
   isLodgingDraftValid,
   saleUnitHint,
   toCustomItemDrafts,
   toCustomItems,
+  toQuoteAdjustment,
+  toQuoteAdjustmentDraft,
   toScopeExtras,
   toScopeExtrasDraft,
 } from './constants';
-import type { CustomItemDraft, ScopeExtrasDraft } from './constants';
+import type { CustomItemDraft, QuoteAdjustmentDraft, ScopeExtrasDraft } from './constants';
 import type {
   AdminSalesOrderChange,
   AdminSalesOrderChangeOverview,
@@ -44,29 +49,26 @@ interface ChangeDraft {
   options: OptionDraft[];
   customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
-  discountAmount: string;
+  adjustment: QuoteAdjustmentDraft;
   discountReason: string;
   location: string;
   startsAt: string;
   endsAt: string;
 }
 
-const toDraft = (order: AdminSalesOrderDetail): ChangeDraft => {
-  const discountLine = order.lines.find((line) => line.lineType === 'DISCOUNT');
-  return {
+const toDraft = (order: AdminSalesOrderDetail): ChangeDraft => ({
     reason: '',
     options: order.lines
       .filter((line) => line.lineType === 'UNIT_PRODUCT' && line.unitProductId !== null)
       .map((line) => ({ unitProductId: String(line.unitProductId), quantity: String(line.quantity) })),
     customItems: toCustomItemDrafts(order.lines),
     extras: toScopeExtrasDraft(order),
-    discountAmount: discountLine ? String(Math.abs(discountLine.amount)) : '',
+    adjustment: toQuoteAdjustmentDraft(order),
     discountReason: order.discountReason ?? '',
     location: order.location ?? '',
     startsAt: order.startsAt?.slice(0, 16) ?? '',
     endsAt: order.endsAt?.slice(0, 16) ?? '',
-  };
-};
+});
 
 const blankToNull = (value: string) => (value.trim() ? value.trim() : null);
 
@@ -151,7 +153,11 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
       showSnackbar('변경 사유를 입력해주세요.', 'error');
       return;
     }
-    if (Number(draft.discountAmount) > 0 && !draft.discountReason.trim()) {
+    if (!isDiscountRateValid(draft.adjustment)) {
+      showSnackbar('할인율은 0~100% 사이로 입력해주세요.', 'error');
+      return;
+    }
+    if (hasQuoteDiscount(draft.adjustment) && !draft.discountReason.trim()) {
       showSnackbar('영업 할인이 있으면 할인 사유가 필요합니다.', 'error');
       return;
     }
@@ -180,7 +186,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
             .filter((option) => option.unitProductId && Number(option.quantity) > 0)
             .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
           customItems: toCustomItems(draft.customItems),
-          discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
+          ...toQuoteAdjustment(draft.adjustment),
           discountReason: blankToNull(draft.discountReason),
           location: blankToNull(draft.location),
           startsAt: draft.startsAt || null,
@@ -255,6 +261,29 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
 
   const updateOption = (index: number, patch: Partial<OptionDraft>) =>
     setDraft((prev) => prev && { ...prev, options: prev.options.map((option, i) => (i === index ? { ...option, ...patch } : option)) });
+
+  // 변경 후 고객 금액 미리보기 — 플랜·권역은 수주 그대로, 가격표는 오늘 기준(제안 저장과 같은 계산)이다.
+  const previewBlockedReason = !draft
+    ? null
+    : !isDiscountRateValid(draft.adjustment)
+      ? '할인율은 0~100% 사이로 입력해주세요.'
+      : !isLodgingDraftValid(draft.extras) || !isCustomItemDraftValid(draft.customItems) || findSaleUnitViolation(draft.options, unitProducts)
+        ? '입력을 마치면 계산 결과가 보입니다.'
+        : null;
+  const changePreview = useQuotePreview(
+    draft && {
+      billingPlanId: order.billingPlanId,
+      region: order.region,
+      options: draft.options
+        .filter((option) => option.unitProductId && Number(option.quantity) > 0)
+        .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
+      customItems: toCustomItems(draft.customItems),
+      ...toQuoteAdjustment(draft.adjustment),
+      adjustmentAmount: null,
+      ...toScopeExtras(draft.extras),
+    },
+    previewBlockedReason,
+  );
 
   const changes = overview?.changes ?? [];
   const requests = overview?.requests ?? [];
@@ -507,16 +536,11 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
               disabled={isSubmitting}
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="영업 할인(공급가)">
-                <FormattedNumberInput
-                  value={draft.discountAmount}
-                  onChange={(value) => setDraft({ ...draft, discountAmount: value })}
-                  min={0}
-                  disabled={isSubmitting}
-                  placeholder="0"
-                  className={inputClass}
-                />
-              </Field>
+              <DiscountField
+                value={draft.adjustment}
+                onChange={(next) => setDraft({ ...draft, adjustment: next })}
+                disabled={isSubmitting}
+              />
               <Field label="할인 사유">
                 <input
                   value={draft.discountReason}
@@ -532,6 +556,11 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
               <Field label="종료">
                 <EventDateTimeInput value={draft.endsAt} onChange={(value) => setDraft({ ...draft, endsAt: value })} disabled={isSubmitting} />
               </Field>
+              <TruncationField
+                value={draft.adjustment}
+                onChange={(next) => setDraft({ ...draft, adjustment: next })}
+                disabled={isSubmitting}
+              />
             </div>
             <Field label="장소">
               <input
@@ -543,6 +572,7 @@ export const SalesOrderChangeSection: FC<Props> = ({ order, canManage, onApplied
               />
             </Field>
             <ScopeExtrasFields value={draft.extras} onChange={(next) => setDraft({ ...draft, extras: next })} disabled={isSubmitting} />
+            <QuotePreview {...changePreview} showMargin={false} currentTotalAmount={order.totalAmount} />
             <FormActions isSaving={isSubmitting} savingLabel="계산 중..." saveLabel="변경 제안" onCancel={() => setDraft(null)} />
           </form>
         )}

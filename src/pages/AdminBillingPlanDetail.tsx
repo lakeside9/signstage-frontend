@@ -11,13 +11,81 @@ import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { DetailRow, FinalPricePreview, HistoryButton, HistoryModal, PeriodStatusBadge, PlanDiscountPeriodSection } from './billingCatalog/components';
 import { SALES_CHANNEL_LABEL, UNIT_PRODUCT_TYPE_LABEL, formatDiscount, formatPrice, planSubtotal } from './billingCatalog/constants';
-import type { BillingPlanHistorySummary, BillingPlanSummary, CeremonyUsingPlanSummary, PageResponse } from '../types';
+import { UNIT_PRODUCT_QUANTITY_UNIT } from './order/constants';
+import type { BillingPlanHistorySummary, BillingPlanSummary, CeremonyUsingPlanSummary, PageResponse, PlanUnitProductLineSummary } from '../types';
 
 const CEREMONY_STATUS_LABEL: Record<string, string> = {
   DRAFT: '준비 중(플랜 미확정)',
   IN_PROGRESS: '진행 중',
   COMPLETED: '완료',
 };
+
+/** 단위 상품 구성 표 — 포함 수량은 묶음 수, 총 포함 개수는 묶음 수 × 판매 단위다(2026-11-13).
+ * compact는 좁은 이력 모달용으로 유형을 상품명 아래에 두고 추가구매 열을 뺀다. 이력 스냅샷에는
+ * 판매가가 없어(salePrice null) showPrice를 끈다. */
+const UnitProductLineTable: FC<{ lines: PlanUnitProductLineSummary[]; showPrice: boolean; compact?: boolean }> = ({
+  lines,
+  showPrice,
+  compact = false,
+}) => (
+  <div className="rounded-md border border-gray-200 overflow-x-auto">
+    <table className={`w-full ${compact ? 'text-xs' : 'text-sm'}`}>
+      <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th className="text-left px-3 py-2 font-medium">단위 상품</th>
+          {!compact && <th className="text-left px-3 py-2 font-medium">유형</th>}
+          <th className="text-right px-3 py-2 font-medium">판매 단위</th>
+          <th className="text-right px-3 py-2 font-medium">기본 포함(묶음)</th>
+          <th className="text-right px-3 py-2 font-medium">총 포함 개수</th>
+          {showPrice && <th className="text-right px-3 py-2 font-medium">판매가(개당)</th>}
+          {showPrice && <th className="text-right px-3 py-2 font-medium">소계</th>}
+          {!compact && <th className="text-left px-3 py-2 font-medium">추가구매</th>}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100 text-gray-950">
+        {lines.map((line) => {
+          const unit = UNIT_PRODUCT_QUANTITY_UNIT[line.unitProductType];
+          const typeLabel = UNIT_PRODUCT_TYPE_LABEL[line.unitProductType] ?? line.unitProductType;
+          const currencyCode = line.currencyCode ?? 'KRW';
+          return (
+            <tr key={line.unitProductId}>
+              <td className="px-3 py-2">
+                {line.unitProductName}
+                {compact && typeLabel !== line.unitProductName && <span className="block text-gray-400">{typeLabel}</span>}
+              </td>
+              {!compact && <td className="px-3 py-2 text-gray-600">{typeLabel}</td>}
+              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                {line.saleUnitQuantity > 1 ? `${line.saleUnitQuantity.toLocaleString()}${unit} 묶음` : `1${unit}`}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                {line.includedQuantity > 0 ? line.includedQuantity.toLocaleString() : '-'}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap">
+                {line.totalQuantity > 0 ? `${line.totalQuantity.toLocaleString()}${unit}` : '-'}
+              </td>
+              {showPrice && (
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {line.salePrice === null ? '-' : formatPrice(line.salePrice, currencyCode)}
+                </td>
+              )}
+              {showPrice && (
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {line.salePrice === null ? '-' : formatPrice(line.salePrice * line.totalQuantity, currencyCode)}
+                </td>
+              )}
+              {/* 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매
+                  후보다(2026-09-10, purchasable 필드 폐지) — 0이면 기본 포함 없이
+                  추가구매만 가능하다는 뜻이다. */}
+              {!compact && (
+                <td className="px-3 py-2 text-gray-600">{line.includedQuantity > 0 ? '가능' : '추가구매만 가능'}</td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
 
 /** 과금 플랜 상세 — 파트너관리(AdminOrganizationDetail.tsx)와 같은 구성: 읽기 전용 정보 +
  * 이력/할인 기간 관리는 모달, 수정은 별도 페이지(사용자 요청, 2026-09-09)로 이동한다. 플랜은
@@ -209,24 +277,14 @@ export const AdminBillingPlanDetail: FC = () => {
                 <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
               </>
             )}
-            <DetailRow
-              label="단위 상품 구성"
-              value={
-                plan.unitProducts.length === 0
-                  ? '없음'
-                  : plan.unitProducts
-                      .map(
-                        (line) =>
-                          // 구성에 올라간 상품은(포함 수량이 0이든 N이든) 전부 그 자체로 추가구매
-                          // 후보다(2026-09-10, purchasable 필드 폐지) — 0이면 기본 포함 없이
-                          // 추가구매만 가능하다는 뜻이다.
-                          `${line.unitProductName}(${UNIT_PRODUCT_TYPE_LABEL[line.unitProductType] ?? line.unitProductType}) ${
-                            line.includedQuantity > 0 ? `기본 ${line.includedQuantity} · 추가구매 가능` : '추가구매만 가능'
-                          }`,
-                      )
-                      .join(', ')
-              }
-            />
+            {plan.unitProducts.length === 0 ? (
+              <DetailRow label="단위 상품 구성" value="없음" />
+            ) : (
+              <div className="px-4 py-3 space-y-2">
+                <span className="text-xs font-medium text-gray-500">단위 상품 구성</span>
+                <UnitProductLineTable lines={plan.unitProducts} showPrice={!isPlatformOrder} />
+              </div>
+            )}
             <DetailRow
               label="사용 건수"
               value={
@@ -269,12 +327,14 @@ export const AdminBillingPlanDetail: FC = () => {
             {history.map((h) => (
               <li key={h.id} className="py-2">
                 <p className="text-sm text-gray-950 font-medium">{h.name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {h.unitProducts.length === 0
-                    ? '포함 단위 상품 없음'
-                    : h.unitProducts.map((line) => `${line.unitProductName} 기본 ${line.includedQuantity}`).join(' · ')}
-                </p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
+                {h.unitProducts.length === 0 ? (
+                  <p className="text-xs text-gray-500 mt-1">포함 단위 상품 없음</p>
+                ) : (
+                  <div className="mt-2">
+                    <UnitProductLineTable lines={h.unitProducts} showPrice={false} compact />
+                  </div>
+                )}
               </li>
             ))}
           </HistoryModal>

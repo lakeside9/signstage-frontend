@@ -8,27 +8,34 @@ import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, FormActions } from './billingCatalog/components';
-import { inputClass } from './billingCatalog/constants';
-import { CustomItemsField, ScopeExtrasFields } from './order/components';
+import { formatIncludedQuantity, inputClass } from './billingCatalog/constants';
+import { CustomItemsField, DiscountField, QuotePreview, ScopeExtrasFields, TruncationField } from './order/components';
+import { useQuotePreview } from './order/useQuotePreview';
 import {
+  EMPTY_QUOTE_ADJUSTMENT_DRAFT,
   EMPTY_SCOPE_EXTRAS_DRAFT,
   REGION_OPTIONS,
   UNIT_PRODUCT_QUANTITY_UNIT,
   blankToNull,
   findSaleUnitViolation,
+  hasQuoteDiscount,
+  isDiscountRateValid,
   isCustomItemDraftValid,
   isLodgingDraftValid,
   saleUnitHint,
   toCustomItemDrafts,
   toCustomItems,
+  toQuoteAdjustment,
+  toQuoteAdjustmentDraft,
   toScopeExtras,
   toScopeExtrasDraft,
 } from './order/constants';
-import type { CustomItemDraft, ScopeExtrasDraft } from './order/constants';
+import type { CustomItemDraft, QuoteAdjustmentDraft, ScopeExtrasDraft } from './order/constants';
 import type {
   AdminCustomer,
   AdminSalesOrderDetail,
   BillingPlanSummary,
+  MarginSimulationRequest,
   PageResponse,
   SaveSalesQuoteRequest,
   ServiceRegion,
@@ -51,7 +58,7 @@ interface QuoteDraft {
   options: OptionDraft[];
   customItems: CustomItemDraft[];
   extras: ScopeExtrasDraft;
-  discountAmount: string;
+  adjustment: QuoteAdjustmentDraft;
   discountReason: string;
   quoteValidUntil: string;
   memo: string;
@@ -59,12 +66,10 @@ interface QuoteDraft {
 
 const EMPTY_DRAFT: QuoteDraft = {
   customerId: '', title: '', billingPlanId: '', region: 'CAPITAL', location: '', startsAt: '', endsAt: '',
-  options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, discountAmount: '', discountReason: '', quoteValidUntil: '', memo: '',
+  options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, adjustment: EMPTY_QUOTE_ADJUSTMENT_DRAFT, discountReason: '', quoteValidUntil: '', memo: '',
 };
 
-const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => {
-  const discountLine = order.lines.find((line) => line.lineType === 'DISCOUNT');
-  return {
+const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => ({
     customerId: String(order.customerId),
     title: order.title,
     billingPlanId: String(order.billingPlanId),
@@ -77,17 +82,18 @@ const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => {
       .map((line) => ({ unitProductId: String(line.unitProductId), quantity: String(line.quantity) })),
     customItems: toCustomItemDrafts(order.lines),
     extras: toScopeExtrasDraft(order),
-    discountAmount: discountLine ? String(Math.abs(discountLine.amount)) : '',
+    adjustment: toQuoteAdjustmentDraft(order),
     discountReason: order.discountReason ?? '',
     quoteValidUntil: order.quoteValidUntil,
     memo: order.memo ?? '',
-  };
-};
+});
 
 /**
  * 견적 작성·수정(플랫폼 관리자) — signstage-docs business/platform-order-partner-subcontract-review.md
  * 6장·D06·D07. 범위 플랜(패키지)과 추가 옵션을 고르면 서버가 고객 가격표·권역 할증으로 견적을
- * 계산한다. 영업 할인은 공급가에서 뺀다. 수정은 고객이 수락하기 전(견적 상태)에만 할 수 있다.
+ * 계산한다. 영업 할인은 정액 또는 퍼센트(할인 전 공급가 소계 기준)로 공급가에서 빼고,
+ * 절사 단위를 고르면 할인 뒤 공급가를 그 단위 미만에서 버리고, 부가세는 절사한 공급가로 계산한다.
+ * 입력이 바뀌면 영업 마진 시뮬레이션 API로 계산 결과를 미리 보여준다(저장하지 않는다). 수정은 고객이 수락하기 전(견적 상태)에만 할 수 있다.
  */
 export const AdminSalesOrderForm: FC = () => {
   const { salesOrderId } = useParams<{ salesOrderId: string }>();
@@ -150,12 +156,33 @@ export const AdminSalesOrderForm: FC = () => {
       .filter((option) => option.unitProductId && Number(option.quantity) > 0)
       .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
     customItems: toCustomItems(draft.customItems),
-    discountAmount: draft.discountAmount === '' ? null : Number(draft.discountAmount),
+    ...toQuoteAdjustment(draft.adjustment),
     discountReason: blankToNull(draft.discountReason),
     ...toScopeExtras(draft.extras),
     quoteValidUntil: draft.quoteValidUntil || null,
     memo: blankToNull(draft.memo),
   });
+
+  // 계산 결과 미리보기 — 계산할 수 없는 입력이면 안내 문구만 보인다.
+  const previewBlockedReason = !draft.billingPlanId
+    ? '패키지를 고르면 계산 결과가 보입니다.'
+    : !isDiscountRateValid(draft.adjustment)
+      ? '할인율은 0~100% 사이로 입력해주세요.'
+      : !isLodgingDraftValid(draft.extras) || !isCustomItemDraftValid(draft.customItems) || findSaleUnitViolation(draft.options, unitProducts)
+        ? '입력을 마치면 계산 결과가 보입니다.'
+        : null;
+  const previewRequest: MarginSimulationRequest = {
+    billingPlanId: Number(draft.billingPlanId),
+    region: draft.region,
+    options: draft.options
+      .filter((option) => option.unitProductId && Number(option.quantity) > 0)
+      .map((option) => ({ unitProductId: Number(option.unitProductId), quantity: Number(option.quantity) })),
+    customItems: toCustomItems(draft.customItems),
+    ...toQuoteAdjustment(draft.adjustment),
+    adjustmentAmount: null,
+    ...toScopeExtras(draft.extras),
+  };
+  const quotePreview = useQuotePreview(previewRequest, previewBlockedReason);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -180,7 +207,11 @@ export const AdminSalesOrderForm: FC = () => {
       showSnackbar('직접 입력 항목은 수량과 고객 단가를 입력해주세요.', 'error');
       return;
     }
-    if (Number(draft.discountAmount) > 0 && !draft.discountReason.trim()) {
+    if (!isDiscountRateValid(draft.adjustment)) {
+      showSnackbar('할인율은 100%를 넘을 수 없습니다.', 'error');
+      return;
+    }
+    if (hasQuoteDiscount(draft.adjustment) && !draft.discountReason.trim()) {
       showSnackbar('영업 할인 사유를 입력해주세요.', 'error');
       return;
     }
@@ -298,7 +329,7 @@ export const AdminSalesOrderForm: FC = () => {
           </Field>
           {selectedPlan && (
             <p className="text-xs text-gray-500">
-              포함: {selectedPlan.unitProducts.map((line) => `${line.unitProductName} ${line.includedQuantity}`).join(', ') || '없음'}
+              포함: {selectedPlan.unitProducts.map((line) => `${line.unitProductName} ${formatIncludedQuantity(line.unitProductType, line.includedQuantity, line.saleUnitQuantity)}`).join(', ') || '없음'}
             </p>
           )}
           <div>
@@ -369,16 +400,7 @@ export const AdminSalesOrderForm: FC = () => {
         <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-bold text-gray-950">견적 조건</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="영업 할인(공급가)">
-              <FormattedNumberInput
-                value={draft.discountAmount}
-                onChange={(value) => update('discountAmount', value)}
-                min={0}
-                disabled={isSaving}
-                placeholder="0"
-                className={inputClass}
-              />
-            </Field>
+            <DiscountField value={draft.adjustment} onChange={(next) => update('adjustment', next)} disabled={isSaving} />
             <Field label="할인 사유">
               <input
                 value={draft.discountReason}
@@ -388,6 +410,7 @@ export const AdminSalesOrderForm: FC = () => {
                 className={inputClass}
               />
             </Field>
+            <TruncationField value={draft.adjustment} onChange={(next) => update('adjustment', next)} disabled={isSaving} />
             <Field label="견적 유효기간">
               <input
                 type="date"
@@ -399,6 +422,7 @@ export const AdminSalesOrderForm: FC = () => {
             </Field>
           </div>
           {!draft.quoteValidUntil && <p className="text-xs text-gray-400">비우면 오늘부터 30일입니다.</p>}
+          <QuotePreview {...quotePreview} />
           <Field label="내부 메모">
             <textarea
               value={draft.memo}

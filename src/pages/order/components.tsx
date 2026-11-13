@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { FormattedNumberInput } from '../../components/FormattedNumberInput';
 import type {
@@ -10,12 +10,14 @@ import type {
   PartnerOffsetSummary,
   PartnerOrderStatus,
   PartnerPayoutStatus,
+  DiscountType,
+  MarginSimulation,
   SalesOrderChangeStatus,
   SalesOrderStatus,
 } from '../../types';
 import { DetailRow, Field } from '../billingCatalog/components';
-import { inputClass } from '../billingCatalog/constants';
-import type { CustomItemDraft, ScopeExtrasDraft } from './constants';
+import { DISCOUNT_TYPE_OPTIONS, inputClass } from '../billingCatalog/constants';
+import type { CustomItemDraft, QuoteAdjustmentDraft, ScopeExtrasDraft } from './constants';
 import {
   EMPTY_CUSTOM_ITEM_DRAFT,
   DEDUCTION_TYPE_LABEL,
@@ -33,6 +35,7 @@ import {
   PAYOUT_STATUS_LABEL,
   PAYOUT_STATUS_STYLE,
   SALES_ORDER_STATUS_STYLE,
+  TRUNCATION_UNIT_OPTIONS,
   formatMoney,
   statusBadgeClass,
 } from './constants';
@@ -413,6 +416,144 @@ export const CustomItemsField: FC<{
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+};
+
+interface QuoteAdjustmentFieldProps {
+  value: QuoteAdjustmentDraft;
+  onChange: (next: QuoteAdjustmentDraft) => void;
+  disabled?: boolean;
+}
+
+/**
+ * 영업 할인 입력(방식 + 금액/율) — 퍼센트는 할인 전 공급가 소계에 곱한다(서버가 계산한다).
+ * 금액 입력은 min-w-0으로 줄여 grid 칸 밖으로 넘치지 않게 한다.
+ */
+export const DiscountField: FC<QuoteAdjustmentFieldProps> = ({ value, onChange, disabled }) => (
+  <Field label="영업 할인(공급가)">
+    <div className="flex gap-2">
+      {/* inputClass의 w-full이 너비 지정을 덮으므로 고정 너비는 감싸는 div가 맡는다. */}
+      <div className="w-24 shrink-0">
+        <select
+          value={value.discountType}
+          onChange={(e) => onChange({ ...value, discountType: e.target.value as DiscountType })}
+          disabled={disabled}
+          aria-label="할인 방식"
+          className={`${inputClass} bg-white`}
+        >
+          {DISCOUNT_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+      {value.discountType === 'PERCENT' ? (
+        <div className="relative min-w-0 flex-1">
+          <FormattedNumberInput
+            value={value.discountRatePercent}
+            onChange={(next) => onChange({ ...value, discountRatePercent: next })}
+            min={0}
+            max={100}
+            step="0.01"
+            disabled={disabled}
+            placeholder="0"
+            className={`${inputClass} pr-7`}
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+        </div>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <FormattedNumberInput
+            value={value.discountAmount}
+            onChange={(next) => onChange({ ...value, discountAmount: next })}
+            min={0}
+            disabled={disabled}
+            placeholder="0"
+            className={inputClass}
+          />
+        </div>
+      )}
+    </div>
+  </Field>
+);
+
+/** 공급가 절사 단위 — 할인 뒤 공급가(부가세 별도)를 이 단위 미만에서 버리고, 부가세는 절사한 금액으로 계산한다(서버가 계산한다). */
+export const TruncationField: FC<QuoteAdjustmentFieldProps> = ({ value, onChange, disabled }) => (
+  <Field label="공급가 절사(부가세 별도)">
+    <select
+      value={value.truncationUnit}
+      onChange={(e) => onChange({ ...value, truncationUnit: e.target.value })}
+      disabled={disabled}
+      className={`${inputClass} bg-white`}
+    >
+      {TRUNCATION_UNIT_OPTIONS.map((option) => (
+        <option key={option.value} value={option.value}>{option.label}</option>
+      ))}
+    </select>
+  </Field>
+);
+
+/**
+ * 견적 계산 결과 — 할인 전 소계, 영업 할인, 절사, 공급가·부가세·합계. 기본 단가표 기준 예상 마진은 견적 작성에서만
+ * 보인다(범위 변경은 수락된 발주 단가로 마진을 검사하므로 `showMargin`을 끈다). `currentTotalAmount`를 주면 지금 합계와의 차이를 함께 보인다.
+ */
+export const QuotePreview: FC<{
+  preview: MarginSimulation | null;
+  error: string | null;
+  isLoading: boolean;
+  showMargin?: boolean;
+  currentTotalAmount?: number;
+}> = ({ preview, error, isLoading, showMargin = true, currentTotalAmount }) => {
+  if (!preview) {
+    return (
+      <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-400 flex items-center gap-1.5">
+        {isLoading && <Loader2 size={12} className="animate-spin" />}
+        {isLoading ? '계산 중...' : error}
+      </div>
+    );
+  }
+  const currency = preview.currencyCode;
+  const discountLine = preview.lines.find((line) => line.lineType === 'DISCOUNT');
+  const truncationLine = preview.lines.find((line) => line.lineType === 'TRUNCATION');
+  const subtotal = preview.lines
+    .filter((line) => line.lineType !== 'DISCOUNT' && line.lineType !== 'TRUNCATION')
+    .reduce((sum, line) => sum + line.amount, 0);
+  const { defaultQuote } = preview;
+  return (
+    <div className={`rounded-md bg-gray-50 px-3 py-2 text-sm ${isLoading ? 'opacity-60' : ''}`}>
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+        계산 결과 {isLoading && <Loader2 size={12} className="animate-spin" />}
+      </div>
+      <dl className="space-y-1">
+        <div className="flex justify-between"><dt className="text-gray-500">할인 전 공급가</dt><dd className="tabular-nums">{formatMoney(subtotal, currency)}</dd></div>
+        <div className="flex justify-between">
+          <dt className="text-gray-500">{discountLine?.name ?? '영업 할인'}</dt>
+          <dd className="tabular-nums text-red-600">{formatMoney(discountLine?.amount ?? 0, currency)}</dd>
+        </div>
+        {truncationLine && (
+          <div className="flex justify-between">
+            <dt className="text-gray-500">{truncationLine.name}</dt>
+            <dd className="tabular-nums text-red-600">{formatMoney(truncationLine.amount, currency)}</dd>
+          </div>
+        )}
+        <div className="flex justify-between"><dt className="text-gray-500">공급가</dt><dd className="tabular-nums">{formatMoney(preview.supplyAmount, currency)}</dd></div>
+        <div className="flex justify-between"><dt className="text-gray-500">부가세</dt><dd className="tabular-nums">{formatMoney(preview.vatAmount, currency)}</dd></div>
+        <div className="flex justify-between font-bold"><dt>합계</dt><dd className="tabular-nums">{formatMoney(preview.totalAmount, currency)}</dd></div>
+        {currentTotalAmount !== undefined && (
+          <div className="flex justify-between text-xs">
+            <dt className="text-gray-500">지금 합계 {formatMoney(currentTotalAmount, currency)} 대비</dt>
+            <dd className={`tabular-nums ${preview.totalAmount < currentTotalAmount ? 'text-red-600' : 'text-gray-700'}`}>
+              {preview.totalAmount >= currentTotalAmount ? '+' : ''}{formatMoney(preview.totalAmount - currentTotalAmount, currency)}
+            </dd>
+          </div>
+        )}
+      </dl>
+      {showMargin && defaultQuote.marginRatePercent !== null && (
+        <p className={`mt-2 text-xs ${defaultQuote.marginSufficient === false ? 'text-red-600' : 'text-gray-500'}`}>
+          예상 마진 {formatMoney(defaultQuote.marginAmount, currency)} ({defaultQuote.marginRatePercent}%, 기본 단가표 기준)
+          {defaultQuote.marginSufficient === false && ` — 최소 마진율 ${preview.minimumMarginRatePercent}%에 못 미쳐 저장할 수 없습니다.`}
+        </p>
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import {
   parseSalesChannel,
   planSubtotal,
 } from './billingCatalog/constants';
+import { UNIT_PRODUCT_QUANTITY_UNIT } from './order/constants';
 import type { BillingPlanSummary, SalesChannel } from '../types';
 
 type TypeFilter = 'ALL' | 'GENERAL' | 'SUBSCRIPTION';
@@ -56,6 +57,44 @@ const TYPE_BADGE_CLASS: Record<'GENERAL' | 'SUBSCRIPTION', string> = {
  * U03)으로 직접 수주·플랫폼 수주 플랜을 나눈다. 플랫폼 수주 플랜은 할인·구독 조건이 없어 제공 범위
  * (한도)만 보여준다 — 고객 패키지 가격은 수주 가격표에 있다.
  */
+/** 한도 줄 라벨 — 필수 단위 상품마다 한 줄씩 둔다. */
+const ESSENTIAL_LIMIT_LABEL: Record<string, string> = {
+  SIGNERS: '서명자',
+  TEMPLATES: '템플릿',
+  TEST_EVENTS: '테스트',
+  REHEARSAL_EVENTS: '리허설',
+  MAIN_EVENTS: '본행사',
+};
+
+/** 기본 포함 한도 칸 — 필수 단위 상품별 실제 포함 개수를 세로로 나열하고, 묶음 상품이면 묶음 수를
+ * 덧붙인다(예: 템플릿 2묶음 × 10개 → "20개 (2묶음)"). */
+const EssentialLimitList: FC<{ plan: BillingPlanSummary }> = ({ plan }) => (
+  <dl className="grid grid-cols-[auto_auto_auto] gap-x-2 gap-y-0.5 w-fit text-xs">
+    {ESSENTIAL_UNIT_PRODUCT_TYPES.map((type) => {
+      const line = plan.unitProducts.find((item) => item.unitProductType === type);
+      const hasLimit = line !== undefined && line.totalQuantity > 0;
+      return (
+        <div key={type} className="contents">
+          <dt className="pr-2 text-gray-500">{ESSENTIAL_LIMIT_LABEL[type] ?? type}</dt>
+          <dd className="text-right tabular-nums whitespace-nowrap">
+            {hasLimit ? (
+              <span className="text-gray-950">
+                {line.totalQuantity.toLocaleString()}
+                {UNIT_PRODUCT_QUANTITY_UNIT[type]}
+              </span>
+            ) : (
+              <span className="text-gray-300">-</span>
+            )}
+          </dd>
+          <dd className="tabular-nums whitespace-nowrap text-gray-400">
+            {hasLimit && line.saleUnitQuantity > 1 ? `(${line.includedQuantity}묶음)` : ''}
+          </dd>
+        </div>
+      );
+    })}
+  </dl>
+);
+
 export const AdminBillingPlanList: FC = () => {
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,6 +165,7 @@ export const AdminBillingPlanList: FC = () => {
   const pageItems = filtered.slice(page * CATALOG_PAGE_SIZE, (page + 1) * CATALOG_PAGE_SIZE);
   const showSubscriptionColumns = !isPlatformOrder && typeFilter === 'SUBSCRIPTION';
   const showTypeBadge = !isPlatformOrder && typeFilter === 'ALL';
+  const showLimitColumn = !showSubscriptionColumns;
 
   return (
     <div>
@@ -193,21 +233,18 @@ export const AdminBillingPlanList: FC = () => {
                 <>
                   <th className="text-left px-4 py-3 font-medium">구독 유형</th>
                   <th className="text-left px-4 py-3 font-medium">기간</th>
-                  <th className="text-left px-4 py-3 font-medium">허용 횟수</th>
+                  <th className="text-right px-4 py-3 font-medium">허용 횟수</th>
                 </>
               ) : isPlatformOrder ? (
-                <>
-                  <th className="text-left px-4 py-3 font-medium">포함 단위 상품</th>
-                  <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
-                </>
+                <th className="text-right px-4 py-3 font-medium">포함 단위 상품</th>
               ) : (
                 <>
-                  <th className="text-left px-4 py-3 font-medium">단위 상품 소계</th>
-                  <th className="text-left px-4 py-3 font-medium">할인</th>
-                  <th className="text-left px-4 py-3 font-medium">예상 최종가</th>
-                  <th className="text-left px-4 py-3 font-medium">한도(서명자/템플릿/테스트/리허설/본행사)</th>
+                  <th className="text-right px-4 py-3 font-medium">단위 상품 소계</th>
+                  <th className="text-right px-4 py-3 font-medium">할인</th>
+                  <th className="text-right px-4 py-3 font-medium">예상 최종가</th>
                 </>
               )}
+              {showLimitColumn && <th className="text-left px-4 py-3 font-medium">기본 포함 한도</th>}
               {!isPlatformOrder && <th className="text-left px-4 py-3 font-medium">상태</th>}
               <th className="text-right px-4 py-3 font-medium">사용 건수</th>
             </tr>
@@ -216,10 +253,11 @@ export const AdminBillingPlanList: FC = () => {
             {pageItems.map((plan) => {
               const currencyCode = plan.unitProducts[0]?.currencyCode ?? 'KRW';
               const subtotal = planSubtotal(plan.unitProducts);
+              const detailPath = `/admin/billing-catalog/plans/${plan.id}`;
               return (
                 <tr key={plan.id}>
                   <td className="px-4 py-3 font-medium">
-                    <Link to={`/admin/billing-catalog/plans/${plan.id}`} className="text-gray-950 hover:underline">
+                    <Link to={detailPath} className="text-gray-950 hover:underline">
                       {plan.name}
                     </Link>
                   </td>
@@ -242,41 +280,41 @@ export const AdminBillingPlanList: FC = () => {
                       <td className="px-4 py-3 text-gray-600">
                         {plan.subscriptionPeriodMonths ? `${plan.subscriptionPeriodMonths}개월` : '무기한'}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{plan.subscriptionAllowedCount}회</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{plan.subscriptionAllowedCount}회</td>
                     </>
                   ) : isPlatformOrder ? (
-                    <>
-                      <td className="px-4 py-3 text-gray-600">{plan.unitProducts.length}개</td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {ESSENTIAL_UNIT_PRODUCT_TYPES.map(
-                          (type) => plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
-                        ).join('/')}
-                      </td>
-                    </>
+                    <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                      <Link to={detailPath} className="hover:underline">
+                        {plan.unitProducts.length}개
+                      </Link>
+                    </td>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-gray-600">{formatPrice(subtotal, currencyCode)}</td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{formatPrice(subtotal, currencyCode)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">
                         {plan.discountType === null || plan.discountValue === null ? '-' : formatDiscount(plan.discountType, plan.discountValue)}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-right tabular-nums font-medium text-gray-950">
                         {plan.discountType === null || plan.discountValue === null
                           ? '-'
                           : formatPrice(calculateFinalPrice(subtotal, plan.discountType, plan.discountValue), currencyCode)}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {ESSENTIAL_UNIT_PRODUCT_TYPES.map(
-                          (type) => plan.unitProducts.find((line) => line.unitProductType === type)?.includedQuantity ?? 0,
-                        ).join('/')}
-                      </td>
                     </>
+                  )}
+                  {showLimitColumn && (
+                    <td className="px-4 py-3">
+                      {/* 한도 목록도 상세로 가는 링크다 — 이름만 링크면 클릭 대상이 좁다. */}
+                      <Link to={detailPath} className="block w-fit rounded hover:bg-gray-50" aria-label={`${plan.name} 상세 보기`}>
+                        <EssentialLimitList plan={plan} />
+                      </Link>
+                    </td>
                   )}
                   {!isPlatformOrder && (
                     <td className="px-4 py-3">
                       <PeriodStatusBadge status={plan.periodStatus} />
                     </td>
                   )}
-                  <td className="px-4 py-3 text-right text-gray-500">{plan.usageCount}건</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-500">{plan.usageCount}건</td>
                 </tr>
               );
             })}

@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../utils/internationalization';
+import { UNIT_PRODUCT_QUANTITY_UNIT } from '../order/constants';
 import type {
   BillingPlanDiscountPeriodRequest,
   DiscountType,
@@ -150,13 +151,24 @@ export const EFFECT_TRIGGER_LABEL: Record<string, string> = {
 export const TOGGLE_UNIT_PRODUCT_TYPES: UnitProductType[] = ['EVENT_EFFECT_BUNDLE'];
 
 /**
- * 플랜이 포함하는 단위 상품 줄들의 소계 — `Σ(unitProduct.salePrice × includedQuantity)`, 백엔드
+ * 플랜이 포함하는 단위 상품 줄들의 소계 — `Σ(unitProduct.salePrice × totalQuantity)`(개당 판매가 × 묶음 수 × 판매 단위), 백엔드
  * `BillingPlanService`가 "오늘 가격" 계산에 쓰는 것과 같은 식이다(3.3절). 플랜 자체는 가격이
  * 없으므로 목록/상세/등록 화면이 "판매가" 대신 이 값을 보여준다. 오늘 유효한 판매가격 기간이
  * 없는 줄(salePrice=null)은 0으로 취급한다.
  */
 export const planSubtotal = (lines: PlanUnitProductLineSummary[]): number =>
-  lines.reduce((sum, line) => sum + (line.salePrice ?? 0) * line.includedQuantity, 0);
+  lines.reduce((sum, line) => sum + (line.salePrice ?? 0) * line.totalQuantity, 0);
+
+/**
+ * 플랜 포함 수량 표시 — 포함 수량은 판매 단위 묶음 수라(2026-11-13), 묶음 상품이면 전체 개수를 함께 보인다.
+ * 예: 템플릿 문서(10개 묶음) 2 → "2묶음(총 20개)", 서명자(판매 단위 1) 5 → "5명".
+ */
+export const formatIncludedQuantity = (type: UnitProductType, includedQuantity: number, saleUnitQuantity: number): string => {
+  const unit = UNIT_PRODUCT_QUANTITY_UNIT[type];
+  return saleUnitQuantity > 1
+    ? `${includedQuantity}묶음(총 ${(includedQuantity * saleUnitQuantity).toLocaleString()}${unit})`
+    : `${includedQuantity.toLocaleString()}${unit}`;
+};
 
 export const formatPrice = (value: number, currencyCode = 'KRW') => formatCurrency(value, currencyCode);
 
