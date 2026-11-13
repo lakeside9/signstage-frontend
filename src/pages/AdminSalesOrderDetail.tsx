@@ -257,7 +257,7 @@ export const AdminSalesOrderDetail: FC = () => {
   const estimatedMargin = order.supplyAmount - order.estimatedPartnerAmount;
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <Link to="/admin/sales-orders" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-950">
         <ArrowLeft size={14} /> 수주 목록
       </Link>

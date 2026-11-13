@@ -5,6 +5,7 @@ import { ListContainer } from '../components/ListContainer';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
+import { useClientPagination } from '../utils/useClientPagination';
 import { AcceptanceRate, AverageRating } from './order/evaluationComponents';
 import { formatMoney } from './order/constants';
 import type { PartnerEvaluation } from '../types';
@@ -18,6 +19,7 @@ export const AdminPartnerEvaluations: FC = () => {
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
   const [evaluations, setEvaluations] = useState<PartnerEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { pageItems, pagination } = useClientPagination(evaluations);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +50,12 @@ export const AdminPartnerEvaluations: FC = () => {
         </p>
       </div>
 
-      <ListContainer isLoading={isLoading} isEmpty={evaluations.length === 0} emptyMessage="평가할 파트너가 없습니다.">
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={evaluations.length === 0}
+        emptyMessage="평가할 파트너가 없습니다."
+        pagination={isLoading ? undefined : pagination}
+      >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
@@ -63,7 +70,7 @@ export const AdminPartnerEvaluations: FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {evaluations.map((evaluation) => (
+            {pageItems.map((evaluation) => (
               <tr key={evaluation.organizationId} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <span className="text-gray-950 font-medium">{evaluation.organizationName}</span>

@@ -7,6 +7,7 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
+import { useClientPagination } from '../utils/useClientPagination';
 import type { PlatformAdminOrganizationSummary } from '../types';
 
 /**
@@ -26,6 +27,7 @@ import type { PlatformAdminOrganizationSummary } from '../types';
 export const AdminDemoCeremonies: FC = () => {
   const [organizations, setOrganizations] = useState<PlatformAdminOrganizationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { pageItems, pagination } = useClientPagination(organizations);
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_DEMO_CEREMONY_MANAGE'));
   const showSnackbar = useSnackbarStore((state) => state.showSnackbar);
 
@@ -71,7 +73,12 @@ export const AdminDemoCeremonies: FC = () => {
         )}
       </div>
 
-      <ListContainer isLoading={isLoading} isEmpty={organizations.length === 0} emptyMessage="등록된 데모 조직이 없습니다.">
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={organizations.length === 0}
+        emptyMessage="등록된 데모 조직이 없습니다."
+        pagination={isLoading ? undefined : pagination}
+      >
         <table className="w-full text-sm">
           <thead className="text-gray-500 text-xs">
             <tr>
@@ -82,7 +89,7 @@ export const AdminDemoCeremonies: FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {organizations.map((organization) => (
+            {pageItems.map((organization) => (
               <tr key={organization.id}>
                 <td className="py-2 px-4 text-gray-950 font-medium">
                   <span className="inline-flex items-center gap-1.5">

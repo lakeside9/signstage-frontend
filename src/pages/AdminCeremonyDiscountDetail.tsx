@@ -105,7 +105,7 @@ export const AdminCeremonyDiscountDetail: FC = () => {
       ) : !ceremony ? (
         <p className="text-sm text-gray-400">행사를 찾을 수 없습니다.</p>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-xl">
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h1 className="text-xl font-bold text-gray-950 flex items-center gap-1.5">
             <Percent size={18} />
             {ceremony.title}

@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { CalendarX, Loader2, Plus, Receipt, Trash2 } from 'lucide-react';
+import { CalendarX, Pencil, Plus, Receipt, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { ListContainer } from '../components/ListContainer';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { Modal } from '../components/Modal';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
+import { useClientPagination } from '../utils/useClientPagination';
 import { Field, FormActions } from './billingCatalog/components';
 import { inputClass, todayIsoDate } from './billingCatalog/constants';
 import {
@@ -95,19 +97,47 @@ interface PriceDraft {
   amount4: string;
   effectiveFrom: string;
   effectiveTo: string;
+  /** 수정할 때 원래 세금 코드를 그대로 보낸다(등록은 비워 두면 서버 기본값). */
+  taxCode: string;
 }
 
 const emptyDraft = (): PriceDraft => ({
-  target: '', amount1: '', amount2: '', amount3: '', amount4: '', effectiveFrom: todayIsoDate(), effectiveTo: '',
+  target: '', amount1: '', amount2: '', amount3: '', amount4: '', effectiveFrom: todayIsoDate(), effectiveTo: '', taxCode: '',
 });
+
+const amountText = (value: number) => String(value);
+
+/** 표의 한 행을 수정 폼 초안으로 — 대상(패키지·옵션, 권역, 파트너)은 수정할 수 없어 폼에서 잠근다. */
+const toEditDraft = (row: AdminCustomerPrice | AdminRegionSurcharge | AdminPartnerRateCard): PriceDraft => {
+  const period = { effectiveFrom: row.effectiveFrom, effectiveTo: row.effectiveTo ?? '' };
+  if ('unitPrice' in row) {
+    return {
+      ...emptyDraft(), ...period, taxCode: row.taxCode, amount1: amountText(row.unitPrice),
+      target: row.billingPlanId !== null ? `plan:${row.billingPlanId}` : `unit:${row.unitProductId}`,
+    };
+  }
+  if ('region' in row) {
+    return {
+      ...emptyDraft(), ...period, taxCode: row.taxCode, target: row.region,
+      amount1: amountText(row.customerAmount), amount2: amountText(row.partnerAmount),
+      amount3: amountText(row.lodgingCustomerAmount), amount4: amountText(row.lodgingPartnerAmount),
+    };
+  }
+  return {
+    ...emptyDraft(), ...period, target: row.organizationId !== null ? String(row.organizationId) : '',
+    amount1: amountText(row.baseFee), amount2: amountText(row.tabletUnitRate),
+    amount3: amountText(row.onsiteStaffDayRate), amount4: amountText(row.wifiUnitRate),
+  };
+};
 
 const toNumber = (value: string) => (value === '' ? null : Number(value));
 
 /**
  * 수주 가격표(플랫폼 관리자) — signstage-docs business/platform-order-partner-subcontract-review.md
- * 6장, D05·D06·D26. 고객 가격표·권역 할증·파트너 단가표 세 표를 탭으로 둔다. 가격은 고치지 않고
- * 기간으로 바꾼다 — 새 기간을 등록하고 이전 기간은 종료일을 지정해 닫는다(같은 대상의 기간은 겹칠 수
- * 없다). 견적·발주는 계산 시점의 가격을 스냅샷하므로 닫아도 이미 만든 수주·발주는 바뀌지 않는다.
+ * 6장, D05·D06·D26. 고객 가격표·권역 할증·파트너 단가표 세 표를 탭으로 둔다. 견적·수주·발주에 아직
+ * 쓰이지 않은 가격은 금액·기간을 바로 고치거나 지울 수 있다(대상은 못 바꾼다). 이미 쓰인 가격은 기간으로
+ * 바꾼다 — 새 기간을 등록하고 이전 기간은 종료일을 지정해 닫는다(같은 대상의 기간은 겹칠 수 없다). 견적·발주는
+ * 계산 시점의 가격을 스냅샷하므로 닫아도 이미 만든 수주·발주는 바뀌지 않는다.
  */
 export const AdminOrderPrices: FC = () => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_ORDER_PRICE_MANAGE'));
@@ -118,12 +148,18 @@ export const AdminOrderPrices: FC = () => {
   const [regionSurcharges, setRegionSurcharges] = useState<AdminRegionSurcharge[]>([]);
   const [rateCards, setRateCards] = useState<AdminPartnerRateCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // 탭마다 따로 페이지를 기억한다 — 탭을 오가도 보던 페이지가 유지된다.
+  const customerPricePages = useClientPagination(customerPrices);
+  const regionSurchargePages = useClientPagination(regionSurcharges);
+  const rateCardPages = useClientPagination(rateCards);
 
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [unitProducts, setUnitProducts] = useState<UnitProductSummary[]>([]);
   const [organizations, setOrganizations] = useState<PlatformAdminOrganizationSummary[]>([]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  /** 수정 중인 행 id — null이면 새로 등록한다. */
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<PriceDraft>(emptyDraft);
   const [isSaving, setIsSaving] = useState(false);
   const [closingId, setClosingId] = useState<number | null>(null);
@@ -170,11 +206,19 @@ export const AdminOrderPrices: FC = () => {
 
   const openCreate = () => {
     setDraft(emptyDraft());
+    setEditingId(null);
+    setIsCreateOpen(true);
+  };
+
+  const openEdit = (row: AdminCustomerPrice | AdminRegionSurcharge | AdminPartnerRateCard) => {
+    setDraft(toEditDraft(row));
+    setEditingId(row.id);
     setIsCreateOpen(true);
   };
 
   const buildCreateRequest = (): Record<string, unknown> | null => {
     const period = { effectiveFrom: draft.effectiveFrom, effectiveTo: draft.effectiveTo || null };
+    const taxCode = draft.taxCode || null;
     if (activeTab === 'customerPrices') {
       if (!draft.target || draft.amount1 === '') return null;
       const [kind, id] = draft.target.split(':');
@@ -182,6 +226,7 @@ export const AdminOrderPrices: FC = () => {
         billingPlanId: kind === 'plan' ? Number(id) : null,
         unitProductId: kind === 'unit' ? Number(id) : null,
         unitPrice: toNumber(draft.amount1),
+        taxCode,
         ...period,
       };
     }
@@ -193,6 +238,7 @@ export const AdminOrderPrices: FC = () => {
         partnerAmount: toNumber(draft.amount2),
         lodgingCustomerAmount: toNumber(draft.amount3),
         lodgingPartnerAmount: toNumber(draft.amount4),
+        taxCode,
         ...period,
       };
     }
@@ -216,12 +262,16 @@ export const AdminOrderPrices: FC = () => {
     }
     setIsSaving(true);
     try {
-      await api.post(ENDPOINT[activeTab], request);
-      showSnackbar('가격을 등록했습니다.', 'success');
+      if (editingId !== null) {
+        await api.put(`${ENDPOINT[activeTab]}/${editingId}`, request);
+      } else {
+        await api.post(ENDPOINT[activeTab], request);
+      }
+      showSnackbar(editingId !== null ? '가격을 수정했습니다.' : '가격을 등록했습니다.', 'success');
       setIsCreateOpen(false);
       await reload();
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : '등록에 실패했습니다.', 'error');
+      showSnackbar(err instanceof Error ? err.message : editingId !== null ? '수정에 실패했습니다.' : '등록에 실패했습니다.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -263,10 +313,20 @@ export const AdminOrderPrices: FC = () => {
     }
   };
 
-  /** 기간 종료(열린 기간만)와 삭제(견적·수주·발주에 쓰이지 않은 가격만). */
-  const rowActions = (id: number, effectiveTo: string | null, used: boolean) =>
-    canManage ? (
+  /** 수정·삭제(견적·수주·발주에 쓰이지 않은 가격만)와 기간 종료(열린 기간만). */
+  const rowActions = (row: AdminCustomerPrice | AdminRegionSurcharge | AdminPartnerRateCard) => {
+    const { id, effectiveTo, used } = row;
+    return canManage ? (
       <div className="inline-flex items-center gap-1">
+        {!used && (
+          <button
+            type="button"
+            onClick={() => openEdit(row)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+          >
+            <Pencil size={12} /> 수정
+          </button>
+        )}
         {isPeriodOpen(effectiveTo) && (
           <button
             type="button"
@@ -287,6 +347,7 @@ export const AdminOrderPrices: FC = () => {
         )}
       </div>
     ) : null;
+  };
 
   const amountInput = (field: 'amount1' | 'amount2' | 'amount3' | 'amount4', label: string) => (
     <Field label={label}>
@@ -303,6 +364,8 @@ export const AdminOrderPrices: FC = () => {
   const thClass = 'text-left px-4 py-3 font-medium';
   const tdClass = 'px-4 py-3';
   const activeTabMeta = TABS.find((tab) => tab.value === activeTab)!;
+  const activeTabPages = { customerPrices: customerPricePages, regionSurcharges: regionSurchargePages, partnerRateCards: rateCardPages }[activeTab];
+  const activeTabTotal = activeTabPages.pagination.totalElements ?? 0;
 
   return (
     <div>
@@ -336,12 +399,13 @@ export const AdminOrderPrices: FC = () => {
         ))}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <Loader2 size={20} className="animate-spin" />
-          </div>
-        ) : (
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={activeTabTotal === 0}
+        emptyMessage="등록된 가격이 없습니다."
+        pagination={isLoading ? undefined : activeTabPages.pagination}
+      >
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             {activeTab === 'customerPrices' && (
               <>
@@ -356,7 +420,7 @@ export const AdminOrderPrices: FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {customerPrices.map((price) => {
+                  {customerPricePages.pageItems.map((price) => {
                     const unit = customerPriceUnit(price, unitProducts);
                     return (
                       <tr key={price.id}>
@@ -368,7 +432,7 @@ export const AdminOrderPrices: FC = () => {
                           {unit.bundle && <span className="block text-xs text-gray-400 whitespace-nowrap">{unit.bundle}</span>}
                         </td>
                         <td className={`${tdClass} text-gray-500`}>{formatPeriod(price.effectiveFrom, price.effectiveTo)}</td>
-                        <td className={`${tdClass} text-right`}>{rowActions(price.id, price.effectiveTo, price.used)}</td>
+                        <td className={`${tdClass} text-right`}>{rowActions(price)}</td>
                       </tr>
                     );
                   })}
@@ -388,7 +452,7 @@ export const AdminOrderPrices: FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {regionSurcharges.map((surcharge) => (
+                  {regionSurchargePages.pageItems.map((surcharge) => (
                     <tr key={surcharge.id}>
                       <td className={`${tdClass} text-gray-950 font-medium`}>{REGION_LABEL[surcharge.region]}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(surcharge.customerAmount, surcharge.currencyCode)}</td>
@@ -397,7 +461,7 @@ export const AdminOrderPrices: FC = () => {
                         {formatMoney(surcharge.lodgingCustomerAmount, surcharge.currencyCode)} / {formatMoney(surcharge.lodgingPartnerAmount, surcharge.currencyCode)}
                       </td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(surcharge.effectiveFrom, surcharge.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{rowActions(surcharge.id, surcharge.effectiveTo, surcharge.used)}</td>
+                      <td className={`${tdClass} text-right`}>{rowActions(surcharge)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -417,7 +481,7 @@ export const AdminOrderPrices: FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {rateCards.map((card) => (
+                  {rateCardPages.pageItems.map((card) => (
                     <tr key={card.id}>
                       <td className={`${tdClass} text-gray-950 font-medium`}>{card.organizationName ?? '기본 단가표'}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.baseFee, card.currencyCode)}</td>
@@ -425,23 +489,22 @@ export const AdminOrderPrices: FC = () => {
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.wifiUnitRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-right tabular-nums`}>{formatMoney(card.onsiteStaffDayRate, card.currencyCode)}</td>
                       <td className={`${tdClass} text-gray-500`}>{formatPeriod(card.effectiveFrom, card.effectiveTo)}</td>
-                      <td className={`${tdClass} text-right`}>{rowActions(card.id, card.effectiveTo, card.used)}</td>
+                      <td className={`${tdClass} text-right`}>{rowActions(card)}</td>
                     </tr>
                   ))}
                 </tbody>
               </>
             )}
           </table>
-        )}
-        {!isLoading &&
-          ((activeTab === 'customerPrices' && customerPrices.length === 0) ||
-            (activeTab === 'regionSurcharges' && regionSurcharges.length === 0) ||
-            (activeTab === 'partnerRateCards' && rateCards.length === 0)) && (
-            <p className="py-10 text-center text-sm text-gray-400">등록된 가격이 없습니다.</p>
-          )}
-      </div>
+        </div>
+      </ListContainer>
 
-      <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title={`${activeTabMeta.label} 등록`} widthClassName="max-w-lg">
+      <Modal
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title={`${activeTabMeta.label} ${editingId !== null ? '수정' : '등록'}`}
+        widthClassName="max-w-lg"
+      >
         <form onSubmit={handleCreate} className="space-y-3">
           {activeTab === 'customerPrices' && (
             <>
@@ -449,7 +512,7 @@ export const AdminOrderPrices: FC = () => {
                 <select
                   value={draft.target}
                   onChange={(e) => setDraft((prev) => ({ ...prev, target: e.target.value }))}
-                  disabled={isSaving}
+                  disabled={isSaving || editingId !== null}
                   className={`${inputClass} bg-white`}
                 >
                   <option value="">선택</option>
@@ -477,7 +540,7 @@ export const AdminOrderPrices: FC = () => {
                 <select
                   value={draft.target}
                   onChange={(e) => setDraft((prev) => ({ ...prev, target: e.target.value }))}
-                  disabled={isSaving}
+                  disabled={isSaving || editingId !== null}
                   className={`${inputClass} bg-white`}
                 >
                   <option value="">선택</option>
@@ -501,7 +564,7 @@ export const AdminOrderPrices: FC = () => {
                 <select
                   value={draft.target}
                   onChange={(e) => setDraft((prev) => ({ ...prev, target: e.target.value }))}
-                  disabled={isSaving}
+                  disabled={isSaving || editingId !== null}
                   className={`${inputClass} bg-white`}
                 >
                   <option value="">기본 단가표(모든 파트너)</option>
@@ -542,8 +605,16 @@ export const AdminOrderPrices: FC = () => {
               />
             </Field>
           </div>
-          <p className="text-xs text-gray-400">금액은 원화 공급가(부가세 별도)입니다. 같은 대상의 기간은 겹칠 수 없습니다.</p>
-          <FormActions isSaving={isSaving} savingLabel="등록 중..." saveLabel="등록" onCancel={() => setIsCreateOpen(false)} />
+          <p className="text-xs text-gray-400">
+            금액은 원화 공급가(부가세 별도)입니다. 같은 대상의 기간은 겹칠 수 없습니다.
+            {editingId !== null && ' 아직 견적·수주·발주에 쓰이지 않은 가격이라 바로 고칩니다. 대상은 바꿀 수 없습니다.'}
+          </p>
+          <FormActions
+            isSaving={isSaving}
+            savingLabel={editingId !== null ? '저장 중...' : '등록 중...'}
+            saveLabel={editingId !== null ? '저장' : '등록'}
+            onCancel={() => setIsCreateOpen(false)}
+          />
         </form>
       </Modal>
 

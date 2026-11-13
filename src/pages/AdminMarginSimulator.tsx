@@ -177,7 +177,7 @@ export const AdminMarginSimulator: FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] gap-4 items-start">
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <Field label="패키지(범위 플랜)">
             <select

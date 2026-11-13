@@ -30,15 +30,14 @@ export interface PaginationProps {
  */
 export const Pagination: FC<PaginationProps> = ({
   page,
-  totalPages,
+  totalPages: rawTotalPages,
   hasNext,
   onPageChange,
   totalElements,
   maxVisiblePages = 5,
 }) => {
-  if (totalPages <= 1) {
-    return null;
-  }
+  // 한 페이지뿐이거나 비어 있어도(서버는 빈 목록에 totalPages=0을 준다) 항상 그린다 — 모든 목록 화면이 같은 모양이 되게 한다.
+  const totalPages = Math.max(1, rawTotalPages);
 
   const windowStart = Math.max(0, Math.min(page - Math.floor(maxVisiblePages / 2), totalPages - maxVisiblePages));
   const windowEnd = Math.min(totalPages, windowStart + maxVisiblePages);

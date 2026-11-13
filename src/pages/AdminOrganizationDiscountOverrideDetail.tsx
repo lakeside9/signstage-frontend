@@ -224,7 +224,7 @@ export const AdminOrganizationDiscountOverrideDetail: FC = () => {
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-2xl">
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-xl font-bold text-gray-950 flex items-center gap-1.5">
               <Tag size={18} />

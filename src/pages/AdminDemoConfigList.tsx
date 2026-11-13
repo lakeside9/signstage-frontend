@@ -8,6 +8,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import { canManagePlatform } from '../utils/permissions';
+import { useClientPagination } from '../utils/useClientPagination';
 import type { DemoConfigSummary, DemoEventOption, UpsertDemoConfigRequest } from '../types';
 
 const EMPTY_DRAFT = (): UpsertDemoConfigRequest => ({
@@ -30,6 +31,7 @@ export const AdminDemoConfigList: FC = () => {
   const [configs, setConfigs] = useState<DemoConfigSummary[]>([]);
   const [eventOptions, setEventOptions] = useState<DemoEventOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { pageItems, pagination } = useClientPagination(configs);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [draft, setDraft] = useState<UpsertDemoConfigRequest>(EMPTY_DRAFT);
@@ -232,7 +234,12 @@ export const AdminDemoConfigList: FC = () => {
         </form>
       )}
 
-      <ListContainer isLoading={isLoading} isEmpty={configs.length === 0} emptyMessage="등록된 데모 프로필이 없습니다.">
+      <ListContainer
+        isLoading={isLoading}
+        isEmpty={configs.length === 0}
+        emptyMessage="등록된 데모 프로필이 없습니다."
+        pagination={isLoading ? undefined : pagination}
+      >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
@@ -244,7 +251,7 @@ export const AdminDemoConfigList: FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {configs.map((config) => (
+            {pageItems.map((config) => (
               <tr key={config.slug}>
                 <td className="px-4 py-3 font-mono text-xs font-medium text-gray-950">{config.slug}</td>
                 <td className="px-4 py-3 text-gray-600">{config.signerAccessKeys.length}명</td>

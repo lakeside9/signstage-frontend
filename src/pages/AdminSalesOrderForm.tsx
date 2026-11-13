@@ -262,7 +262,7 @@ export const AdminSalesOrderForm: FC = () => {
   const backPath = isEdit ? `/admin/sales-orders/${salesOrderId}` : '/admin/sales-orders';
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <Link to={backPath} className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-950">
         <ArrowLeft size={14} /> 돌아가기
       </Link>
