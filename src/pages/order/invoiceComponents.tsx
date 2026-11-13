@@ -19,7 +19,7 @@ import {
   localIsoDate,
   statusBadgeClass,
 } from './constants';
-import type { CustomerInvoiceStatus, CustomerInvoiceSummary, CustomerInvoiceType, SalesOrderBilling } from '../../types';
+import type { CustomerInvoiceStatus, CustomerInvoiceSummary, CustomerInvoiceType, DiscountType, SalesOrderBilling } from '../../types';
 
 /*
  * 고객 청구·수납 화면 공용 — signstage-docs business/platform-order-partner-subcontract-review.md D12·D16.
@@ -234,8 +234,8 @@ const InvoiceActionModal: FC<{
 };
 
 /**
- * 수주 상세의 청구 섹션 — 선금(수주 확정 후, 수주 금액 × 선금 비율)과 잔금(행사 완료 후 나머지)을
- * 발행하고 입금·세금계산서를 기록한다(D12·D16).
+ * 수주 상세의 청구 섹션 — 선금(수주 확정 후, 수주 금액의 퍼센트 또는 정액)과 잔금(행사 완료 후 나머지)을
+ * 발행하고 입금·세금계산서를 기록한다(D12·D16). 선금은 기본 선금 비율로 시작한다.
  */
 export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: unknown }> = ({ salesOrderId, refreshKey }) => {
   const canManage = usePermissionStore((state) => state.hasPermission('ACTION_CUSTOMER_INVOICE_MANAGE'));
@@ -243,6 +243,8 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
   const [billing, setBilling] = useState<SalesOrderBilling | null>(null);
   const [issueType, setIssueType] = useState<CustomerInvoiceType | null>(null);
   const [dueDate, setDueDate] = useState('');
+  const [advanceAmountType, setAdvanceAmountType] = useState<DiscountType>('PERCENT');
+  const [advanceValue, setAdvanceValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const endpoint = `/platform-admin/sales-orders/${salesOrderId}/invoices`;
@@ -269,15 +271,27 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
 
   const openIssue = (type: CustomerInvoiceType) => {
     setDueDate(localIsoDate(type === 'ADVANCE' ? 7 : 14));
+    setAdvanceAmountType('PERCENT');
+    setAdvanceValue(billing ? String(Math.round(billing.advancePaymentRate * 100)) : '');
     setIssueType(type);
   };
 
   const handleIssue = async (e: FormEvent) => {
     e.preventDefault();
     if (!issueType || !dueDate) return;
+    const isAdvance = issueType === 'ADVANCE';
+    if (isAdvance && !(Number(advanceValue) > 0)) {
+      showSnackbar(advanceAmountType === 'PERCENT' ? '선금 비율을 입력해주세요.' : '선금 금액을 입력해주세요.', 'error');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const response = await api.post(endpoint, { invoiceType: issueType, dueDate });
+      const response = await api.post(endpoint, {
+        invoiceType: issueType,
+        dueDate,
+        advanceAmountType: isAdvance ? advanceAmountType : null,
+        advanceValue: isAdvance ? Number(advanceValue) : null,
+      });
       setBilling(response.data as SalesOrderBilling);
       setIssueType(null);
       showSnackbar(`${INVOICE_TYPE_LABEL[issueType]}을 청구했습니다.`, 'success');
@@ -308,7 +322,7 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
           <div className="flex gap-2">
             {billing.advanceIssuable && (
               <Button size="sm" variant="secondary" onClick={() => openIssue('ADVANCE')}>
-                <Receipt size={12} /> 선금 청구({ratePercent}%)
+                <Receipt size={12} /> 선금 청구
               </Button>
             )}
             {billing.balanceIssuable && (
@@ -343,11 +357,49 @@ export const SalesOrderBillingSection: FC<{ salesOrderId: number; refreshKey?: u
 
       <Modal open={issueType !== null} onClose={() => setIssueType(null)} title={issueType ? `${INVOICE_TYPE_LABEL[issueType]} 청구` : ''} widthClassName="max-w-sm">
         <form onSubmit={handleIssue} className="space-y-3">
-          <p className="text-sm text-gray-700">
-            {issueType === 'ADVANCE'
-              ? `수주 금액의 ${ratePercent}%를 선금으로 청구합니다.`
-              : '수주 금액에서 선금을 뺀 나머지를 잔금으로 청구합니다.'}
-          </p>
+          {issueType === 'ADVANCE' ? (
+            <>
+              <Field label="선금 금액">
+                <div className="flex gap-2">
+                  <div className="w-24 shrink-0">
+                    <select
+                      value={advanceAmountType}
+                      onChange={(e) => {
+                        const type = e.target.value as DiscountType;
+                        setAdvanceAmountType(type);
+                        setAdvanceValue(type === 'PERCENT' ? String(ratePercent) : '');
+                      }}
+                      disabled={isSubmitting}
+                      className={`${inputClass} bg-white`}
+                    >
+                      <option value="PERCENT">퍼센트</option>
+                      <option value="FIXED_AMOUNT">정액</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <FormattedNumberInput
+                      value={advanceValue}
+                      onChange={setAdvanceValue}
+                      min={0}
+                      max={advanceAmountType === 'PERCENT' ? 99 : undefined}
+                      disabled={isSubmitting}
+                      placeholder={advanceAmountType === 'PERCENT' ? '%' : '부가세 포함 금액'}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </Field>
+              <p className="text-xs text-gray-500">
+                {advanceAmountType === 'PERCENT'
+                  ? `수주 금액(${formatMoney(billing.contractAmount, currency)})의 ${advanceValue || 0}%`
+                    + `, 약 ${formatMoney(billing.contractAmount * (Number(advanceValue) || 0) / 100, currency)}를 청구합니다.`
+                  : `부가세 포함 금액을 입력합니다. 수주 금액(${formatMoney(billing.contractAmount, currency)})보다 작아야 하며,`
+                    + ' 공급가·부가세는 수주와 같은 비율로 나뉩니다.'}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-700">수주 금액에서 선금을 뺀 나머지를 잔금으로 청구합니다.</p>
+          )}
           <Field label="입금 기한">
             <input
               type="date"
