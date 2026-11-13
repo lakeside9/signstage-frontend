@@ -172,6 +172,13 @@ export const BUSINESS_TYPE_LABEL: Record<PartnerBusinessType, string> = {
   INDIVIDUAL: '개인(사업자 아님)',
 };
 
+/** 사업자 유형 고르는 칸 아래 설명 — 세금계산서 발행과 지급 때 세금 처리가 유형에 따라 갈린다. */
+export const BUSINESS_TYPE_DESCRIPTION: Record<PartnerBusinessType, string> = {
+  GENERAL: '부가세 10%를 붙인 세금계산서를 발행합니다. 지급액은 공급가에 부가세를 더한 금액입니다.',
+  SIMPLIFIED: '연 매출에 따라 세금계산서를 발행할 수 없는 경우가 있습니다(영수증만 발행).',
+  INDIVIDUAL: '사업자 등록이 없는 개인입니다. 세금계산서가 없고, 지급할 때 세금을 원천징수합니다.',
+};
+
 export const PLATFORM_CURRENCY_CODE = 'KRW';
 
 export const formatMoney = (value: number | null | undefined, currencyCode = PLATFORM_CURRENCY_CODE) =>

@@ -7,7 +7,7 @@ import { useSnackbarStore } from '../../store/useSnackbarStore';
 import { api } from '../../utils/api';
 import { Field, FormActions } from '../billingCatalog/components';
 import { inputClass } from '../billingCatalog/constants';
-import { BUSINESS_TYPE_LABEL, blankToNull } from '../order/constants';
+import { BUSINESS_TYPE_DESCRIPTION, BUSINESS_TYPE_LABEL, blankToNull } from '../order/constants';
 import { PartnerProfileSummary } from './PartnerProfileSummary';
 import type { PartnerBusinessType, PartnerSubcontractProfile } from '../../types';
 
@@ -140,6 +140,11 @@ export const PartnerSubcontractProfileSection: FC<{ organizationId: string }> = 
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-gray-400">
+                {draft.businessType
+                  ? BUSINESS_TYPE_DESCRIPTION[draft.businessType]
+                  : '세무상 사업자 구분입니다. 세금계산서 발행 여부와 지급 때 세금 처리가 달라집니다.'}
+              </p>
             </Field>
             {textField('businessRegistrationNumber', '사업자등록번호', draft.businessType === 'INDIVIDUAL' ? '개인은 비워둡니다' : '000-00-00000')}
             {textField('representativeName', '대표자')}
