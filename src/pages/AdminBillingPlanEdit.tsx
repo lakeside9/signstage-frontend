@@ -6,8 +6,8 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { BundleSizeCell, Field, ServiceDescriptionField, ShowOnQuoteCell, TotalQuantityCell, UsageWarning } from './billingCatalog/components';
-import { TOGGLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, defaultShowOnQuote, inputClass, isPlanComposable, normalizeDescription } from './billingCatalog/constants';
+import { BundleSizeCell, Field, ShowOnQuoteCell, TotalQuantityCell, UsageWarning } from './billingCatalog/components';
+import { TOGGLE_UNIT_PRODUCT_TYPES, UNIT_PRODUCT_TYPE_LABEL, defaultShowOnQuote, inputClass, isPlanComposable } from './billingCatalog/constants';
 import type { BillingPlanSummary, PlanUnitProductLine, UnitProductSummary, UpdateBillingPlanRequest } from '../types';
 
 /**
@@ -34,7 +34,6 @@ export const AdminBillingPlanEdit: FC = () => {
   const [plan, setPlan] = useState<BillingPlanSummary | null>(null);
   const [products, setProducts] = useState<UnitProductSummary[]>([]);
   const [name, setName] = useState('');
-  const [serviceDescription, setServiceDescription] = useState('');
   const [lineDrafts, setLineDrafts] = useState<Record<number, LineDraft>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,7 +59,6 @@ export const AdminBillingPlanEdit: FC = () => {
           const includedIds = new Set(found.unitProducts.map((line) => line.unitProductId));
           setProducts(allProducts.filter((p) => isPlanComposable(p, found.salesChannel) || includedIds.has(p.id)));
           setName(found.name);
-          setServiceDescription(found.serviceDescription ?? '');
           const drafts: Record<number, LineDraft> = Object.fromEntries(
             allProducts.map((p) => [p.id, { includedQuantity: null, showOnQuote: defaultShowOnQuote(p.type) }]),
           );
@@ -100,7 +98,6 @@ export const AdminBillingPlanEdit: FC = () => {
     try {
       const body: UpdateBillingPlanRequest = {
         name: name.trim(),
-        serviceDescription: normalizeDescription(serviceDescription),
         unitProducts: buildLines(),
       };
       await api.put(`/platform-admin/billing-plans/${planId}`, body);
@@ -149,8 +146,6 @@ export const AdminBillingPlanEdit: FC = () => {
               />
             </Field>
           </div>
-
-          <ServiceDescriptionField value={serviceDescription} onChange={setServiceDescription} disabled={isSaving} />
 
           <div>
             <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>

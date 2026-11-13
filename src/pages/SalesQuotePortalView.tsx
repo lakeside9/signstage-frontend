@@ -130,6 +130,9 @@ export const SalesQuotePortalView: FC = () => {
           <div className="flex justify-between"><dt className="text-gray-500">부가세</dt><dd className="tabular-nums">{formatMoney(quote.vatAmount, currency)}</dd></div>
           <div className="flex justify-between text-base font-bold"><dt>합계</dt><dd className="tabular-nums">{formatMoney(quote.totalAmount, currency)}</dd></div>
         </dl>
+        {quote.quoteFooterNotice && (
+          <p className="mt-3 text-xs text-gray-400 whitespace-pre-line">{quote.quoteFooterNotice}</p>
+        )}
 
         <div className="mt-6 border-t border-gray-200 pt-4">
           {quote.status === 'ACCEPTED' ? (

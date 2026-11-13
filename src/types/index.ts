@@ -699,8 +699,6 @@ export interface PlanUnitProductLineSummary {
 export interface BillingPlanSummary {
   id: number;
   name: string;
-  /** 견적서 "제공 서비스" 본문(일반 텍스트, 줄바꿈 유지). */
-  serviceDescription: string | null;
   unitProducts: PlanUnitProductLineSummary[];
   /** 이 플랜을 쓰는 행사(Ceremony) 수 — 카탈로그 관리 화면의 "사용 중" 경고용. */
   usageCount: number;
@@ -740,7 +738,6 @@ export interface BillingPlanSummary {
 export interface BillingPlanHistorySummary {
   id: number;
   name: string;
-  serviceDescription: string | null;
   unitProducts: PlanUnitProductLineSummary[];
   createdBy: number;
   createdAt: string;
@@ -768,7 +765,6 @@ export interface CeremonyUsingPlanSummary {
  */
 export interface CreateBillingPlanRequest {
   name: string;
-  serviceDescription?: string | null;
   /** 이 플랜이 포함하는 단위 상품 구성 전체(생략하면 빈 목록). */
   unitProducts?: PlanUnitProductLine[];
   /** 할인·사용여부·기간은 직접 수주 경로에서만 보낸다 — 플랫폼 수주 플랜은 할인 기간이 없다. */
@@ -793,7 +789,6 @@ export interface CreateBillingPlanRequest {
  */
 export interface UpdateBillingPlanRequest {
   name: string;
-  serviceDescription?: string | null;
   /** 단위 상품 구성을 통째로 교체한다(생략하면 빈 목록 — 전부 뺀다는 뜻). */
   unitProducts?: PlanUnitProductLine[];
 }
@@ -2351,6 +2346,24 @@ export interface AdminRegionSurcharge {
   used: boolean;
 }
 
+/** 견적 공통 문구 — 견적서 "제공 서비스" 본문과 하단 안내문구를 기간별로 둔다(수주 가격표와 같은 기간 규칙). */
+export interface QuoteTemplate {
+  id: number;
+  serviceDescription: string | null;
+  footerNotice: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  /** 견적에 복사됐는지 — 쓰이지 않은 문구만 고치거나 지울 수 있다. */
+  used: boolean;
+}
+
+export interface SaveQuoteTemplateRequest {
+  serviceDescription: string | null;
+  footerNotice: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
 export interface AdminPartnerRateCard {
   id: number;
   organizationId: number | null;
@@ -2401,8 +2414,10 @@ export interface SaveSalesQuoteRequest {
   lodgingPersons: number | null;
   quoteValidUntil: string | null;
   memo: string | null;
-  /** 견적서 "제공 서비스" 본문 — 생략하면 플랜 문구, 빈 문자열이면 없음. */
+  /** 견적서 "제공 서비스" 본문 — 생략하면 새 견적은 그날의 견적 공통 문구, 기존 견적은 지금 문구. 빈 문자열이면 없음. */
   serviceDescription?: string | null;
+  /** 견적서 하단 안내문구 — 생략·빈 문자열 규칙은 serviceDescription과 같다. */
+  quoteFooterNotice?: string | null;
 }
 
 export interface AdminSalesOrderSummary {
@@ -2506,6 +2521,7 @@ export interface AdminSalesOrderDetail extends OrderScopeExtras {
   cancellationReason: string | null;
   memo: string | null;
   serviceDescription: string | null;
+  quoteFooterNotice: string | null;
   lines: SalesQuoteLine[];
   partnerOrders: AdminPartnerOrderSummary[];
 }
@@ -2779,6 +2795,7 @@ export interface SalesQuotePortal {
   acceptedAt: string | null;
   acceptedByName: string | null;
   serviceDescription: string | null;
+  quoteFooterNotice: string | null;
 }
 
 export interface PartnerSubcontractProfile {

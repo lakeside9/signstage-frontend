@@ -69,6 +69,7 @@ import { ProjectorView } from './pages/ProjectorView';
 import { DemoView } from './pages/DemoView';
 import { AdminCustomerList } from './pages/AdminCustomerList';
 import { AdminOrderPrices } from './pages/AdminOrderPrices';
+import { AdminQuoteTemplates } from './pages/AdminQuoteTemplates';
 import { AdminSalesOrderList } from './pages/AdminSalesOrderList';
 import { AdminSalesOrderForm } from './pages/AdminSalesOrderForm';
 import { AdminSalesOrderDetail } from './pages/AdminSalesOrderDetail';
@@ -228,6 +229,7 @@ function App() {
           <Route path="onsite-support-requests" element={<AdminOnsiteSupportRequests />} />
           <Route path="customers" element={<AdminCustomerList />} />
           <Route path="order-prices" element={<AdminOrderPrices />} />
+          <Route path="quote-templates" element={<AdminQuoteTemplates />} />
           <Route path="sales-orders" element={<AdminSalesOrderList />} />
           <Route path="sales-orders/new" element={<AdminSalesOrderForm />} />
           <Route path="sales-orders/:salesOrderId" element={<AdminSalesOrderDetail />} />

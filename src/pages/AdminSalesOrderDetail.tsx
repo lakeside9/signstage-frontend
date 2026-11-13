@@ -375,6 +375,9 @@ export const AdminSalesOrderDetail: FC = () => {
               </dd>
             </div>
           </dl>
+          {order.quoteFooterNotice && (
+            <p className="mt-3 text-xs text-gray-400 whitespace-pre-line">하단 안내: {order.quoteFooterNotice}</p>
+          )}
           {order.status !== 'CANCELLED' && (
             <div className="mt-4 flex items-center justify-between gap-3 rounded-md bg-gray-50 p-3">
               <p className="text-xs text-gray-500">견적서를 확인하고 PDF로 내려받아 고객에게 전달합니다(견적 링크는 외부에 주지 않습니다).</p>

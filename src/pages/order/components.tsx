@@ -12,6 +12,7 @@ import type {
   PartnerPayoutStatus,
   DiscountType,
   MarginSimulation,
+  QuoteTemplate,
   SalesOrderChangeStatus,
   SalesOrderStatus,
 } from '../../types';
@@ -555,6 +556,70 @@ export const QuotePreview: FC<{
           {defaultQuote.marginSufficient === false && ` — 최소 마진율 ${preview.minimumMarginRatePercent}%에 못 미쳐 저장할 수 없습니다.`}
         </p>
       )}
+    </div>
+  );
+};
+
+/**
+ * 견적서 문구 입력 — "제공 서비스" 본문과 하단 안내문구. 새 견적은 오늘의 견적 공통 문구로 채워지고 견적마다 고칠 수 있다.
+ * {@code template}을 넘기면(새 견적) 공통 문구와 달라졌을 때 되돌리기 버튼을 보여준다.
+ */
+export const QuoteTextsField: FC<{
+  serviceDescription: string;
+  footerNotice: string;
+  onChange: (next: { serviceDescription: string; quoteFooterNotice: string }) => void;
+  template: QuoteTemplate | null;
+  showMissingTemplateWarning: boolean;
+  disabled: boolean;
+}> = ({ serviceDescription, footerNotice, onChange, template, showMissingTemplateWarning, disabled }) => {
+  const templateService = template?.serviceDescription ?? '';
+  const templateFooter = template?.footerNotice ?? '';
+  const differsFromTemplate = template !== null && (serviceDescription !== templateService || footerNotice !== templateFooter);
+  return (
+    <div className="space-y-3">
+      {showMissingTemplateWarning && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          오늘 유효한 견적 공통 문구가 없어 견적서 문구가 비어 있습니다. 필요하면 직접 입력하거나{' '}
+          <Link to="/admin/quote-templates" className="font-medium underline">견적 공통 문구</Link>를 먼저 등록하세요.
+        </p>
+      )}
+      <Field label="견적서 서비스 설명">
+        <textarea
+          value={serviceDescription}
+          onChange={(e) => onChange({ serviceDescription: e.target.value, quoteFooterNotice: footerNotice })}
+          disabled={disabled}
+          rows={5}
+          maxLength={5000}
+          placeholder="고객 견적서의 &quot;제공 서비스&quot;에 보이는 설명입니다. 비우면 그 칸이 없습니다."
+          className={`${inputClass} resize-y`}
+        />
+      </Field>
+      <Field label="견적서 하단 안내문구">
+        <textarea
+          value={footerNotice}
+          onChange={(e) => onChange({ serviceDescription, quoteFooterNotice: e.target.value })}
+          disabled={disabled}
+          rows={6}
+          maxLength={2000}
+          placeholder="견적서 맨 아래에 보이는 안내입니다. 비우면 그 줄이 없습니다."
+          className={`${inputClass} resize-y`}
+        />
+      </Field>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-gray-400">
+          새 견적은 오늘의 견적 공통 문구로 채워집니다. 이 견적에만 적용되고, 공통 문구를 나중에 바꿔도 이 견적은 그대로입니다.
+        </p>
+        {differsFromTemplate && (
+          <button
+            type="button"
+            onClick={() => onChange({ serviceDescription: templateService, quoteFooterNotice: templateFooter })}
+            disabled={disabled}
+            className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-950 hover:underline"
+          >
+            공통 문구로 되돌리기
+          </button>
+        )}
+      </div>
     </div>
   );
 };

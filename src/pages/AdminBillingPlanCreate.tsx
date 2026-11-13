@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { FormattedNumberInput } from '../components/FormattedNumberInput';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
-import { ActiveField, BundleSizeCell, Field, FinalPricePreview, ServiceDescriptionField, ShowOnQuoteCell, TotalQuantityCell } from './billingCatalog/components';
+import { ActiveField, BundleSizeCell, Field, FinalPricePreview, ShowOnQuoteCell, TotalQuantityCell } from './billingCatalog/components';
 import {
   DISCOUNT_TYPE_OPTIONS,
   SALES_CHANNEL_OPTIONS,
@@ -16,7 +16,6 @@ import {
   defaultShowOnQuote,
   inputClass,
   isPlanComposable,
-  normalizeDescription,
   parseSalesChannel,
   todayIsoDate,
 } from './billingCatalog/constants';
@@ -31,7 +30,6 @@ import type {
 
 const EMPTY_DRAFT = (salesChannel: SalesChannel = 'PLATFORM_ORDER'): CreateBillingPlanRequest => ({
   name: '',
-  serviceDescription: '',
   discountType: 'PERCENT',
   discountValue: 0,
   active: true,
@@ -106,7 +104,7 @@ export const AdminBillingPlanCreate: FC = () => {
   );
 
   const handleChannelChange = (salesChannel: SalesChannel) => {
-    setDraft((prev) => ({ ...EMPTY_DRAFT(salesChannel), name: prev.name, serviceDescription: prev.serviceDescription }));
+    setDraft((prev) => ({ ...EMPTY_DRAFT(salesChannel), name: prev.name }));
     setLineDrafts(emptyLineDrafts(allProducts));
   };
 
@@ -152,7 +150,6 @@ export const AdminBillingPlanCreate: FC = () => {
       const body: CreateBillingPlanRequest = isPlatformOrder
         ? {
             name: draft.name.trim(),
-            serviceDescription: normalizeDescription(draft.serviceDescription),
             unitProducts: buildLines(),
             planType: 'STANDARD',
             salesChannel: 'PLATFORM_ORDER',
@@ -160,7 +157,6 @@ export const AdminBillingPlanCreate: FC = () => {
         : {
             ...draft,
             name: draft.name.trim(),
-            serviceDescription: normalizeDescription(draft.serviceDescription),
             unitProducts: buildLines(),
             subscriptionPeriodMonths: draft.planType === 'SUBSCRIPTION' && draft.subscriptionType === 'PERIOD_AND_COUNT'
               ? draft.subscriptionPeriodMonths
@@ -375,12 +371,6 @@ export const AdminBillingPlanCreate: FC = () => {
               />
             </div>
           )}
-
-          <ServiceDescriptionField
-            value={draft.serviceDescription ?? ''}
-            onChange={(serviceDescription) => setDraft((prev) => ({ ...prev, serviceDescription }))}
-            disabled={isLoading}
-          />
 
           <div>
             <span className="block text-xs font-medium text-gray-500 mb-1">단위 상품 구성</span>

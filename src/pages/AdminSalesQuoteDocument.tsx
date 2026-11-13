@@ -141,7 +141,9 @@ export const AdminSalesQuoteDocument: FC = () => {
           <div className="flex justify-between border-t border-gray-200 pt-1 text-base font-bold"><dt>합계</dt><dd className="tabular-nums">{formatMoney(order.totalAmount, currency)}</dd></div>
         </dl>
 
-        <p className="mt-10 text-xs text-gray-400">본 견적은 유효기간까지 유효하며, 행사 범위가 바뀌면 다시 견적합니다.</p>
+        {order.quoteFooterNotice && (
+          <p className="mt-10 text-xs text-gray-400 whitespace-pre-line">{order.quoteFooterNotice}</p>
+        )}
       </article>
     </div>
   );

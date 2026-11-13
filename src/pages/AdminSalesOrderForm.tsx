@@ -9,7 +9,7 @@ import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import { Field, FormActions } from './billingCatalog/components';
 import { formatIncludedQuantity, inputClass } from './billingCatalog/constants';
-import { CustomItemsField, DiscountField, QuotePreview, ScopeExtrasFields, TruncationField } from './order/components';
+import { CustomItemsField, DiscountField, QuotePreview, QuoteTextsField, ScopeExtrasFields, TruncationField } from './order/components';
 import { useQuotePreview } from './order/useQuotePreview';
 import {
   EMPTY_QUOTE_ADJUSTMENT_DRAFT,
@@ -37,6 +37,7 @@ import type {
   BillingPlanSummary,
   MarginSimulationRequest,
   PageResponse,
+  QuoteTemplate,
   SaveSalesQuoteRequest,
   ServiceRegion,
   UnitProductSummary,
@@ -62,14 +63,16 @@ interface QuoteDraft {
   discountReason: string;
   quoteValidUntil: string;
   memo: string;
-  /** 견적서 "제공 서비스" 본문 — 플랜을 고르면 플랜 문구로 채우고, 견적마다 고칠 수 있다. */
+  /** 견적서 "제공 서비스" 본문 — 새 견적은 오늘의 견적 공통 문구로 채우고, 견적마다 고칠 수 있다. */
   serviceDescription: string;
+  /** 견적서 하단 안내문구 — 채우는 규칙은 serviceDescription과 같다. */
+  quoteFooterNotice: string;
 }
 
 const EMPTY_DRAFT: QuoteDraft = {
   customerId: '', title: '', billingPlanId: '', region: 'CAPITAL', location: '', startsAt: '', endsAt: '',
   options: [], customItems: [], extras: EMPTY_SCOPE_EXTRAS_DRAFT, adjustment: EMPTY_QUOTE_ADJUSTMENT_DRAFT, discountReason: '', quoteValidUntil: '', memo: '',
-  serviceDescription: '',
+  serviceDescription: '', quoteFooterNotice: '',
 };
 
 const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => ({
@@ -90,6 +93,7 @@ const toDraft = (order: AdminSalesOrderDetail): QuoteDraft => ({
     quoteValidUntil: order.quoteValidUntil,
     memo: order.memo ?? '',
     serviceDescription: order.serviceDescription ?? '',
+    quoteFooterNotice: order.quoteFooterNotice ?? '',
 });
 
 /**
@@ -109,6 +113,8 @@ export const AdminSalesOrderForm: FC = () => {
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [unitProducts, setUnitProducts] = useState<UnitProductSummary[]>([]);
+  /** 오늘 유효한 견적 공통 문구 — 새 견적이 복사할 문구다. 없으면 null. */
+  const [quoteTemplate, setQuoteTemplate] = useState<QuoteTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -116,17 +122,28 @@ export const AdminSalesOrderForm: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [customerRes, planRes, productRes, orderRes] = await Promise.all([
+        const [customerRes, planRes, productRes, orderRes, templateRes] = await Promise.all([
           api.get('/platform-admin/customers?status=ACTIVE&size=200'),
           api.get('/billing-plans?salesChannel=PLATFORM_ORDER'),
           api.get('/unit-products?salesChannel=PLATFORM_ORDER'),
           isEdit ? api.get(`/platform-admin/sales-orders/${salesOrderId}`) : Promise.resolve(null),
+          api.get('/platform-admin/quote-templates/effective'),
         ]);
         if (cancelled) return;
         setCustomers((customerRes.data as PageResponse<AdminCustomer>).content);
         setPlans((planRes.data as BillingPlanSummary[]).filter((plan) => !plan.subscription && plan.active !== false));
         setUnitProducts(productRes.data as UnitProductSummary[]);
-        if (orderRes) setDraft(toDraft(orderRes.data as AdminSalesOrderDetail));
+        const template = (templateRes.data as QuoteTemplate | null) ?? null;
+        setQuoteTemplate(template);
+        if (orderRes) {
+          setDraft(toDraft(orderRes.data as AdminSalesOrderDetail));
+        } else if (template) {
+          setDraft((prev) => ({
+            ...prev,
+            serviceDescription: template.serviceDescription ?? '',
+            quoteFooterNotice: template.footerNotice ?? '',
+          }));
+        }
       } catch (err) {
         if (!cancelled) showSnackbar(err instanceof Error ? err.message : '견적 정보를 불러오지 못했습니다.', 'error');
       } finally {
@@ -140,14 +157,6 @@ export const AdminSalesOrderForm: FC = () => {
 
   const update = <K extends keyof QuoteDraft>(field: K, value: QuoteDraft[K]) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
-
-  /** 플랜을 바꾸면 서비스 설명을 새 플랜 문구로 바꾼다 — 관리자가 고친 문구(이전 플랜 문구와 다르면)는 그대로 둔다. */
-  const changePlan = (billingPlanId: string) =>
-    setDraft((prev) => {
-      const planText = (id: string) => plans.find((plan) => String(plan.id) === id)?.serviceDescription ?? '';
-      const isUntouched = prev.serviceDescription.trim() === '' || prev.serviceDescription === planText(prev.billingPlanId);
-      return { ...prev, billingPlanId, serviceDescription: isUntouched ? planText(billingPlanId) : prev.serviceDescription };
-    });
 
   const optionSaleUnitHint = (unitProductId: string) => {
     const product = unitProducts.find((item) => String(item.id) === unitProductId);
@@ -173,8 +182,9 @@ export const AdminSalesOrderForm: FC = () => {
     ...toScopeExtras(draft.extras),
     quoteValidUntil: draft.quoteValidUntil || null,
     memo: blankToNull(draft.memo),
-    // 빈 문자열이면 견적서에 "제공 서비스" 칸을 두지 않는다(null을 보내면 서버가 플랜 문구를 쓴다).
+    // 빈 문자열이면 견적서에 그 칸을 두지 않는다(null을 보내면 새 견적은 공통 문구를, 기존 견적은 지금 문구를 쓴다).
     serviceDescription: draft.serviceDescription.trim(),
+    quoteFooterNotice: draft.quoteFooterNotice.trim(),
   });
 
   // 계산 결과 미리보기 — 계산할 수 없는 입력이면 안내 문구만 보인다.
@@ -259,6 +269,13 @@ export const AdminSalesOrderForm: FC = () => {
   }
 
   const selectedPlan = plans.find((plan) => String(plan.id) === draft.billingPlanId);
+  /** 고른 패키지에 이 옵션 상품이 들어 있으면 포함 수량을 알린다 — 옵션 수량은 포함 수량에 더해진다. */
+  const planIncludedHint = (unitProductId: string) => {
+    const line = selectedPlan?.unitProducts.find((item) => String(item.unitProductId) === unitProductId);
+    return line
+      ? `패키지 "${selectedPlan!.name}" 포함: ${line.unitProductName} ${formatIncludedQuantity(line.unitProductType, line.includedQuantity, line.saleUnitQuantity)} — 옵션 수량은 이 포함 수량에 더해집니다.`
+      : null;
+  };
   const backPath = isEdit ? `/admin/sales-orders/${salesOrderId}` : '/admin/sales-orders';
 
   return (
@@ -331,7 +348,7 @@ export const AdminSalesOrderForm: FC = () => {
           <Field label="패키지(범위 플랜)">
             <select
               value={draft.billingPlanId}
-              onChange={(e) => changePlan(e.target.value)}
+              onChange={(e) => update('billingPlanId', e.target.value)}
               disabled={isSaving}
               className={`${inputClass} bg-white`}
             >
@@ -399,6 +416,9 @@ export const AdminSalesOrderForm: FC = () => {
                     {optionSaleUnitHint(option.unitProductId) && (
                       <p className="mt-1 text-[11px] text-gray-400">{optionSaleUnitHint(option.unitProductId)}</p>
                     )}
+                    {planIncludedHint(option.unitProductId) && (
+                      <p className="mt-1 text-xs text-gray-500">{planIncludedHint(option.unitProductId)}</p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -437,32 +457,14 @@ export const AdminSalesOrderForm: FC = () => {
           </div>
           {!draft.quoteValidUntil && <p className="text-xs text-gray-400">비우면 오늘부터 30일입니다.</p>}
           <QuotePreview {...quotePreview} />
-          <Field label="견적서 서비스 설명">
-            <textarea
-              value={draft.serviceDescription}
-              onChange={(e) => update('serviceDescription', e.target.value)}
-              disabled={isSaving}
-              rows={5}
-              maxLength={5000}
-              placeholder="고객 견적서의 &quot;제공 서비스&quot;에 보이는 설명입니다. 비우면 그 칸이 없습니다."
-              className={`${inputClass} resize-y`}
-            />
-            <div className="mt-1 flex items-start justify-between gap-3">
-              <p className="text-xs text-gray-400">
-                패키지를 고르면 플랜 문구로 채워집니다. 이 견적에만 적용되고, 패키지 줄에는 플랜에서 "견적서 표시"를 켠 포함 상품, 옵션 줄에는 상품 견적서 설명이 자동으로 붙습니다.
-              </p>
-              {selectedPlan?.serviceDescription && draft.serviceDescription !== selectedPlan.serviceDescription && (
-                <button
-                  type="button"
-                  onClick={() => update('serviceDescription', selectedPlan.serviceDescription ?? '')}
-                  disabled={isSaving}
-                  className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-950 hover:underline"
-                >
-                  플랜 문구로 되돌리기
-                </button>
-              )}
-            </div>
-          </Field>
+          <QuoteTextsField
+            serviceDescription={draft.serviceDescription}
+            footerNotice={draft.quoteFooterNotice}
+            onChange={(next) => setDraft((prev) => ({ ...prev, ...next }))}
+            template={isEdit ? null : quoteTemplate}
+            showMissingTemplateWarning={!isEdit && !isLoading && quoteTemplate === null}
+            disabled={isSaving}
+          />
           <Field label="내부 메모">
             <textarea
               value={draft.memo}

@@ -288,14 +288,6 @@ export const AdminBillingPlanDetail: FC = () => {
                 <DetailRow label="상태" value={<PeriodStatusBadge status={plan.periodStatus} />} />
               </>
             )}
-            {plan.serviceDescription ? (
-              <div className="px-4 py-3 space-y-1">
-                <span className="text-xs font-medium text-gray-500">견적서 서비스 설명</span>
-                <p className="text-sm text-gray-950 whitespace-pre-line">{plan.serviceDescription}</p>
-              </div>
-            ) : (
-              <DetailRow label="견적서 서비스 설명" value="없음" />
-            )}
             {plan.unitProducts.length === 0 ? (
               <DetailRow label="단위 상품 구성" value="없음" />
             ) : (
@@ -347,9 +339,6 @@ export const AdminBillingPlanDetail: FC = () => {
               <li key={h.id} className="py-2">
                 <p className="text-sm text-gray-950 font-medium">{h.name}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(h.createdAt)}</p>
-                {h.serviceDescription && (
-                  <p className="text-xs text-gray-500 mt-1 whitespace-pre-line">{h.serviceDescription}</p>
-                )}
                 {h.unitProducts.length === 0 ? (
                   <p className="text-xs text-gray-500 mt-1">포함 단위 상품 없음</p>
                 ) : (
