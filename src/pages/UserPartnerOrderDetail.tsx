@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { FC, FormEvent } from 'react';
+import type { FC, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Inbox, Loader2, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -132,7 +132,7 @@ export const UserPartnerOrderDetail: FC = () => {
   const isPending = summary.status === 'ISSUED';
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <Link to={`/partner-orders/${organizationId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-950">
         <ArrowLeft size={14} /> 발주함
       </Link>
@@ -165,22 +165,28 @@ export const UserPartnerOrderDetail: FC = () => {
         </div>
       </div>
 
+      {order.memo && (
+        <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <h2 className="text-xs font-bold text-amber-800">발주 메모</h2>
+          <p className="mt-1 text-sm text-gray-950 whitespace-pre-line">{order.memo}</p>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           <DetailRow label="일정" value={formatSchedule(summary.startsAt, summary.endsAt)} />
           <DetailRow label="권역·장소" value={`${REGION_LABEL[summary.region]} · ${summary.location ?? '장소 미정'}`} />
-          <DetailRow label="패키지" value={order.billingPlanName} />
-          <DetailRow
+          <ListDetailRow
+            label="패키지"
+            title={order.billingPlanName}
+            items={order.packageItems.map((item) => `${item.name} ${item.quantity.toLocaleString()}${item.quantityUnit}`)}
+          />
+          <ListDetailRow
             label="추가 범위"
-            value={
-              order.options.length === 0
-                ? '없음'
-                : order.options
-                    .map((option) => (option.partnerUnitPrice !== null
-                      ? `${option.name} ${option.quantity} (발주 단가 ${formatMoney(option.partnerUnitPrice, summary.currencyCode)})`
-                      : `${option.name} ${option.quantity}`))
-                    .join(', ')
-            }
+            items={order.options.map((option) => (option.partnerUnitPrice !== null
+              ? `${option.name} ${option.quantity} (발주 단가 ${formatMoney(option.partnerUnitPrice, summary.currencyCode)})`
+              : `${option.name} ${option.quantity}`))}
+            emptyText="없음"
           />
           {formatScopeExtras(order) && <DetailRow label="리허설·숙박·예비" value={formatScopeExtras(order)} />}
           <DetailRow label="고객" value={order.customerName} />
@@ -297,3 +303,24 @@ export const UserPartnerOrderDetail: FC = () => {
     </div>
   );
 };
+
+/** 항목을 한 줄에 하나씩 보이는 상세 줄 — 패키지 포함 구성·추가 범위처럼 여러 항목이 있을 때 쓴다. */
+const ListDetailRow: FC<{ label: string; title?: ReactNode; items: string[]; emptyText?: string }> = ({
+  label, title, items, emptyText,
+}) => (
+  <div className="flex items-start gap-3 px-4 py-3">
+    <span className="w-32 shrink-0 pt-0.5 text-xs font-medium text-gray-500">{label}</span>
+    <div className="text-sm text-gray-950">
+      {title && <p className="font-medium">{title}</p>}
+      {items.length > 0 ? (
+        <ul className={`space-y-0.5 ${title ? 'mt-1 text-gray-700' : ''}`}>
+          {items.map((item, index) => (
+            <li key={index}>{title ? `· ${item}` : item}</li>
+          ))}
+        </ul>
+      ) : (
+        !title && emptyText
+      )}
+    </div>
+  </div>
+);

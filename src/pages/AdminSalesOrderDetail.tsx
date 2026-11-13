@@ -67,6 +67,7 @@ export const AdminSalesOrderDetail: FC = () => {
   const [partnerId, setPartnerId] = useState('');
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [partnerMemo, setPartnerMemo] = useState('');
   const [responseDueAt, setResponseDueAt] = useState(defaultResponseDueAt);
   const [preview, setPreview] = useState<PartnerOrderPreview | null>(null);
   const [cancellingPartnerOrder, setCancellingPartnerOrder] = useState<AdminPartnerOrderSummary | null>(null);
@@ -182,6 +183,7 @@ export const AdminSalesOrderDetail: FC = () => {
           responseDueAt,
           adjustmentAmount: adjustmentValue,
           adjustmentReason: blankToNull(adjustmentReason),
+          memo: blankToNull(partnerMemo),
         });
       },
       '파트너에게 발주했습니다.', '발주에 실패했습니다.',
@@ -191,6 +193,7 @@ export const AdminSalesOrderDetail: FC = () => {
       setPartnerId('');
       setAdjustmentAmount('');
       setAdjustmentReason('');
+      setPartnerMemo('');
     }
   };
 
@@ -419,7 +422,10 @@ export const AdminSalesOrderDetail: FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {order.partnerOrders.map((po) => (
                   <tr key={po.id}>
-                    <td className="py-2 text-gray-950">{po.organizationName}</td>
+                    <td className="py-2 text-gray-950">
+                      {po.organizationName}
+                      {po.memo && <p className="mt-0.5 max-w-xs text-xs text-gray-500 whitespace-pre-line">메모: {po.memo}</p>}
+                    </td>
                     <td className="py-2 text-right tabular-nums">{formatMoney(po.totalAmount, po.currencyCode)}</td>
                     <td className="py-2 pl-4 text-gray-500">{formatWallDateTime(po.responseDueAt)}</td>
                     <td className="py-2"><PartnerOrderStatusBadge status={po.status} /></td>
@@ -534,6 +540,17 @@ export const AdminSalesOrderDetail: FC = () => {
                   onChange={(e) => setAdjustmentReason(e.target.value)}
                   disabled={isSubmitting}
                   placeholder="조정 금액이 있으면 필수"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="파트너 전달 메모">
+                <textarea
+                  value={partnerMemo}
+                  onChange={(e) => setPartnerMemo(e.target.value)}
+                  disabled={isSubmitting}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="준비물·도착 시각·주의사항 등 파트너에게 전할 내용(선택)"
                   className={inputClass}
                 />
               </Field>

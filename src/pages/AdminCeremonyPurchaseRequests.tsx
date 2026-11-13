@@ -439,7 +439,12 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                               </Button>
                             </div>
                           ))}
-                        {request.status === 'APPROVED' &&
+                        {request.status === 'APPROVED' && request.platformOrder && (
+                          <span className="text-xs text-gray-400" title="범위는 수주 상세의 범위 변경으로, 행사 취소는 발주·수주 취소로 처리합니다.">
+                            수주 범위(취소 불가)
+                          </span>
+                        )}
+                        {request.status === 'APPROVED' && !request.platformOrder &&
                           (cancellingId === request.id ? (
                             <Button variant="secondary" size="sm" onClick={() => setCancellingId(null)} disabled={processingId === request.id}>
                               닫기

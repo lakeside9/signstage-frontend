@@ -1191,6 +1191,8 @@ export interface PlatformAdminUnitProductPurchaseRequestSummary {
    */
   ceremonyEvents: PlatformAdminCeremonyEventStatusSummary[];
   createdAt: string;
+  /** 플랫폼 수주 행사의 구매(수주 범위를 옮긴 0원 기록) — 취소할 수 없다. */
+  platformOrder: boolean;
 }
 
 /** {@link PlatformAdminUnitProductPurchaseRequestSummary.ceremonyEvents}의 개별 행사 하나. */
@@ -2482,6 +2484,8 @@ export interface AdminPartnerOrderSummary extends OrderScopeExtras {
   lodgingNightRate: number;
   /** 직접 입력 항목의 발주 금액 합계. */
   customItemAmount: number;
+  /** 발주 메모 — 파트너에게 전한 내용. */
+  memo: string | null;
 }
 
 export interface AdminSalesOrderDetail extends OrderScopeExtras {
@@ -2569,6 +2573,8 @@ export interface PartnerOrderSummary {
 export interface PartnerOrderDetail extends OrderScopeExtras {
   summary: PartnerOrderSummary;
   billingPlanName: string;
+  /** 패키지 기본 포함 구성 — quantity는 실제 개수(묶음 수 × 판매 단위)다. 지금 플랜 구성 기준이다. */
+  packageItems: Array<{ name: string; quantity: number; quantityUnit: string }>;
   /** 옵션과 직접 입력 항목 — 직접 입력 항목은 unitProductId가 null이고 발주 단가가 있다. */
   options: Array<{ unitProductId: number | null; name: string; quantity: number; partnerUnitPrice: number | null }>;
   customerName: string;
@@ -2592,6 +2598,8 @@ export interface PartnerOrderDetail extends OrderScopeExtras {
   rejectionReason: string | null;
   /** 행사가 완료돼 검수가 생겼으면 그 상태. 그 전에는 null. */
   inspection: OrderInspectionSummary | null;
+  /** 발주 메모 — 관리자가 전한 내용(준비물·주의사항 등). */
+  memo: string | null;
 }
 
 /* 검수·파트너 지급 — signstage-docs business/platform-order-partner-subcontract-review.md D11·D13. */
