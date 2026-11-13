@@ -4,7 +4,6 @@ import { useParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import type { IMessage } from '@stomp/stompjs';
 import { AlertCircle, ChevronUp, FileText, Info, Loader2, Maximize2, MousePointerClick, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { EventWatermark } from '../components/EventWatermark';
 import { PortalSignCanvas } from '../components/PortalSignCanvas';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
@@ -581,7 +580,6 @@ export const SignerPortalView: FC = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-gray-950 text-white">
-      <EventWatermark eventType={context.eventType} isDemo={context.isDemo} />
       {!isToolbarVisible && !isEmbed && (
         <button
           type="button"

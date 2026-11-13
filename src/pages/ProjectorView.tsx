@@ -29,7 +29,6 @@ import type {
   StrokeSummary,
   TemplateFieldSummary,
 } from '../types';
-import { EventWatermark } from '../components/EventWatermark';
 import { ProjectorEffects } from '../components/effects/projector/ProjectorEffects';
 import { ProjectorEffectsBoundary } from '../components/effects/projector/ProjectorEffectsBoundary';
 import { ProjectorEffectToggleButton } from '../components/effects/projector/ProjectorEffectToggleButton';
@@ -799,7 +798,6 @@ export const ProjectorView: FC = () => {
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden relative">
-      <EventWatermark eventType={context.eventType} isDemo={context.isDemo} />
       {notice && (
         <div
           className={`pointer-events-none absolute left-1/2 top-1/2 z-30 w-[min(86vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border px-10 py-8 text-center shadow-[0_0_60px_rgba(0,0,0,0.45)] backdrop-blur-md transition-opacity duration-300 ${notice.className}`}

@@ -1672,7 +1672,7 @@ export interface PortalContext {
   /** 서명자 포털 도구모음의 구분 뱃지에 쓴다(2026-08-27 legacy 포팅). */
   eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
-  /** {@link ProjectorContext.isDemo}와 같은 용도(전체 화면 워터마크). */
+  /** {@link ProjectorContext.isDemo}와 같다. */
   isDemo: boolean;
   signerId: number;
   signerName: string;
@@ -1790,8 +1790,7 @@ export interface ProjectorContext {
   eventType: CeremonyEventType;
   eventStatus: CeremonyEventStatus;
   eventAccessKey: string;
-  /** 이 행사의 조직이 데모 조직인가 — 전체 화면 워터마크 조건에 쓴다(signstage-docs
-   * business/demo-account-exhibition-signer-preview-review.md 6.1절). */
+  /** 이 행사의 조직이 데모 조직인가. 화면 워터마크는 2026-11-13에 없앴고, 워터마크는 결과 PDF에만 들어간다(서버 처리). */
   isDemo: boolean;
   exhibition: ProjectorExhibitionDocument | null;
   /**
