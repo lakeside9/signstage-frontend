@@ -15,6 +15,8 @@ import {
   MessageCircleQuestion,
   Package,
   Receipt,
+  RotateCcw,
+  Save,
   Settings,
   ShoppingCart,
   Trash2,
@@ -871,13 +873,25 @@ export const UserCeremonyEdit: FC = () => {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isSavingInfo}
-              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
-            >
-              {isSavingInfo ? '저장 중...' : '저장'}
-            </button>
+            {/* 하위 행사 등록 화면과 같은 배치 — 오른쪽 아래에 취소·저장(2026-11-13). */}
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => navigate(detailPath)}
+                disabled={isSavingInfo}
+                className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RotateCcw size={16} /> 취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingInfo}
+                className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isSavingInfo ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                저장
+              </button>
+            </div>
           </form>
         )}
       </section>
