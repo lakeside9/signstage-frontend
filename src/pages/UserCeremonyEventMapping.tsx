@@ -376,7 +376,7 @@ export const UserCeremonyEventMapping: FC = () => {
             <button
               onClick={() => openTemplateSelection('EXHIBITION')}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-amber-400 hover:bg-amber-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+              className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-amber-400 hover:bg-amber-50 text-gray-700 transition-all disabled:opacity-50"
             >
               <Search size={14} className="text-amber-500" />
               {exhibition.templateId == null ? '전시용 문서 선택' : '전시용 문서 변경'}
@@ -386,7 +386,7 @@ export const UserCeremonyEventMapping: FC = () => {
             <button
               onClick={() => openTemplateSelection('CONTRACT')}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+              className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 text-gray-700 transition-all disabled:opacity-50"
             >
               <Search size={14} className="text-emerald-500" />
               {contract.templateId == null ? '서명용 문서 선택' : '서명용 문서 변경'}
@@ -399,7 +399,7 @@ export const UserCeremonyEventMapping: FC = () => {
             <button
               onClick={handleSaveMappings}
               disabled={isSaving || !hasPendingChanges}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all disabled:opacity-50"
             >
               {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               저장
@@ -410,7 +410,7 @@ export const UserCeremonyEventMapping: FC = () => {
             <button
               onClick={handleGoToControl}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all disabled:opacity-50"
             >
               {isSaving ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
               시작 대기 처리
@@ -420,7 +420,7 @@ export const UserCeremonyEventMapping: FC = () => {
             <button
               onClick={handleGoToControl}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all disabled:opacity-50"
             >
               {isSaving ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
               행사 제어 이동

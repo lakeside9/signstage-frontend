@@ -547,7 +547,7 @@ export const UserCeremonyEventControl: FC = () => {
                 <button
                   onClick={() => setIsStartConfirmOpen(true)}
                   disabled={isTransitioning}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                  className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm disabled:opacity-50"
                 >
                   <Play size={12} fill="currentColor" />
                   행사 시작
@@ -570,7 +570,7 @@ export const UserCeremonyEventControl: FC = () => {
                         ? '행사 종료'
                         : `서명 완료 ${completedCount}/${signatureStatuses.length} - 모든 서명자가 서명해야 종료할 수 있습니다.`
                     }
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-sm text-xs disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+                    className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                   >
                     <Square size={12} fill="currentColor" />
                     행사 종료
@@ -579,7 +579,7 @@ export const UserCeremonyEventControl: FC = () => {
                     onClick={() => setIsForceFinishConfirmOpen(true)}
                     disabled={isTransitioning}
                     title="서명 완료 여부와 관계없이 행사를 강제종료합니다."
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                    className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 shadow-sm disabled:opacity-50"
                   >
                     <Square size={12} />
                     강제종료
@@ -592,7 +592,7 @@ export const UserCeremonyEventControl: FC = () => {
                   onClick={() => setIsBulkResetConfirmOpen(true)}
                   disabled={isTransitioning}
                   title="모든 서명자의 서명과 서명란 배정 확인용 텍스트를 일괄 초기화합니다."
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                  className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 shadow-sm disabled:opacity-50"
                 >
                   <Eraser size={12} />
                   서명 초기화
@@ -603,7 +603,7 @@ export const UserCeremonyEventControl: FC = () => {
                   onClick={handleSignatureMappingCheck}
                   disabled={isTransitioning}
                   title="모든 서명란에 배정된 서명자의 소속명(5자)을 자동으로 채워, 프로젝터·서명자 화면에서 매핑이 맞는지 확인합니다. 이미 서명된 서명란은 건드리지 않습니다."
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg font-bold shadow-sm text-xs disabled:opacity-50"
+                  className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm disabled:opacity-50"
                 >
                   <ClipboardCheck size={12} />
                   서명매핑확인
@@ -622,14 +622,14 @@ export const UserCeremonyEventControl: FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={() => window.open(`/projector/${event.accessKey}`, '_blank')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-indigo-500 text-gray-700 hover:text-indigo-600 rounded-lg font-bold text-xs"
+            className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-white border border-gray-200 hover:border-indigo-500 text-gray-700 hover:text-indigo-600"
           >
             <Monitor size={14} />
             전시용 화면
           </button>
           <button
             onClick={() => window.open(`${basePath}/events/${eventId}/signer-portal-qrs`, '_blank')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-emerald-500 text-gray-700 hover:text-emerald-600 rounded-lg font-bold text-xs"
+            className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 bg-white border border-gray-200 hover:border-emerald-500 text-gray-700 hover:text-emerald-600"
           >
             <QrCode size={14} />
             서명자 포털 (QR)
@@ -724,7 +724,7 @@ export const UserCeremonyEventControl: FC = () => {
             <button
               onClick={handleGenerateResults}
               disabled={(event.status !== 'FINISHED' && event.status !== 'FORCE_FINISHED') || isGeneratingResults}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-gray-50"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 w-full bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:bg-gray-50"
             >
               <FilePlus size={14} />
               {isGeneratingResults ? '생성 중...' : 'PDF 생성'}
@@ -737,14 +737,14 @@ export const UserCeremonyEventControl: FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handlePreviewResult(result)}
-                        className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded text-gray-600 font-bold"
+                        className="px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-600"
                       >
                         <Eye size={11} />
                         미리보기
                       </button>
                       <button
                         onClick={() => handleDownloadResult(result)}
-                        className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded text-gray-600 font-bold"
+                        className="px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-600"
                       >
                         <Download size={11} />
                         다운로드

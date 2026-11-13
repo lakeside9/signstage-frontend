@@ -290,15 +290,15 @@ export const AdminOrganizationRequestList: FC = () => {
                     <td className="px-4 py-3 text-right">
                       {request.status === 'PENDING' &&
                         (actioningId === request.id ? (
-                          <Button variant="secondary" size="sm" onClick={closeAction} disabled={isSubmittingAction}>
+                          <Button variant="secondary" size="xs" onClick={closeAction} disabled={isSubmittingAction}>
                             취소
                           </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => openAction(request.id, 'approve')}>
+                            <Button size="xs" onClick={() => openAction(request.id, 'approve')}>
                               승인
                             </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openAction(request.id, 'reject')}>
+                            <Button variant="secondary" size="xs" onClick={() => openAction(request.id, 'reject')}>
                               반려
                             </Button>
                           </div>
@@ -318,7 +318,7 @@ export const AdminOrganizationRequestList: FC = () => {
                           placeholder="파트너 코드 (영문 소문자, 숫자, '-')"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <Button size="sm" onClick={() => handleApprove(request.id)} disabled={isSubmittingAction}>
+                        <Button size="xs" onClick={() => handleApprove(request.id)} disabled={isSubmittingAction}>
                           <Check size={12} />
                           승인 확정
                         </Button>
@@ -338,7 +338,7 @@ export const AdminOrganizationRequestList: FC = () => {
                           placeholder="반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={isSubmittingAction}>
+                        <Button variant="danger" size="xs" onClick={() => handleReject(request.id)} disabled={isSubmittingAction}>
                           <X size={12} />
                           반려 확정
                         </Button>

@@ -374,7 +374,7 @@ export const OrganizationSubscriptionSection: FC<{ organizationId: string; myRol
                             <div className="flex justify-end">
                               <Button
                                 variant="danger-outline"
-                                size="sm"
+                                size="xs"
                                 onClick={() => setCancelTargetId(cancelTargetId === subscription.id ? null : subscription.id)}
                               >
                                 중도 해지 요청
@@ -397,10 +397,10 @@ export const OrganizationSubscriptionSection: FC<{ organizationId: string; myRol
                                   className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all bg-white"
                                 />
                                 <div className="flex justify-end gap-2">
-                                  <Button variant="secondary" size="sm" onClick={() => setCancelTargetId(null)} disabled={isSubmittingCancellation}>
+                                  <Button variant="secondary" size="xs" onClick={() => setCancelTargetId(null)} disabled={isSubmittingCancellation}>
                                     닫기
                                   </Button>
-                                  <Button variant="danger" size="sm" type="submit" disabled={!cancellationReason.trim() || isSubmittingCancellation}>
+                                  <Button variant="danger" size="xs" type="submit" disabled={!cancellationReason.trim() || isSubmittingCancellation}>
                                     {isSubmittingCancellation ? '요청 중...' : '해지 요청하기'}
                                   </Button>
                                 </div>

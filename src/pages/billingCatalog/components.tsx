@@ -33,6 +33,7 @@ import type {
   UnitProductType,
 } from '../../types';
 import { UNIT_PRODUCT_QUANTITY_UNIT } from '../order/constants';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../../components/SegmentedTabs';
 
 /**
  * 과금 카탈로그(단위 상품/플랜) 목록/등록/상세/수정 화면이 공유하는 컴포넌트 — 순수 상수/포맷터는
@@ -313,15 +314,13 @@ export const SalesChannelTabs: FC<{ value: SalesChannel; onChange: (value: Sales
   value,
   onChange,
 }) => (
-  <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+  <div className={SEGMENTED_TAB_GROUP_CLASS}>
     {SALES_CHANNEL_OPTIONS.map((option) => (
       <button
         key={option.value}
         type="button"
         onClick={() => onChange(option.value)}
-        className={`min-w-28 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-          value === option.value ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
-        }`}
+        className={segmentedTabClass(value === option.value)}
       >
         {option.label}
       </button>

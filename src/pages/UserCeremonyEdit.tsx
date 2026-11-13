@@ -42,6 +42,7 @@ import type {
   UnitProductPurchaseSummary,
   UnitProductSummary,
 } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../components/SegmentedTabs';
 
 /** UserCeremonyDetail.tsx의 상태 배지와 같은 라벨/색을 쓴다. */
 const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
@@ -710,7 +711,7 @@ export const UserCeremonyEdit: FC = () => {
         )}
       </div>
 
-      <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+      <div className={SEGMENTED_TAB_GROUP_CLASS}>
         {(
           [
             { value: 'info', label: '행사 수정', icon: FileSignature },
@@ -730,9 +731,7 @@ export const UserCeremonyEdit: FC = () => {
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
-              className={`flex items-center gap-1.5 min-w-28 justify-center px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                isActive ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
-              }`}
+              className={segmentedTabClass(isActive)}
             >
               <tab.icon size={13} />
               {tab.label}
@@ -875,7 +874,7 @@ export const UserCeremonyEdit: FC = () => {
             <button
               type="submit"
               disabled={isSavingInfo}
-              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
             >
               {isSavingInfo ? '저장 중...' : '저장'}
             </button>
@@ -894,7 +893,7 @@ export const UserCeremonyEdit: FC = () => {
           {!isPlanHistoryLoading && planHistory.length > 0 && (
             <button
               onClick={() => setIsPlanHistoryModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+              className="px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-950"
             >
               <History size={12} />
               변경 이력 ({planHistory.length})
@@ -917,14 +916,14 @@ export const UserCeremonyEdit: FC = () => {
               <button
                 onClick={handleClearPlan}
                 disabled={isClearingPlan || isConfirmingPlan}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
               >
                 {isClearingPlan ? '해제 중...' : '선택 해제'}
               </button>
               <button
                 onClick={handleConfirmPlan}
                 disabled={isConfirmingPlan || isClearingPlan}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 <CheckCircle2 size={13} />
                 {isConfirmingPlan ? '확정 중...' : '플랜 확정'}
@@ -1022,7 +1021,7 @@ export const UserCeremonyEdit: FC = () => {
             <button
               onClick={handleChangePlan}
               disabled={isChangingPlan || !selectedNewPlanId}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               <Check size={13} />
               {isChangingPlan
@@ -1046,14 +1045,14 @@ export const UserCeremonyEdit: FC = () => {
           <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400"
             >
               <Package size={13} />
               추가 구매
             </button>
             <button
               onClick={() => setIsCartModalOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400"
             >
               <ShoppingCart size={13} />
               장바구니
@@ -1277,14 +1276,14 @@ export const UserCeremonyEdit: FC = () => {
                   setIsPurchaseModalOpen(false);
                 }}
                 disabled={isAddingToCart}
-                className="px-4 py-1.5 rounded-md text-gray-500 text-xs font-medium hover:text-gray-950 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-gray-950 disabled:opacity-50"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={isAddingToCart}
-                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
               >
                 {isAddingToCart ? '담는 중...' : '추가 구매하기'}
               </button>
@@ -1348,7 +1347,7 @@ export const UserCeremonyEdit: FC = () => {
               <button
                 onClick={handlePurchase}
                 disabled={isPurchasing}
-                className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 {isPurchasing ? '구매하는 중...' : '구매하기'}
               </button>

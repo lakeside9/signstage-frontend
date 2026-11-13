@@ -425,16 +425,16 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                       <td className="px-4 py-3 text-right">
                         {request.status === 'PENDING' &&
                           (rejectingId === request.id ? (
-                            <Button variant="secondary" size="sm" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
+                            <Button variant="secondary" size="xs" onClick={() => setRejectingId(null)} disabled={processingId === request.id}>
                               닫기
                             </Button>
                           ) : (
                             <div className="flex justify-end gap-2">
-                              <Button size="sm" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
+                              <Button size="xs" onClick={() => handleApprove(request.id)} disabled={processingId === request.id}>
                                 <Check size={12} />
                                 승인
                               </Button>
-                              <Button variant="secondary" size="sm" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
+                              <Button variant="secondary" size="xs" onClick={() => openReject(request.id)} disabled={processingId === request.id}>
                                 반려
                               </Button>
                             </div>
@@ -446,11 +446,11 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                         )}
                         {request.status === 'APPROVED' && !request.platformOrder &&
                           (cancellingId === request.id ? (
-                            <Button variant="secondary" size="sm" onClick={() => setCancellingId(null)} disabled={processingId === request.id}>
+                            <Button variant="secondary" size="xs" onClick={() => setCancellingId(null)} disabled={processingId === request.id}>
                               닫기
                             </Button>
                           ) : (
-                            <Button variant="secondary" size="sm" onClick={() => openCancel(request.id)} disabled={processingId === request.id}>
+                            <Button variant="secondary" size="xs" onClick={() => openCancel(request.id)} disabled={processingId === request.id}>
                               구매 취소
                             </Button>
                           ))}
@@ -469,7 +469,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                             placeholder="반려 사유"
                             className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                           />
-                          <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
+                          <Button variant="danger" size="xs" onClick={() => handleReject(request.id)} disabled={processingId === request.id}>
                             <X size={12} />
                             반려 확정
                           </Button>
@@ -489,7 +489,7 @@ export const AdminCeremonyPurchaseRequests: FC<{ ceremonyId?: number }> = ({ cer
                             placeholder="취소 사유"
                             className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                           />
-                          <Button variant="danger" size="sm" onClick={() => handleCancel(request.id)} disabled={processingId === request.id}>
+                          <Button variant="danger" size="xs" onClick={() => handleCancel(request.id)} disabled={processingId === request.id}>
                             <X size={12} />
                             취소 확정
                           </Button>

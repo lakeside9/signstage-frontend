@@ -194,7 +194,7 @@ const QuoteSupplierForm: FC<{
                 type="button"
                 onClick={handleSealDelete}
                 disabled={isSealBusy}
-                className="ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                className="px-2 py-1 text-xs font-medium rounded-md ml-2 inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
               >
                 <Trash2 size={12} /> 인감 삭제
               </button>

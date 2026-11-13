@@ -99,7 +99,7 @@ const MarginPeriodList: FC<{ organizationId: string }> = ({ organizationId }) =>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-gray-950">재판매 마진</h2>
         {!editing && <button type="button" disabled={isLoading || loadFailed} onClick={() => openForm()}
-          className="px-3 py-1.5 border rounded-md text-xs disabled:opacity-40">기간 추가</button>}
+          className="px-3 py-2 text-xs font-bold rounded-lg border disabled:opacity-40">기간 추가</button>}
       </div>
       <p className="text-xs text-gray-500 mb-3">
         우리 파트너사의 시스템 사용료 재판매 마진입니다. 견적 저장일의 정책을 적용하며 시작일·종료일을 모두 포함합니다.
@@ -129,8 +129,8 @@ const MarginPeriodList: FC<{ organizationId: string }> = ({ organizationId }) =>
           </fieldset>
           <p className="text-xs text-gray-500">종료일을 비워두면 9999-12-31로 저장합니다.</p>
           <div className="flex justify-end gap-2">
-            <button type="button" disabled={isSaving} onClick={() => setEditing(null)} className="px-3 py-1.5 text-xs">취소</button>
-            <button type="submit" disabled={isSaving} className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs disabled:opacity-40">
+            <button type="button" disabled={isSaving} onClick={() => setEditing(null)} className="px-3 py-2 text-xs font-bold rounded-lg">취소</button>
+            <button type="submit" disabled={isSaving} className="px-3 py-2 text-xs font-bold rounded-lg bg-gray-950 text-white disabled:opacity-40">
               {isSaving ? '저장 중...' : '저장'}
             </button>
           </div>

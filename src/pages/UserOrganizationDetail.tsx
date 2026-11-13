@@ -282,7 +282,7 @@ export const UserOrganizationDetail: FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={openHistory}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+            className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-950"
           >
             <History size={12} />
             이력
@@ -348,7 +348,7 @@ export const UserOrganizationDetail: FC = () => {
               type="button"
               onClick={() => setIsEditing(false)}
               disabled={isSaving}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg flex-1 flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               <X size={14} />
               취소
@@ -379,7 +379,7 @@ export const UserOrganizationDetail: FC = () => {
           {canEdit ? (
             <button
               onClick={startEdit}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+              className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
             >
               <Pencil size={14} />
               조직 정보 수정
@@ -401,7 +401,7 @@ export const UserOrganizationDetail: FC = () => {
           {canManageMembers && !isAddFormOpen && (
             <button
               onClick={() => setIsAddFormOpen(true)}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 bg-gray-950 text-white hover:bg-gray-800"
             >
               <Plus size={12} />
               멤버 추가
@@ -444,7 +444,7 @@ export const UserOrganizationDetail: FC = () => {
               <button
                 type="submit"
                 disabled={isAddingMember}
-                className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 {isAddingMember ? '추가 중...' : '추가'}
               </button>
@@ -452,7 +452,7 @@ export const UserOrganizationDetail: FC = () => {
                 type="button"
                 onClick={() => setIsAddFormOpen(false)}
                 disabled={isAddingMember}
-                className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
               >
                 취소
               </button>
@@ -514,7 +514,7 @@ export const UserOrganizationDetail: FC = () => {
                             <button
                               onClick={() => handleChangeMemberRole(member.id)}
                               disabled={processingMemberId === member.id}
-                              className="px-3 py-1 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                              className="px-2 py-1 text-xs font-medium rounded-md bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
                             >
                               역할 저장
                             </button>
@@ -524,14 +524,14 @@ export const UserOrganizationDetail: FC = () => {
                               <button
                                 onClick={() => handleRemoveMember(member.id)}
                                 disabled={processingMemberId === member.id}
-                                className="px-3 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                                className="px-2 py-1 text-xs font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                               >
                                 확인
                               </button>
                               <button
                                 onClick={() => setConfirmingRemoveId(null)}
                                 disabled={processingMemberId === member.id}
-                                className="px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                                className="px-2 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
                               >
                                 취소
                               </button>
@@ -540,7 +540,7 @@ export const UserOrganizationDetail: FC = () => {
                             <button
                               onClick={() => setConfirmingRemoveId(member.id)}
                               disabled={processingMemberId === member.id}
-                              className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                              className="px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
                             >
                               <UserMinus size={12} />
                               제거

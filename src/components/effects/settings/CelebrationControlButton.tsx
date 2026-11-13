@@ -50,7 +50,7 @@ export const CelebrationControlButton: FC<Props> = ({ apiBasePath, setting }) =>
         onClick={() => setIsConfirmOpen(true)}
         disabled={isTriggering}
         title={`연결된 모든 전시 화면에 ${setting.displayName} 효과를 수동 실행합니다.`}
-        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 shadow-sm transition-all hover:bg-amber-100 disabled:cursor-wait disabled:opacity-50"
+        className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 whitespace-nowrap border border-amber-300 bg-amber-50 text-amber-800 shadow-sm transition-all hover:bg-amber-100 disabled:cursor-wait disabled:opacity-50"
       >
         {isTriggering ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
         {setting.displayName} 실행

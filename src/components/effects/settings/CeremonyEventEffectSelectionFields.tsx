@@ -158,7 +158,7 @@ export const CeremonyEventEffectSelectionFields: FC<Props> = ({
                   configJson: selectedDefinition.configJson ? JSON.stringify(selectedDefinition.configJson) : null,
                 })}
                 title="선택한 효과 미리보기"
-                className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="px-2 py-1 text-xs font-medium rounded-md shrink-0 inline-flex items-center gap-1 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Eye size={13} />
               </button>

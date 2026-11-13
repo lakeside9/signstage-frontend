@@ -270,7 +270,7 @@ export const AdminCeremonyInquiries: FC = () => {
                         <button
                           type="button"
                           onClick={() => toggleExpand(inquiry.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           {isExpanded ? '닫기' : '대화 보기'}
                           <ChevronDown size={12} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -315,11 +315,11 @@ export const AdminCeremonyInquiries: FC = () => {
                                     placeholder="답변을 입력하세요"
                                     className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                                   />
-                                  <Button size="sm" onClick={() => handleReply(inquiry.id)} disabled={isSubmitting}>
+                                  <Button size="xs" onClick={() => handleReply(inquiry.id)} disabled={isSubmitting}>
                                     <Send size={12} />
                                     답변
                                   </Button>
-                                  <Button variant="secondary" size="sm" onClick={() => handleClose(inquiry.id)} disabled={isSubmitting}>
+                                  <Button variant="secondary" size="xs" onClick={() => handleClose(inquiry.id)} disabled={isSubmitting}>
                                     종료
                                   </Button>
                                 </div>

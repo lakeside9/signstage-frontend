@@ -246,7 +246,7 @@ export const AdminQuoteTemplates: FC = () => {
                         <button
                           type="button"
                           onClick={() => setDeletingId(template.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 size={12} /> 삭제
                         </button>

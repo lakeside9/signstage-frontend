@@ -95,7 +95,7 @@ export const EventEffectRuntimeControls: FC<Props> = ({ apiBasePath, settings, o
             disabled={updatingKey === key}
             onClick={() => toggle(setting)}
             title={`${setting.displayName} 효과를 켜거나 끕니다.`}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-bold ${
+            className={`px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1.5 whitespace-nowrap ${
               setting.runtimeEnabled ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
             }`}
           >

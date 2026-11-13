@@ -268,14 +268,14 @@ export const AdminDemoConfigList: FC = () => {
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDateTime(config.updatedAt)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => handleCopyPath(config.slug)}>
+                    <Button variant="secondary" size="xs" onClick={() => handleCopyPath(config.slug)}>
                       <Copy size={12} />
                       경로 복사
                     </Button>
                     {canManage && (
                       <Button
                         variant="danger"
-                        size="sm"
+                        size="xs"
                         onClick={() => handleDelete(config.slug)}
                         disabled={deletingSlug === config.slug}
                       >

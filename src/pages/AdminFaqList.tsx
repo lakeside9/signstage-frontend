@@ -241,14 +241,14 @@ export const AdminFaqList: FC = () => {
                     <div className="flex justify-end gap-1">
                       <Link
                         to={`/admin/faqs/${faq.id}/edit`}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                       >
                         <Pencil size={12} /> 수정
                       </Link>
                       <button
                         type="button"
                         onClick={() => setDeletingId(faq.id)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
                       >
                         <Trash2 size={12} /> 삭제
                       </button>

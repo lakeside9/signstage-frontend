@@ -485,7 +485,7 @@ export const AdminOrganizationDetail: FC = () => {
                 </div>
                 <Link
                   to={`/admin/organizations/${organizationId}/ceremonies/${c.id}/history`}
-                  className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                  className="px-2 py-1 text-xs font-medium rounded-md shrink-0 flex items-center gap-1 border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-950"
                 >
                   <History size={12} />
                   이력 보기
@@ -599,7 +599,7 @@ export const AdminOrganizationDetail: FC = () => {
                         <td className="px-3 py-2 text-gray-700">{candidate.name}</td>
                         <td className="px-3 py-2 text-gray-500">{candidate.email}</td>
                         <td className="px-3 py-2 text-right">
-                          <Button size="sm" onClick={() => handleAddCandidate(candidate)} disabled={addingUserId === candidate.id}>
+                          <Button size="xs" onClick={() => handleAddCandidate(candidate)} disabled={addingUserId === candidate.id}>
                             <UserPlus size={12} />
                             {addingUserId === candidate.id ? '추가 중...' : `${addRole}로 추가`}
                           </Button>
@@ -677,23 +677,23 @@ export const AdminOrganizationDetail: FC = () => {
                     <td className="py-2">
                       <div className="flex justify-end items-center gap-2">
                         {roleDrafts[member.id] && roleDrafts[member.id] !== member.role && (
-                          <Button size="sm" onClick={() => handleChangeMemberRole(member.id)} disabled={processingMemberId === member.id}>
+                          <Button size="xs" onClick={() => handleChangeMemberRole(member.id)} disabled={processingMemberId === member.id}>
                             역할 저장
                           </Button>
                         )}
                         {confirmingRemoveId === member.id ? (
                           <>
-                            <Button variant="danger" size="sm" onClick={() => handleRemoveMember(member.id)} disabled={processingMemberId === member.id}>
+                            <Button variant="danger" size="xs" onClick={() => handleRemoveMember(member.id)} disabled={processingMemberId === member.id}>
                               확인
                             </Button>
-                            <Button variant="secondary" size="sm" onClick={() => setConfirmingRemoveId(null)} disabled={processingMemberId === member.id}>
+                            <Button variant="secondary" size="xs" onClick={() => setConfirmingRemoveId(null)} disabled={processingMemberId === member.id}>
                               취소
                             </Button>
                           </>
                         ) : (
                           <Button
                             variant="secondary"
-                            size="sm"
+                            size="xs"
                             onClick={() => setConfirmingRemoveId(member.id)}
                             disabled={processingMemberId === member.id}
                           >

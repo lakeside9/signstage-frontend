@@ -114,13 +114,13 @@ export const InvoiceTable: FC<InvoiceTableProps> = ({ invoices, showSalesOrder, 
                 {canManage && invoice.status !== 'CANCELLED' && (
                   <div className="flex justify-end gap-1.5">
                     {invoice.status === 'ISSUED' && (
-                      <Button size="sm" onClick={() => setAction({ kind: 'payment', invoice })}>입금 기록</Button>
+                      <Button size="xs" onClick={() => setAction({ kind: 'payment', invoice })}>입금 기록</Button>
                     )}
-                    <Button size="sm" variant="secondary" onClick={() => setAction({ kind: 'tax', invoice })}>
+                    <Button size="xs" variant="secondary" onClick={() => setAction({ kind: 'tax', invoice })}>
                       세금계산서
                     </Button>
                     {invoice.status === 'ISSUED' && (
-                      <Button size="sm" variant="danger-outline" onClick={() => setAction({ kind: 'cancel', invoice })}>
+                      <Button size="xs" variant="danger-outline" onClick={() => setAction({ kind: 'cancel', invoice })}>
                         취소
                       </Button>
                     )}

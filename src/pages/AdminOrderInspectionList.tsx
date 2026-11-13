@@ -345,10 +345,10 @@ export const AdminOrderInspectionList: FC = () => {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {canInspect && inspection.status === 'PENDING' && !inspection.overdue && (
-                    <Button size="sm" onClick={() => openApprove(inspection)}>검수 승인</Button>
+                    <Button size="xs" onClick={() => openApprove(inspection)}>검수 승인</Button>
                   )}
                   {canResolve && inspection.disputeStatus === 'OPEN' && (
-                    <Button size="sm" variant="secondary" onClick={() => openResolve(inspection)}>이의 조정</Button>
+                    <Button size="xs" variant="secondary" onClick={() => openResolve(inspection)}>이의 조정</Button>
                   )}
                 </td>
               </tr>

@@ -257,13 +257,13 @@ export const CeremonyInquirySection: FC<{ organizationId: string; ceremonyId: st
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setIsCreateOpen(false)} className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-sm hover:border-gray-400">
+            <button type="button" onClick={() => setIsCreateOpen(false)} className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400">
               취소
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !createTitle.trim() || !createContent.trim()}
-              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-40"
             >
               {isSubmitting ? '등록 중...' : '등록'}
             </button>

@@ -249,7 +249,7 @@ export const AdminOnsiteSupportRequests: FC = () => {
                         <button
                           type="button"
                           onClick={() => toggleExpand(request.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           {isExpanded ? '닫기' : '상세 보기'}
                           <ChevronDown size={12} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -290,7 +290,7 @@ export const AdminOnsiteSupportRequests: FC = () => {
                                   className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none disabled:bg-gray-100"
                                 />
                               </div>
-                              <Button size="sm" onClick={() => handleQuote(request.id)} disabled={isSubmitting}>
+                              <Button size="xs" onClick={() => handleQuote(request.id)} disabled={isSubmitting}>
                                 견적 등록
                               </Button>
                             </div>

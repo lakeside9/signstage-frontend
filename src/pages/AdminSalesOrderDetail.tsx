@@ -500,7 +500,7 @@ export const AdminSalesOrderDetail: FC = () => {
                             setMemoDraft(po.memo ?? '');
                             setMemoTarget(po);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-600 hover:bg-gray-100"
                         >
                           <Pencil size={12} /> 메모 수정
                         </button>
@@ -512,7 +512,7 @@ export const AdminSalesOrderDetail: FC = () => {
                             setPartnerCancelReason('');
                             setCancellingPartnerOrder(po);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
                         >
                           <XCircle size={12} /> 발주 취소
                         </button>
@@ -524,7 +524,7 @@ export const AdminSalesOrderDetail: FC = () => {
                             setPartnerCancelReason('');
                             setCancellingPartnerOrder(po);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
                         >
                           <XCircle size={12} /> 파트너 교체
                         </button>
@@ -538,7 +538,7 @@ export const AdminSalesOrderDetail: FC = () => {
                             setOffsetOccurredOn('');
                             setOffsetTarget(po);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-600 hover:bg-gray-100"
                         >
                           귀책 상계
                         </button>

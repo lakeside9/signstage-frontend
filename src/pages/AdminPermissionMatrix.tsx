@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useSnackbarStore } from '../store/useSnackbarStore';
 import { api } from '../utils/api';
 import type { PermissionMatrixRow } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../components/SegmentedTabs';
 
 type RoleAxis = 'PLATFORM' | 'ORGANIZATION';
 
@@ -177,7 +178,7 @@ export const AdminPermissionMatrix: FC = () => {
         남습니다. 배포 없이 새 권한키를 추가할 수는 없습니다.
       </p>
 
-      <div className="mt-4 flex gap-2 border-b border-gray-200">
+      <div className={`mt-4 ${SEGMENTED_TAB_GROUP_CLASS}`}>
         {AXIS_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -186,11 +187,7 @@ export const AdminPermissionMatrix: FC = () => {
               setAxis(tab.value);
               setIsLoading(true);
             }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              axis === tab.value
-                ? 'border-gray-950 text-gray-950'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={segmentedTabClass(axis === tab.value)}
           >
             {tab.label}
           </button>

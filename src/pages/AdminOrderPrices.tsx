@@ -30,6 +30,7 @@ import type {
   ServiceRegion,
   UnitProductSummary,
 } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../components/SegmentedTabs';
 
 type PriceTab = 'customerPrices' | 'regionSurcharges' | 'partnerRateCards';
 
@@ -322,7 +323,7 @@ export const AdminOrderPrices: FC = () => {
           <button
             type="button"
             onClick={() => openEdit(row)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+            className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
           >
             <Pencil size={12} /> 수정
           </button>
@@ -331,7 +332,7 @@ export const AdminOrderPrices: FC = () => {
           <button
             type="button"
             onClick={() => openClose(id)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+            className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
           >
             <CalendarX size={12} /> 기간 종료
           </button>
@@ -340,7 +341,7 @@ export const AdminOrderPrices: FC = () => {
           <button
             type="button"
             onClick={() => setDeletingId(id)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
           >
             <Trash2 size={12} /> 삭제
           </button>
@@ -384,15 +385,13 @@ export const AdminOrderPrices: FC = () => {
         )}
       </div>
 
-      <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+      <div className={SEGMENTED_TAB_GROUP_CLASS}>
         {TABS.map((tab) => (
           <button
             key={tab.value}
             type="button"
             onClick={() => setActiveTab(tab.value)}
-            className={`min-w-28 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              activeTab === tab.value ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
-            }`}
+            className={segmentedTabClass(activeTab === tab.value)}
           >
             {tab.label}
           </button>

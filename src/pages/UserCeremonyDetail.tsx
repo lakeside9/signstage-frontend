@@ -56,6 +56,7 @@ import type {
   TemplateSummary,
   UpdateDisplayOrdersRequest,
 } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../components/SegmentedTabs';
 
 const CEREMONY_STATUS_LABEL: Record<CeremonyStatus, string> = {
   DRAFT: '플랜 확정 대기',
@@ -1064,7 +1065,7 @@ export const UserCeremonyDetail: FC = () => {
         <div className="flex shrink-0 items-center gap-2">
           <Link
             to={`${detailPath}/edit`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
           >
             <Settings size={16} />
             행사 수정
@@ -1072,7 +1073,7 @@ export const UserCeremonyDetail: FC = () => {
           {showDirectOrderTools && (
           <Link
             to={`${detailPath}/edit?tab=billing`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
           >
             <CreditCard size={16} />
             플랫폼 이용료
@@ -1081,7 +1082,7 @@ export const UserCeremonyDetail: FC = () => {
           {showDirectOrderTools && canViewCustomerQuote && (
             <Link
               to={`${detailPath}/edit?tab=customerQuote`}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+              className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
             >
               <Banknote size={16} />
               고객 견적
@@ -1090,7 +1091,7 @@ export const UserCeremonyDetail: FC = () => {
           {showDirectOrderTools && (
           <Link
             to={`${detailPath}/edit?tab=onsiteSupportRequests`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
           >
             <MapPin size={16} />
             플랫폼 운영사 현장지원 요청
@@ -1098,7 +1099,7 @@ export const UserCeremonyDetail: FC = () => {
           )}
           <Link
             to={`${detailPath}/edit?tab=inquiries`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors"
           >
             <MessageCircleQuestion size={16} />
             문의
@@ -1117,14 +1118,14 @@ export const UserCeremonyDetail: FC = () => {
             <button
               type="button"
               onClick={() => setIsDeleteCeremonyConfirmOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-200 text-red-600 text-xs font-medium hover:border-red-400 transition-colors"
+              className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 border border-red-200 text-red-600 hover:border-red-400 transition-colors"
             >
               <Trash2 size={12} />
               행사 삭제
             </button>
             <Link
               to={`${detailPath}/edit?tab=billing`}
-              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+              className="px-3 py-2 text-xs font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 transition-colors"
             >
               {ceremony.billingPlanId === null ? '플랜 선택하러 가기' : '플랜 확정하러 가기'}
             </Link>
@@ -1164,7 +1165,7 @@ export const UserCeremonyDetail: FC = () => {
               <button
                 onClick={handleDownloadSignerExcelTemplate}
                 disabled={isDownloadingSignerTemplate}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 <Download size={14} />
                 엑셀 양식
@@ -1180,7 +1181,7 @@ export const UserCeremonyDetail: FC = () => {
                 onClick={() => signerExcelInputRef.current?.click()}
                 disabled={Boolean(registerDisabledReason) || isUploadingSignerExcel}
                 title={registerDisabledReason}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 <Upload size={14} />
                 {isUploadingSignerExcel ? '업로드 중...' : '엑셀 업로드'}
@@ -1189,7 +1190,7 @@ export const UserCeremonyDetail: FC = () => {
                 onClick={() => setIsSignerFormOpen(true)}
                 disabled={Boolean(registerDisabledReason)}
                 title={registerDisabledReason}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
+                className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
               >
                 <Plus size={14} />
                 서명자 등록
@@ -1253,7 +1254,7 @@ export const UserCeremonyDetail: FC = () => {
                         aria-label={`${signer.name} 사용 안함`}
                         disabled={availabilityPending || isCompleted}
                         onClick={() => void toggleAvailability('signers', signer)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 disabled:opacity-40">
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-600 disabled:opacity-40">
                         <span className={`relative h-4 w-7 rounded-full ${!signer.enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}>
                           <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white ${!signer.enabled ? 'left-3.5' : 'left-0.5'}`} />
                         </span>
@@ -1269,7 +1270,7 @@ export const UserCeremonyDetail: FC = () => {
                               ? '시작되었거나 종료된 하위 행사에 배정돼 수정할 수 없습니다.'
                               : undefined
                         }
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Pencil size={12} />
                         수정
@@ -1284,7 +1285,7 @@ export const UserCeremonyDetail: FC = () => {
                               ? '서명란에 배정됐거나 서명·감사 기록이 남아 있어 삭제할 수 없습니다.'
                               : undefined
                         }
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
                       >
                         <Trash2 size={12} />
                         삭제
@@ -1322,7 +1323,7 @@ export const UserCeremonyDetail: FC = () => {
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => setViewingSignerId(null)}
-                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+                className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400"
               >
                 닫기
               </button>
@@ -1369,14 +1370,14 @@ export const UserCeremonyDetail: FC = () => {
               type="button"
               onClick={() => setIsSignerFormOpen(false)}
               disabled={isAddingSigner}
-              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={isAddingSigner}
-              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
             >
               {isAddingSigner ? '등록 중...' : '등록'}
             </button>
@@ -1431,14 +1432,14 @@ export const UserCeremonyDetail: FC = () => {
             <button
               onClick={() => setEditingSignerId(null)}
               disabled={processingSignerId === editingSignerId}
-              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={() => editingSignerId !== null && handleSaveSignerEdit(editingSignerId)}
               disabled={processingSignerId === editingSignerId}
-              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
             >
               {processingSignerId === editingSignerId ? '저장 중...' : '저장'}
             </button>
@@ -1487,7 +1488,7 @@ export const UserCeremonyDetail: FC = () => {
               onClick={() => setIsTemplateFormOpen(true)}
               disabled={Boolean(registerDisabledReason)}
               title={registerDisabledReason}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
+              className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:hover:bg-gray-950"
             >
               <Plus size={14} />
               문서 업로드
@@ -1585,7 +1586,7 @@ export const UserCeremonyDetail: FC = () => {
                         aria-label={`${template.title} 사용 안함`}
                         disabled={availabilityPending || isCompleted}
                         onClick={() => void toggleAvailability('templates', template)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 disabled:opacity-40">
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-600 disabled:opacity-40">
                         <span className={`relative h-4 w-7 rounded-full ${!template.enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}>
                           <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white ${!template.enabled ? 'left-3.5' : 'left-0.5'}`} />
                         </span>
@@ -1595,7 +1596,7 @@ export const UserCeremonyDetail: FC = () => {
                         onClick={() => handleDuplicateTemplate(template.id)}
                         disabled={processingTemplateId === template.id || Boolean(registerDisabledReason)}
                         title={registerDisabledReason ?? '문서 파일과 서명란을 그대로 복제해 새 문서 양식을 만듭니다.'}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Copy size={12} />
                         새 문서로 복제
@@ -1612,14 +1613,14 @@ export const UserCeremonyDetail: FC = () => {
                                 ? '설정 완료된 문서 양식은 서명란을 가져올 수 없습니다.'
                                 : '같은 유형의 다른 문서에 있는 서명란을 이 문서로 가져옵니다. (기존 서명란은 삭제됨)'
                         }
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <FileSignature size={12} />
                         서명란 가져오기
                       </button>
                       <Link
                         to={`${detailPath}/templates/${template.id}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                       >
                         <ExternalLink size={12} />
                         서명란 배치
@@ -1634,7 +1635,7 @@ export const UserCeremonyDetail: FC = () => {
                               ? '하위 행사에 연결된 문서 양식은 수정할 수 없습니다.'
                               : undefined
                         }
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                       >
                         <Pencil size={12} />
                         수정
@@ -1649,7 +1650,7 @@ export const UserCeremonyDetail: FC = () => {
                               ? '이미 하위 행사에 매핑된 문서 양식은 삭제할 수 없습니다.'
                               : undefined
                         }
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
                       >
                         <Trash2 size={12} />
                         삭제
@@ -1726,11 +1727,11 @@ export const UserCeremonyDetail: FC = () => {
               type="button"
               onClick={() => setIsTemplateFormOpen(false)}
               disabled={isUploadingTemplate}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               취소
             </button>
-            <button type="submit" disabled={isUploadingTemplate} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400">
+            <button type="submit" disabled={isUploadingTemplate} className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 disabled:bg-gray-400">
               {isUploadingTemplate ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               등록
             </button>
@@ -1768,7 +1769,7 @@ export const UserCeremonyDetail: FC = () => {
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => setViewingTemplateId(null)}
-                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+                className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400"
               >
                 닫기
               </button>
@@ -1816,14 +1817,14 @@ export const UserCeremonyDetail: FC = () => {
             <button
               onClick={() => setEditingTemplateId(null)}
               disabled={processingTemplateId === editingTemplateId}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={() => editingTemplateId !== null && handleSaveTemplateEdit(editingTemplateId)}
               disabled={processingTemplateId === editingTemplateId}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400"
+              className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 disabled:bg-gray-400"
             >
               {processingTemplateId === editingTemplateId ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               저장
@@ -1890,14 +1891,14 @@ export const UserCeremonyDetail: FC = () => {
             <button
               onClick={handleCloseCloneFields}
               disabled={isCloningFields}
-              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={() => setIsCloneFieldsConfirmOpen(true)}
               disabled={!cloneFieldsSourceId || isCloningFields}
-              className="px-4 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
             >
               서명란 가져오기
             </button>
@@ -1953,7 +1954,7 @@ export const UserCeremonyDetail: FC = () => {
                 type="button"
                 disabled
                 title={registerDisabledReason}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold opacity-40"
+                className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white opacity-40"
               >
                 <Plus size={14} />
                 새 하위 행사
@@ -1961,7 +1962,7 @@ export const UserCeremonyDetail: FC = () => {
             ) : (
               <Link
                 to={`${detailPath}/events/new`}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-950 text-white text-xs font-bold hover:bg-gray-800 transition-colors"
+                className="px-3 py-2 text-xs font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 transition-colors"
               >
                 <Plus size={14} />
                 새 하위 행사
@@ -1972,7 +1973,7 @@ export const UserCeremonyDetail: FC = () => {
 
         {isEventsSectionOpen && (
         <>
-        <div className="mb-3 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+        <div className={SEGMENTED_TAB_GROUP_CLASS}>
           {eventTypeTabs.map((tab) => {
             const isActive = activeEventType === tab.value;
             const count = getEventsByType(events, tab.value).length;
@@ -1981,9 +1982,7 @@ export const UserCeremonyDetail: FC = () => {
                 key={tab.value}
                 type="button"
                 onClick={() => setActiveEventType(tab.value)}
-                className={`min-w-24 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                  isActive ? EVENT_TYPE_TAB_COLOR[tab.value].active : EVENT_TYPE_TAB_COLOR[tab.value].inactive
-                }`}
+                className={segmentedTabClass(isActive, EVENT_TYPE_TAB_COLOR[tab.value])}
               >
                 {tab.label}
                 <span className="ml-1.5 opacity-70">{count}</span>
@@ -2055,14 +2054,14 @@ export const UserCeremonyDetail: FC = () => {
                       <div className="flex justify-end gap-1">
                         <Link
                           to={`${detailPath}/events/${event.id}/mapping`}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           <FileText size={12} />
                           문서 매핑
                         </Link>
                         <Link
                           to={`${detailPath}/events/${event.id}/control`}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           <Settings size={12} />
                           행사 제어
@@ -2077,7 +2076,7 @@ export const UserCeremonyDetail: FC = () => {
                                 ? '시작되었거나 종료된 하위 행사는 수정할 수 없습니다.'
                                 : undefined
                           }
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
                         >
                           <Pencil size={12} />
                           수정
@@ -2092,7 +2091,7 @@ export const UserCeremonyDetail: FC = () => {
                                 ? '시작되었거나 종료된 하위 행사는 삭제할 수 없습니다.'
                                 : undefined
                           }
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent"
                         >
                           <Trash2 size={12} />
                           삭제
@@ -2159,7 +2158,7 @@ export const UserCeremonyDetail: FC = () => {
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => setViewingEventId(null)}
-                className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400"
+                className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400"
               >
                 닫기
               </button>
@@ -2281,14 +2280,14 @@ export const UserCeremonyDetail: FC = () => {
             <button
               onClick={() => setEditingEventId(null)}
               disabled={processingEventId === editingEventId}
-              className="px-4 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={() => editingEventId !== null && handleSaveEventEdit(editingEventId)}
               disabled={isEventEditReadOnly || processingEventId === editingEventId}
-              className="px-4 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50"
             >
               {processingEventId === editingEventId ? '저장 중...' : '저장'}
             </button>

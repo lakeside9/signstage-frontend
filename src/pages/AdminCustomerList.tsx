@@ -266,14 +266,14 @@ export const AdminCustomerList: FC = () => {
                       <button
                         type="button"
                         onClick={() => openForm(customer)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                       >
                         <Pencil size={12} /> 수정
                       </button>
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(customer)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                       >
                         {customer.status === 'ACTIVE' ? '거래 중지' : '거래 재개'}
                       </button>

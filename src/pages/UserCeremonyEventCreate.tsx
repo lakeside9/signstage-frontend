@@ -239,14 +239,14 @@ export const UserCeremonyEventCreate: FC = () => {
             type="button"
             onClick={() => navigate(detailPath)}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 disabled:opacity-50 transition-all"
+            className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all"
           >
             <RotateCcw size={16} /> 취소
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg bg-gray-950 text-white text-sm font-bold hover:bg-gray-800 disabled:bg-gray-400 transition-all shadow-sm"
+            className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 disabled:bg-gray-400 transition-all shadow-sm"
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             등록

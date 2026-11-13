@@ -381,7 +381,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
               )}
               <button
                 onClick={openOverrideForm}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-200 text-gray-500 text-xs font-medium hover:border-gray-400 hover:text-gray-950"
+                className="px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-950"
               >
                 <Pencil size={12} />
                 이 행사만 다르게 설정
@@ -423,7 +423,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
               <button
                 type="submit"
                 disabled={isSavingOverride || !overrideValue.trim() || Number(overrideValue) < 0}
-                className="shrink-0 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                className="px-3 py-2 text-xs font-bold rounded-lg shrink-0 bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-40 transition-colors"
               >
                 {isSavingOverride ? '저장 중...' : '저장'}
               </button>
@@ -492,7 +492,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
                 type="button"
                 onClick={handleClosePreview}
                 disabled={isSaving}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-40"
+                className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-40"
               >
                 <X size={12} />
                 닫기
@@ -501,7 +501,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                className="px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-1 bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-40 transition-colors"
               >
                 <CheckCircle2 size={12} />
                 {isSaving ? '저장 중...' : '저장'}
@@ -591,7 +591,7 @@ export const CustomerQuoteSection: FC<{ organizationId: string; ceremonyId: stri
             <button
               onClick={handlePreview}
               disabled={isPreviewing || isMarginLoading || !margin || margin.source === 'NONE' || !linesValid}
-              className="px-3 py-1.5 rounded-md bg-gray-950 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+              className="px-3 py-2 text-xs font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-40 transition-colors"
             >
               {isPreviewing ? '생성 중...' : '고객 견적서 생성'}
             </button>

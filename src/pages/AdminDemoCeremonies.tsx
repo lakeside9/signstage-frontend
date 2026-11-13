@@ -100,7 +100,7 @@ export const AdminDemoCeremonies: FC = () => {
                 <td className="py-2 text-gray-500">{organization.code}</td>
                 <td className="py-2 text-right text-gray-500">{formatDateTime(organization.createdAt)}</td>
                 <td className="py-2 px-4 text-right">
-                  <Button to={`/ceremonies/${organization.id}`} variant="secondary" size="sm">
+                  <Button to={`/ceremonies/${organization.id}`} variant="secondary" size="xs">
                     관리
                   </Button>
                 </td>

@@ -227,7 +227,7 @@ export const CeremonyEffectDefinitionForm: FC<Props> = ({ mode, initialValue, sa
             rendererKey: value.rendererKey,
             configJson: value.configJsonDraft,
           })}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-1.5 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors"
         >
           <Eye size={15} /> 미리보기
         </button>

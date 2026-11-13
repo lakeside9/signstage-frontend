@@ -248,30 +248,30 @@ export const AdminSubscriptionRequestList: FC = () => {
                     <td className="px-4 py-3 text-right">
                       {request.status === 'PENDING' &&
                         (actioningId === request.id ? (
-                          <Button variant="secondary" size="sm" onClick={closeAction} disabled={isSubmittingAction}>
+                          <Button variant="secondary" size="xs" onClick={closeAction} disabled={isSubmittingAction}>
                             취소
                           </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => handleApprove(request.id)} disabled={isSubmittingAction}>
+                            <Button size="xs" onClick={() => handleApprove(request.id)} disabled={isSubmittingAction}>
                               승인
                             </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openAction(request.id, 'reject')}>
+                            <Button variant="secondary" size="xs" onClick={() => openAction(request.id, 'reject')}>
                               반려
                             </Button>
                           </div>
                         ))}
                       {request.status === 'CANCELLATION_REQUESTED' &&
                         (actioningId === request.id ? (
-                          <Button variant="secondary" size="sm" onClick={closeAction} disabled={isSubmittingAction}>
+                          <Button variant="secondary" size="xs" onClick={closeAction} disabled={isSubmittingAction}>
                             취소
                           </Button>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => handleApproveCancellation(request.id)} disabled={isSubmittingAction}>
+                            <Button size="xs" onClick={() => handleApproveCancellation(request.id)} disabled={isSubmittingAction}>
                               해지 승인
                             </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openAction(request.id, 'rejectCancellation')}>
+                            <Button variant="secondary" size="xs" onClick={() => openAction(request.id, 'rejectCancellation')}>
                               해지 반려
                             </Button>
                           </div>
@@ -291,7 +291,7 @@ export const AdminSubscriptionRequestList: FC = () => {
                           placeholder="반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <Button variant="danger" size="sm" onClick={() => handleReject(request.id)} disabled={isSubmittingAction}>
+                        <Button variant="danger" size="xs" onClick={() => handleReject(request.id)} disabled={isSubmittingAction}>
                           <X size={12} />
                           반려 확정
                         </Button>
@@ -311,7 +311,7 @@ export const AdminSubscriptionRequestList: FC = () => {
                           placeholder="해지 반려 사유"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-gray-950/10 focus:border-gray-400 outline-none transition-all disabled:bg-gray-100"
                         />
-                        <Button variant="danger" size="sm" onClick={() => handleRejectCancellation(request.id)} disabled={isSubmittingAction}>
+                        <Button variant="danger" size="xs" onClick={() => handleRejectCancellation(request.id)} disabled={isSubmittingAction}>
                           <Check size={12} />
                           해지 반려 확정
                         </Button>

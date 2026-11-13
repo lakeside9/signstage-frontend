@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { SUPPORT_AUDIENCE_DESCRIPTION, SUPPORT_AUDIENCE_LABEL, SUPPORT_AUDIENCES } from '../utils/supportAudience';
 import type { SupportAudience } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from './SegmentedTabs';
 
 /** FAQ·공지사항 등록·수정 화면의 "노출 대상" 선택. */
 export const SupportAudienceField: FC<{
@@ -33,7 +34,7 @@ export const SupportAudienceTabs: FC<{
   value: SupportAudience;
   onChange: (value: SupportAudience) => void;
 }> = ({ value, onChange }) => (
-  <div className="mb-4 flex gap-1 border-b border-gray-200" role="tablist">
+  <div className={SEGMENTED_TAB_GROUP_CLASS} role="tablist">
     {SUPPORT_AUDIENCES.map((audience) => (
       <button
         key={audience}
@@ -41,9 +42,7 @@ export const SupportAudienceTabs: FC<{
         role="tab"
         aria-selected={value === audience}
         onClick={() => onChange(audience)}
-        className={`-mb-px px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-          value === audience ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-400 hover:text-gray-700'
-        }`}
+        className={segmentedTabClass(value === audience)}
       >
         {SUPPORT_AUDIENCE_LABEL[audience]}
       </button>

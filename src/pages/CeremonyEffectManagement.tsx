@@ -304,14 +304,14 @@ export const CeremonyEffectManagement: FC = () => {
                           rendererKey: definition.rendererKey,
                           configJson: definition.configJson ? JSON.stringify(definition.configJson) : null,
                         })}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                        className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                       >
                         <Eye size={12} /> 미리보기
                       </button>
                       {canManage && (
                         <Link
                           to={`/admin/effects/${definition.id}/edit`}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-gray-950 hover:bg-gray-50"
+                          className="px-2 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 text-gray-500 hover:text-gray-950 hover:bg-gray-50"
                         >
                           수정
                         </Link>

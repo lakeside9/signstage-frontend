@@ -756,14 +756,14 @@ export const UserTemplateDetail: FC = () => {
               <button
                 onClick={handleSave}
                 disabled={isSaving || isCompleting}
-                className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 flex items-center gap-2 disabled:opacity-50"
               >
                 <Save size={14} /> 저장
               </button>
               <button
                 onClick={handleComplete}
                 disabled={isSaving || isCompleting}
-                className="bg-gray-950 hover:bg-gray-800 text-white px-4 py-1.5 rounded-lg font-bold transition-colors text-xs disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 hover:bg-gray-800 text-white transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 <CheckCircle2 size={14} /> 설정 완료
               </button>
@@ -907,7 +907,7 @@ export const UserTemplateDetail: FC = () => {
               <button
                 onClick={handleInspectFields}
                 title="겹치거나 배치되지 않은 서명란이 있는지 점검합니다"
-                className="relative flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-100 rounded-md text-gray-600 text-[11px] font-bold whitespace-nowrap"
+                className="px-2 py-1 text-xs font-medium rounded-md relative flex items-center gap-1.5 hover:bg-gray-100 text-gray-600 whitespace-nowrap"
               >
                 <ClipboardCheck size={14} />
                 서명란 점검
@@ -1266,7 +1266,7 @@ export const UserTemplateDetail: FC = () => {
                 <button
                   type="button"
                   onClick={handleGoToOverlappingFields}
-                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                  className="px-2 py-1 text-xs font-medium rounded-md mt-2 inline-flex items-center gap-1 border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
                 >
                   <MapPin size={12} /> 겹쳐진 서명란으로 이동
                 </button>
@@ -1292,7 +1292,7 @@ export const UserTemplateDetail: FC = () => {
               type="button"
               onClick={() => setIsCompleteModalOpen(false)}
               disabled={isCompleting}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               취소
             </button>
@@ -1307,7 +1307,7 @@ export const UserTemplateDetail: FC = () => {
                     ? '서명란이 배치되지 않은 서명자가 있습니다.'
                     : undefined
               }
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-bold rounded-lg inline-flex items-center gap-2 bg-gray-950 text-white hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {isCompleting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               설정 완료
@@ -1330,7 +1330,7 @@ export const UserTemplateDetail: FC = () => {
                 <button
                   type="button"
                   onClick={handleGoToOverlappingFields}
-                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                  className="px-2 py-1 text-xs font-medium rounded-md mt-2 inline-flex items-center gap-1 border border-amber-300 bg-white text-amber-700 hover:bg-amber-100 transition-colors"
                 >
                   <MapPin size={12} /> 겹쳐진 서명란으로 이동
                 </button>
@@ -1355,7 +1355,7 @@ export const UserTemplateDetail: FC = () => {
             <button
               type="button"
               onClick={() => setIsInspectModalOpen(false)}
-              className="rounded-lg bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+              className="px-4 py-2 text-sm font-bold rounded-lg bg-gray-950 text-white hover:bg-gray-800"
             >
               확인
             </button>

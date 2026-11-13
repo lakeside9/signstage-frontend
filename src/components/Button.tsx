@@ -1,8 +1,10 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { BUTTON_SIZE_CLASS, type ButtonSize } from './buttonStyles';
+
+export type { ButtonSize };
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'danger-outline';
-export type ButtonSize = 'md' | 'sm';
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: 'bg-gray-950 text-white hover:bg-gray-800',
@@ -11,13 +13,9 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   'danger-outline': 'border border-red-200 text-red-700 hover:bg-red-50',
 };
 
-const SIZE_CLASS: Record<ButtonSize, string> = {
-  md: 'px-4 py-2 text-sm',
-  sm: 'px-3 py-1.5 text-xs',
-};
 
 const BASE_CLASS =
-  'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+  'inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 interface CommonProps {
   variant?: ButtonVariant;
@@ -43,8 +41,8 @@ const isLinkProps = (props: ButtonProps): props is ButtonAsLinkProps => props.to
  * 손으로 새로 써서 크기(px-4 py-2 / px-3 py-1.5 / px-3 py-1 / px-4 py-1.5 등)와 위험(빨강) 버튼
  * 스타일(채움/빨강 테두리/회색 테두리+빨강 글자 3종)이 화면마다 표류해 있었다.
  *
- * - **크기 2단계로 고정**: `md`(페이지 레벨 주 액션) / `sm`(표 안 인라인 액션). `lg`를 따로 두지
- *   않는다 — 등록 전용 페이지(패턴 A)의 전체폭 제출 버튼도 `size="md"` + `className="w-full"`로
+ * - **크기 3단계로 고정**(2026-11-13 eform 기준으로 다시 정함): `md`(페이지·폼·팝업의 주 액션) / `sm`(섹션 머리의
+ *   등록·업로드 같은 액션) / `xs`(표 안 인라인 액션). `lg`를 따로 두지 않는다 — 등록 전용 페이지(패턴 A)의 전체폭 제출 버튼도 `size="md"` + `className="w-full"`로
  *   표현한다.
  * - **색상 4종으로 고정**: `primary`(기본, 검정 채움) / `secondary`(회색 테두리) / `danger`(빨강
  *   채움) / `danger-outline`(빨강 테두리+글자). "회색 테두리+빨강 글자" 변종은 없앴다.
@@ -54,7 +52,7 @@ const isLinkProps = (props: ButtonProps): props is ButtonAsLinkProps => props.to
  */
 export const Button: FC<ButtonProps> = (props) => {
   const { variant = 'primary', size = 'md', className = '', children, ...rest } = props;
-  const classes = [BASE_CLASS, VARIANT_CLASS[variant], SIZE_CLASS[size], className].filter(Boolean).join(' ');
+  const classes = [BASE_CLASS, VARIANT_CLASS[variant], BUTTON_SIZE_CLASS[size], className].filter(Boolean).join(' ');
 
   if (isLinkProps(props)) {
     const { to, ...linkRest } = rest as Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'className' | 'href'> & {

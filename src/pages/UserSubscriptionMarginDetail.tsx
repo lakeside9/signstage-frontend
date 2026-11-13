@@ -7,6 +7,7 @@ import { api } from '../utils/api';
 import { OrganizationMarginPolicySection } from './organization/OrganizationMarginPolicySection';
 import { OrganizationSubscriptionSection } from './organization/OrganizationSubscriptionSection';
 import type { OrganizationSummary } from '../types';
+import { SEGMENTED_TAB_GROUP_CLASS, segmentedTabClass } from '../components/SegmentedTabs';
 
 type DetailTab = 'subscription' | 'margin';
 
@@ -103,7 +104,7 @@ export const UserSubscriptionMarginDetail: FC = () => {
 
       {organization.myRole === 'OWNER' ? (
         <>
-          <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+          <div className={SEGMENTED_TAB_GROUP_CLASS}>
             {(
               [
                 { value: 'subscription', label: '구독', icon: CalendarClock },
@@ -116,9 +117,7 @@ export const UserSubscriptionMarginDetail: FC = () => {
                   key={tab.value}
                   type="button"
                   onClick={() => setActiveTab(tab.value)}
-                  className={`flex items-center gap-1.5 min-w-28 justify-center px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                    isActive ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
-                  }`}
+                  className={segmentedTabClass(isActive)}
                 >
                   <tab.icon size={13} />
                   {tab.label}

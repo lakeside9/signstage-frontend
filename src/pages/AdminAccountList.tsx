@@ -297,14 +297,14 @@ export const AdminAccountList: FC = () => {
                     ) : (
                       <div className="flex justify-end gap-2">
                         {canChangeAccountRole && roleDrafts[account.id] && roleDrafts[account.id] !== account.platformRole && (
-                          <Button size="sm" onClick={() => handleUpdateRole(account.id)} disabled={processingId === account.id}>
+                          <Button size="xs" onClick={() => handleUpdateRole(account.id)} disabled={processingId === account.id}>
                             등급 저장
                           </Button>
                         )}
                         {canRevokeAccount && (
                           <Button
                             variant="secondary"
-                            size="sm"
+                            size="xs"
                             onClick={() => handleRevoke(account.id)}
                             disabled={processingId === account.id}
                           >

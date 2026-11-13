@@ -266,14 +266,14 @@ export const AdminUserList: FC = () => {
                     ) : (
                       <div className="flex justify-end gap-2">
                         {user.status !== 'ACTIVE' && (
-                          <Button size="sm" onClick={() => handleChangeStatus(user.id, 'ACTIVE')} disabled={processingId === user.id}>
+                          <Button size="xs" onClick={() => handleChangeStatus(user.id, 'ACTIVE')} disabled={processingId === user.id}>
                             승인/활성화
                           </Button>
                         )}
                         {user.status !== 'DISABLED' && (
                           <Button
                             variant="secondary"
-                            size="sm"
+                            size="xs"
                             onClick={() => handleChangeStatus(user.id, 'DISABLED')}
                             disabled={processingId === user.id}
                           >

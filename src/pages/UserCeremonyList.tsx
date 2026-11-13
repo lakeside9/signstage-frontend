@@ -145,7 +145,7 @@ export const UserCeremonyList: FC = () => {
         {canCreate && (
           <Link
             to={`/ceremonies/${organizationId}/new`}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 bg-gray-950 text-white hover:bg-gray-800 transition-colors"
           >
             <Plus size={16} />
             새 행사

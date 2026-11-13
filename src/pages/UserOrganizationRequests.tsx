@@ -204,7 +204,7 @@ export const UserOrganizationRequests: FC = () => {
                 type="button"
                 onClick={() => setIsFormOpen(false)}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 rounded-md border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-400 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold rounded-lg flex-1 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors disabled:opacity-50"
               >
                 취소
               </button>
@@ -222,7 +222,7 @@ export const UserOrganizationRequests: FC = () => {
             <button
               onClick={() => setIsFormOpen(true)}
               disabled={hasAnyOrganization}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-950 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-950"
+              className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-1.5 bg-gray-950 text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-950"
             >
               <Plus size={16} />
               새 조직 생성 요청
@@ -266,7 +266,7 @@ export const UserOrganizationRequests: FC = () => {
                     <button
                       onClick={() => handleCancel(request.id)}
                       disabled={cancelingId === request.id}
-                      className="shrink-0 flex items-center gap-1 px-3 py-1 rounded-md border border-gray-200 text-gray-600 text-xs font-medium hover:border-gray-400 disabled:opacity-50"
+                      className="px-3 py-2 text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 border border-gray-200 text-gray-600 hover:border-gray-400 disabled:opacity-50"
                     >
                       <X size={12} />
                       취소
