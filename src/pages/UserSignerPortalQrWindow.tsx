@@ -30,12 +30,31 @@ const EVENT_TYPE_CONTROL_META: Record<CeremonyEventType, { label: string; header
   },
 };
 
+/**
+ * QR에 담는 정보 — legacy 백엔드 `SignerPortalQrDto`(issuer/url/participant/place/time/title/eventType)와 같은 JSON이다.
+ * eform 서명자 안드로이드 앱(`QRActivity`)이 이 JSON을 읽어 행사 유형으로 등록 가능 여부를 가리고, 서명자·장소·일시·행사명을
+ * 화면에 보여준다(URL만 담으면 "Invalid QRCode"가 된다). 빈 값은 legacy처럼 "-"로 채운다(2026-11-13).
+ */
+const SIGNER_PORTAL_QR_ISSUER = 'signstage';
+
+const formatQrBlank = (value: string | null | undefined) => (value && value.trim() ? value : '-');
+
+/** legacy `QR_TIME_FORMATTER`(yyyy-MM-dd HH:mm)와 같은 모양 — 서버가 주는 LocalDateTime 문자열을 그대로 잘라 쓴다. */
+const formatQrDateTime = (value: string) => value.replace('T', ' ').slice(0, 16);
+
+const formatQrSchedule = (startAt: string | null, endAt: string | null) => {
+  if (!startAt && !endAt) return '-';
+  if (!startAt) return formatQrDateTime(endAt as string);
+  if (!endAt) return formatQrDateTime(startAt);
+  return `${formatQrDateTime(startAt)} - ${formatQrDateTime(endAt)}`;
+};
+
 const PortalQrCode: FC<{ value: string }> = ({ value }) => {
   const [dataUrl, setDataUrl] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(value, { width: 288, margin: 1, errorCorrectionLevel: 'M' })
+    QRCode.toDataURL(value, { width: 288, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#111827', light: '#ffffff' } })
       .then((url) => {
         if (!cancelled) setDataUrl(url);
       })
@@ -145,7 +164,7 @@ export const UserSignerPortalQrWindow: FC = () => {
                 서명자 입장 포탈 <span className="font-medium text-gray-400">-</span> {event?.name ?? 'QR'}
               </h1>
             </div>
-            <p className="mt-1 text-sm font-medium text-gray-500">QR 코드를 스캔하면 서명자 포털로 바로 이동합니다.</p>
+            <p className="mt-1 text-sm font-medium text-gray-500">QR 코드에는 서명자별 포탈 URL과 행사 정보 JSON이 포함됩니다.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -185,15 +204,25 @@ export const UserSignerPortalQrWindow: FC = () => {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {mappedSigners.map((signer) => {
               const portalUrl = `${window.location.origin}/portal/${event.accessKey}/${signer.accessKey}`;
+              const participant = [signer.affiliation, signer.position, signer.name].filter(value => value?.trim()).join(' / ');
+              const qrPayload = JSON.stringify({
+                issuer: SIGNER_PORTAL_QR_ISSUER,
+                url: portalUrl,
+                participant,
+                place: formatQrBlank(event.venue),
+                time: formatQrSchedule(event.scheduledStartAt, event.scheduledEndAt),
+                title: formatQrBlank(event.name),
+                eventType: event.eventType,
+              });
               return (
                 <div
                   key={signer.id}
                   className="group flex flex-col items-center rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-lg"
                 >
                   <div className="mb-4 rounded-lg bg-gray-50 p-3 transition-colors group-hover:bg-indigo-50">
-                    <PortalQrCode value={portalUrl} />
+                    <PortalQrCode value={qrPayload} />
                   </div>
-                  <div className="text-sm font-bold text-gray-900">{[signer.affiliation, signer.position, signer.name].filter(value => value?.trim()).join(' / ')}</div>
+                  <div className="text-sm font-bold text-gray-900">{participant}</div>
                   <div className="mt-4 flex items-center gap-2">
                     <button
                       type="button"
@@ -209,7 +238,7 @@ export const UserSignerPortalQrWindow: FC = () => {
                       className="flex items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
                     >
                       <ExternalLink size={13} />
-                      포털 열기
+                      열기
                     </button>
                   </div>
                 </div>
