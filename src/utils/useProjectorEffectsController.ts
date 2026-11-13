@@ -106,6 +106,13 @@ export const useProjectorEffectsController = (initialEnabled = true) => {
     toggle: useCallback(() => setEnabled(current => !current), []),
     consumeRealtimeEvent,
     applySettings,
+    /**
+     * 이 행사에 실제로 재생될 전시 효과가 하나라도 있는지 — 효과를 고르지 않았거나(NONE) 행사제어에서 꺼 두면 false다.
+     * 전시 화면의 "효과 켜짐/꺼짐" 버튼은 이 값이 true일 때만 보인다(eform과 같은 규칙, 2026-11-13).
+     */
+    hasPlayableEffect: Object.values(settingsByTrigger).some(
+      (setting) => setting != null && setting.runtimeEnabled && setting.effectCode !== 'NONE',
+    ),
     isRuntimeEnabled: useCallback((triggerType?: CeremonyEffectTrigger) => (
       triggerType == null || settingsByTrigger[triggerType]?.runtimeEnabled !== false
     ), [settingsByTrigger]),

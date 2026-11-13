@@ -445,6 +445,9 @@ export const SignerPortalView: FC = () => {
   const myFields = (contract?.fields ?? []).filter((f) => f.signerId === context.signerId);
   const currentPageMyFields = myFields.filter((f) => f.pageIndex === currentPage);
   const maxStartPage = Math.max(0, contractInfo.totalPages - 1);
+  const signerDisplayName = [context.signerAffiliation, context.signerPosition, context.signerName]
+    .filter((value) => value && value.trim())
+    .join(' / ');
 
   const renderedStrokes = strokes
     .map((stroke) => {
@@ -805,9 +808,19 @@ export const SignerPortalView: FC = () => {
       {isSigningModalOpen && myField && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-xl rounded-2xl bg-white p-5 text-gray-950 shadow-2xl">
+            {/* 서명자 정보(소속 / 직책 / 이름)를 제목 옆에 보여준다 — legacy `SignerView.tsx`의 서명 팝업과 같다(2026-11-13). */}
             <div className="mb-4">
-              <h2 className="text-lg font-black">서명란</h2>
-              <p className="mt-1 text-xs font-semibold text-gray-500">{myField.pageIndex + 1}페이지 선택된 서명란에 서명합니다.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-black">서명란</h2>
+                {signerDisplayName && (
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-black text-gray-700">
+                    {signerDisplayName}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs font-semibold text-gray-500">
+                서명란에 서명을 한 후 확인버튼을 누르면 서명이 실시간으로 반영됩니다.
+              </p>
             </div>
             <div className="h-56 touch-none select-none overflow-hidden rounded-xl border border-gray-200 bg-white">
               <PortalSignCanvas

@@ -60,7 +60,7 @@ const FIELD_COLORS = [
   { bg: 'rgba(132, 204, 22, 0.15)', border: '#84cc16', text: '#4d7c0f' },
 ];
 
-const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '서명용 문서', EXHIBITION: '전시용 문서' };
 
 const BASE_WIDTH = 800;
 

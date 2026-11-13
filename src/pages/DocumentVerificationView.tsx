@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 import { formatDateTime } from '../utils/internationalization';
 import type { CeremonyResultType, DocumentVerificationResult } from '../types';
 
-const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '서명용 문서', EXHIBITION: '전시용 문서' };
 
 const isPdf = (file: File) => file.type === 'application/pdf';
 
@@ -177,7 +177,7 @@ export const DocumentVerificationView: FC = () => {
                       <p className="font-bold text-emerald-900">진짜 결과 문서입니다</p>
                       <p className="mt-1 text-sm text-emerald-700">SignStage가 생성한 결과 문서와 바이트 단위로 일치합니다.</p>
                       <div className="mt-4 space-y-1">
-                        <DetailRow label="문서 종류" value={result.resultType ? RESULT_TYPE_LABEL[result.resultType] : '-'} />
+                        <DetailRow label="문서 유형" value={result.resultType ? RESULT_TYPE_LABEL[result.resultType] : '-'} />
                         <DetailRow label="행사" value={result.ceremonyTitle ?? '-'} />
                         <DetailRow label="하위 행사" value={result.eventName ?? '-'} />
                         <DetailRow label="생성 시각" value={result.generatedAt ? formatDateTime(result.generatedAt) : '-'} />

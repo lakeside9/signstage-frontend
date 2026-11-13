@@ -147,4 +147,30 @@ describe('useProjectorEffectsController', () => {
     act(() => result.current.toggle());
     expect(result.current.enabled).toBe(true);
   });
+
+  it('reports a playable effect only when a PROJECTOR effect is chosen and runtime-enabled', () => {
+    const { result } = renderHook(() => useProjectorEffectsController());
+    expect(result.current.hasPlayableEffect).toBe(false);
+
+    act(() => {
+      result.current.applySettings([
+        {
+          targetType: 'PROJECTOR', triggerType: 'SIGNATURE_COMPLETED', effectCode: 'NONE',
+          rendererKey: '', displayName: '없음', runtimeEnabled: true, manuallyTriggerable: false,
+        },
+        {
+          targetType: 'PROJECTOR', triggerType: 'ALL_SIGNATURES_COMPLETED', effectCode: 'FIREWORKS',
+          rendererKey: 'projector-fireworks', displayName: '불꽃놀이', runtimeEnabled: false, manuallyTriggerable: true,
+        },
+      ]);
+    });
+    expect(result.current.hasPlayableEffect).toBe(false);
+
+    act(() => {
+      result.current.consumeRealtimeEvent(message('ceremony.effect.setting.changed', {
+        targetType: 'PROJECTOR', triggerType: 'ALL_SIGNATURES_COMPLETED', effectCode: 'FIREWORKS', runtimeEnabled: true,
+      }));
+    });
+    expect(result.current.hasPlayableEffect).toBe(true);
+  });
 });

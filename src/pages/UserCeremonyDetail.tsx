@@ -161,7 +161,7 @@ const formatEventSchedule = (event: CeremonyEventSummary) => {
 /** <input type="datetime-local">에 바로 넣을 수 있게 앞 16자로 자른다("2026-07-29T05:00"). */
 const toDateTimeLocalValue = (value: string | null) => (value ? value.slice(0, 16) : '');
 
-const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const DOCUMENT_ROLE_LABEL: Record<TemplateDocumentRole, string> = { CONTRACT: '서명용 문서', EXHIBITION: '전시용 문서' };
 /** 서명란 배치 화면에서 "설정 완료"를 눌러야 COMPLETED로 바뀐다 — 그 전까지는 DRAFT다. */
 const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: '설정 필요', COMPLETED: '설정 완료' };
 const TEMPLATE_STATUS_COLOR: Record<TemplateStatus, string> = {
@@ -1666,11 +1666,11 @@ export const UserCeremonyDetail: FC = () => {
         )}
       </section>
 
-      {/* 문서 양식 추가/수정 팝업은 기존 eform 화면과 같은 구성(문서 역할 → PDF 파일 → 양식명 → 설명)으로 맞췄다(2026-11-13). */}
+      {/* 문서 양식 추가/수정 팝업은 기존 eform 화면과 같은 구성(문서 유형 → PDF 파일 → 양식명 → 설명)으로 맞췄다(2026-11-13). */}
       <Modal open={isTemplateFormOpen} onClose={() => !isUploadingTemplate && setIsTemplateFormOpen(false)} title="문서 양식 추가" widthClassName="max-w-xl">
         <form onSubmit={handleUploadTemplate} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 역할</label>
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 유형</label>
             <select
               value={templateDocumentRole}
               onChange={(e) => setTemplateDocumentRole(e.target.value as TemplateDocumentRole)}
@@ -1781,7 +1781,7 @@ export const UserCeremonyDetail: FC = () => {
       <Modal open={editingTemplateId !== null} onClose={() => setEditingTemplateId(null)} title="문서 양식 수정" widthClassName="max-w-xl">
         <div className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 역할</label>
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">문서 유형</label>
             <select
               value={editTemplateDocumentRole}
               onChange={(e) => setEditTemplateDocumentRole(e.target.value as TemplateDocumentRole)}

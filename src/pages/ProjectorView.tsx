@@ -997,9 +997,13 @@ export const ProjectorView: FC = () => {
             {isFullscreen ? '창 모드' : '전체화면'}
           </button>
 
-          <div className="h-6 w-px shrink-0 bg-white/15" />
+          {effectsController.hasPlayableEffect && <div className="h-6 w-px shrink-0 bg-white/15" />}
 
-          <ProjectorEffectToggleButton enabled={effectsController.enabled} visible onToggle={effectsController.toggle} />
+          <ProjectorEffectToggleButton
+            enabled={effectsController.enabled}
+            visible={effectsController.hasPlayableEffect}
+            onToggle={effectsController.toggle}
+          />
 
           <div className="h-6 w-px shrink-0 bg-white/15" />
 

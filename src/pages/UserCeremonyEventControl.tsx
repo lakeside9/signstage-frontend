@@ -57,7 +57,7 @@ const STATUS_COLOR: Record<CeremonyEventStatus, string> = {
   FORCE_FINISHED: 'bg-red-50 text-red-700 border-red-200',
 };
 
-const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '계약서', EXHIBITION: '전시문서' };
+const RESULT_TYPE_LABEL: Record<CeremonyResultType, string> = { CONTRACT: '서명용 문서', EXHIBITION: '전시용 문서' };
 
 /** 헤더 영역 배경/뱃지 색상 — 테스트/리허설/본행사를 한눈에 구분하기 위한 것(2026-08-27 legacy 포팅). */
 const EVENT_TYPE_CONTROL_META: Record<CeremonyEventType, { label: string; headerClassName: string; badgeClassName: string }> = {
