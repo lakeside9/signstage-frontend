@@ -517,10 +517,12 @@ export const UserCeremonyEventControl: FC = () => {
   const isSignerComplete = (signerId: number) => signatureStatuses.find((s) => s.signerId === signerId)?.completed ?? false;
   const completedCount = signatureStatuses.filter((s) => s.completed).length;
   const eventTypeMeta = EVENT_TYPE_CONTROL_META[event.eventType];
-  const canCheckOrResetSignatures =
+  const canResetSignatures =
     ((event.eventType === 'TEST' || event.eventType === 'REHEARSAL')
       && ['DRAFT', 'READY', 'STARTED'].includes(event.status))
     || (event.eventType === 'MAIN' && ['DRAFT', 'READY'].includes(event.status));
+  // 서명매핑확인은 행사 종류와 관계없이 시작 전에만 — 진행 중 테스트/리허설의 실제 서명 연습과 섞이지 않게 한다.
+  const canCheckSignatureMapping = ['DRAFT', 'READY'].includes(event.status);
 
   return (
     <div className="flex flex-col gap-4">
@@ -585,7 +587,7 @@ export const UserCeremonyEventControl: FC = () => {
 
                 </div>
               )}
-              {canCheckOrResetSignatures && (
+              {canResetSignatures && (
                 <button
                   onClick={() => setIsBulkResetConfirmOpen(true)}
                   disabled={isTransitioning}
@@ -596,7 +598,7 @@ export const UserCeremonyEventControl: FC = () => {
                   서명 초기화
                 </button>
               )}
-              {canCheckOrResetSignatures && (
+              {canCheckSignatureMapping && (
                 <button
                   onClick={handleSignatureMappingCheck}
                   disabled={isTransitioning}
